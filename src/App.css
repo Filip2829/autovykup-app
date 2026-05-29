@@ -4,8 +4,10 @@
 
 body {
   margin: 0;
-  background: #050816;
-  color: #f3f4f6;
+  background:
+    radial-gradient(circle at top left, rgba(37, 99, 235, 0.12), transparent 34%),
+    #030712;
+  color: #f8fafc;
   font-family: Inter, system-ui, sans-serif;
 }
 
@@ -28,11 +30,19 @@ button {
   margin-bottom: 24px;
 }
 
+.headerActions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
 .label {
   color: #60a5fa;
   font-size: 13px;
-  font-weight: 700;
-  margin: 0;
+  font-weight: 800;
+  margin: 0 0 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
 }
 
 h1 {
@@ -41,26 +51,53 @@ h1 {
   color: white;
 }
 
+h2 {
+  color: white;
+}
+
 .primary,
-.success {
-  border: 1px solid rgba(59, 130, 246, 0.4);
+.success,
+.danger {
   border-radius: 16px;
   padding: 12px 18px;
-  background: linear-gradient(135deg, #2563eb, #1d4ed8);
   color: white;
-  font-weight: 700;
+  font-weight: 800;
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 8px;
 }
 
+.primary {
+  border: 1px solid rgba(59, 130, 246, 0.45);
+  background: linear-gradient(135deg, #2563eb, #1d4ed8);
+}
+
 .success {
+  border: 1px solid rgba(34, 197, 94, 0.45);
   background: linear-gradient(135deg, #16a34a, #15803d);
-  border: 1px solid rgba(34, 197, 94, 0.4);
+}
+
+.danger {
+  border: 1px solid rgba(239, 68, 68, 0.45);
+  background: linear-gradient(135deg, #dc2626, #991b1b);
+}
+
+.outline {
+  background: rgba(37, 99, 235, 0.08);
+  color: #60a5fa;
+  border: 1px solid rgba(59, 130, 246, 0.45);
+}
+
+.outlineDanger {
+  background: rgba(239, 68, 68, 0.06);
+  color: #f87171;
+  border: 1px solid rgba(239, 68, 68, 0.55);
 }
 
 .primary:hover,
-.success:hover {
+.success:hover,
+.danger:hover {
   transform: translateY(-2px);
 }
 
@@ -68,22 +105,35 @@ h1 {
   background: transparent;
   border: 0;
   color: #94a3b8;
+  font-weight: 700;
+}
+
+.bigBack {
+  background: rgba(15, 23, 42, 0.9);
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 14px;
+  padding: 12px 18px;
   margin-bottom: 18px;
 }
 
 .card,
-.module {
-  background: rgba(10, 15, 30, 0.95);
-  border: 1px solid rgba(255,255,255,0.06);
+.module,
+.workflowPanel {
+  background: linear-gradient(
+    180deg,
+    rgba(15, 23, 42, 0.96),
+    rgba(2, 6, 23, 0.96)
+  );
+  border: 1px solid rgba(148, 163, 184, 0.16);
   border-radius: 24px;
-  padding: 20px;
+  padding: 22px;
   box-shadow:
-    0 0 0 1px rgba(255,255,255,0.03),
-    0 10px 40px rgba(0,0,0,0.45);
+    0 0 0 1px rgba(255,255,255,0.025),
+    0 20px 60px rgba(0,0,0,0.45);
 }
 
-.card {
-  cursor: pointer;
+.newCarCard {
+  margin-bottom: 20px;
 }
 
 .cardTop {
@@ -95,7 +145,6 @@ h1 {
 
 .cardTop h2 {
   margin: 0;
-  color: white;
 }
 
 .cardTop span {
@@ -105,7 +154,7 @@ h1 {
   padding: 8px 12px;
   border-radius: 999px;
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 800;
 }
 
 .card p,
@@ -113,9 +162,18 @@ h1 {
   color: #94a3b8;
 }
 
+.carListCard {
+  cursor: pointer;
+}
+
+.carListCard:hover {
+  border-color: rgba(96, 165, 250, 0.45);
+  transform: translateY(-2px);
+}
+
 .search {
-  background: rgba(10, 15, 30, 0.95);
-  border: 1px solid rgba(255,255,255,0.06);
+  background: rgba(15, 23, 42, 0.92);
+  border: 1px solid rgba(148, 163, 184, 0.14);
   border-radius: 18px;
   padding: 14px;
   display: flex;
@@ -142,8 +200,8 @@ h1 {
 
 .formGrid input,
 textarea {
-  background: rgba(255,255,255,0.03);
-  border: 1px solid rgba(255,255,255,0.06);
+  background: rgba(255,255,255,0.035);
+  border: 1px solid rgba(255,255,255,0.08);
   border-radius: 16px;
   padding: 14px;
   color: white;
@@ -166,37 +224,219 @@ textarea::placeholder {
   gap: 16px;
 }
 
+.carHero {
+  margin-bottom: 16px;
+}
+
+.carHeroTop {
+  display: flex;
+  justify-content: space-between;
+  gap: 24px;
+  align-items: flex-start;
+}
+
+.carHeroTop h2 {
+  margin: 0 0 8px;
+  font-size: 36px;
+}
+
+.carHeroTop p {
+  margin: 0;
+  color: #cbd5e1;
+  font-size: 20px;
+}
+
+.statusBadge {
+  padding: 12px 20px;
+  border-radius: 999px;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.statusDanger {
+  color: #f87171;
+  background: rgba(239, 68, 68, 0.12);
+  border: 1px solid rgba(239, 68, 68, 0.45);
+}
+
+.statusWarning {
+  color: #fbbf24;
+  background: rgba(245, 158, 11, 0.12);
+  border: 1px solid rgba(245, 158, 11, 0.45);
+}
+
+.statusSuccess {
+  color: #86efac;
+  background: rgba(34, 197, 94, 0.12);
+  border: 1px solid rgba(34, 197, 94, 0.45);
+}
+
+.carHeroBody {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 28px;
+  align-items: end;
+  margin-top: 30px;
+}
+
+.carInfoGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(160px, 1fr));
+  gap: 22px 44px;
+  max-width: 620px;
+}
+
+.carInfoGrid strong {
+  display: block;
+  color: #f8fafc;
+  font-size: 16px;
+  margin-bottom: 6px;
+}
+
+.carInfoGrid p {
+  margin: 0;
+  color: #cbd5e1;
+  font-size: 18px;
+}
+
+.heroActions {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+}
+
+.workflowPanel {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0;
+  margin-bottom: 18px;
+  padding: 28px 28px;
+}
+
+.workflowStep {
+  position: relative;
+  text-align: center;
+  min-height: 130px;
+}
+
+.workflowStep:not(:last-child)::after {
+  content: "";
+  position: absolute;
+  top: 30px;
+  left: calc(50% + 45px);
+  width: calc(100% - 90px);
+  height: 2px;
+  background: rgba(148, 163, 184, 0.28);
+}
+
+.workflowStep.done:not(:last-child)::after {
+  background: rgba(34, 197, 94, 0.7);
+}
+
+.workflowStep.missing:not(:last-child)::after {
+  background: rgba(239, 68, 68, 0.55);
+}
+
+.workflowCircle {
+  width: 58px;
+  height: 58px;
+  margin: 0 auto 10px;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 900;
+  font-size: 18px;
+  border: 2px solid rgba(148, 163, 184, 0.42);
+  color: #cbd5e1;
+  background: rgba(15, 23, 42, 0.9);
+}
+
+.workflowStep h4 {
+  margin: 0;
+  color: white;
+  font-size: 16px;
+}
+
+.workflowStep p {
+  margin: 6px 0 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: #94a3b8;
+}
+
+.workflowStep.done .workflowCircle {
+  background: rgba(34, 197, 94, 0.14);
+  border-color: #22c55e;
+  color: #86efac;
+}
+
+.workflowStep.done p {
+  color: #86efac;
+}
+
+.workflowStep.missing .workflowCircle {
+  background: rgba(239, 68, 68, 0.1);
+  border-color: #ef4444;
+  color: #f87171;
+}
+
+.workflowStep.missing p {
+  color: #f87171;
+}
+
 .grid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(5, 1fr);
   gap: 16px;
   margin: 16px 0;
 }
 
+.module {
+  text-align: center;
+  min-height: 230px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
 .module svg {
-  width: 30px;
-  height: 30px;
-  color: #60a5fa;
+  width: 38px;
+  height: 38px;
+  color: #3b82f6;
+  padding: 8px;
+  background: rgba(37, 99, 235, 0.14);
+  border-radius: 999px;
+  box-sizing: content-box;
 }
 
 .module h3 {
-  margin-top: 14px;
+  margin: 18px 0 4px;
   color: white;
+  font-size: 20px;
 }
 
 .module button {
   width: 100%;
-  margin-top: 12px;
-  border: 0;
+  margin-top: auto;
+  border: 1px solid rgba(59, 130, 246, 0.45);
   border-radius: 14px;
   padding: 12px;
-  background: rgba(255,255,255,0.06);
-  color: white;
-  font-weight: 700;
+  background: rgba(37, 99, 235, 0.06);
+  color: #60a5fa;
+  font-weight: 800;
 }
 
 .module button:hover {
-  background: rgba(255,255,255,0.12);
+  background: rgba(37, 99, 235, 0.14);
+}
+
+.okText {
+  color: #86efac !important;
+}
+
+.badText {
+  color: #f87171 !important;
 }
 
 .decision {
@@ -222,7 +462,7 @@ textarea::placeholder {
   align-items: center;
   gap: 10px;
   padding: 10px 0;
-  font-weight: 600;
+  font-weight: 700;
   color: white;
 }
 
@@ -231,23 +471,6 @@ input[type="checkbox"] {
   height: 18px;
 }
 
-@media (max-width: 900px) {
-  .grid,
-  .formGrid {
-    grid-template-columns: 1fr;
-  }
-
-  .header {
-    flex-direction: column;
-    gap: 16px;
-    align-items: stretch;
-  }
-
-  .primary,
-  .success {
-    justify-content: center;
-  }
-}
 .carPreview {
   width: 100%;
   max-height: 220px;
@@ -255,4 +478,232 @@ input[type="checkbox"] {
   border-radius: 18px;
   margin-bottom: 16px;
   border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.missingBox {
+  background: rgba(127, 29, 29, 0.45);
+  border: 1px solid #ef4444;
+  color: #fecaca;
+  padding: 12px;
+  border-radius: 12px;
+  margin-bottom: 16px;
+}
+
+.missingBox ul {
+  margin-top: 8px;
+}
+
+.authCard {
+  max-width: 420px;
+  margin: 80px auto;
+}
+
+.authCard input {
+  width: 100%;
+  margin: 10px 0;
+  background: rgba(255,255,255,0.035);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 16px;
+  padding: 14px;
+  color: white;
+  font-size: 15px;
+}
+
+.authCard button {
+  width: 100%;
+  margin-top: 10px;
+}
+
+@media (max-width: 1200px) {
+  .grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .carHeroBody {
+    grid-template-columns: 1fr;
+  }
+
+  .heroActions {
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 900px) {
+  .workflowPanel {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 18px;
+  }
+
+  .workflowStep::after {
+    display: none;
+  }
+
+  .formGrid,
+  .carInfoGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .header,
+  .carHeroTop {
+    flex-direction: column;
+  }
+
+  .header {
+    align-items: stretch;
+  }
+
+  .headerActions,
+  .heroActions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .primary,
+  .success,
+  .danger {
+    justify-content: center;
+  }
+}
+
+@media (max-width: 600px) {
+  .app {
+    padding: 14px;
+  }
+
+  .grid,
+  .workflowPanel {
+    grid-template-columns: 1fr;
+  }
+
+  .carHeroTop h2 {
+    font-size: 28px;
+  }
+
+  .photoGrid {
+    grid-template-columns: 1fr;
+  }
+}
+.documentActions {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 14px;
+  margin-bottom: 18px;
+}
+
+.uploadBox {
+  border: 1px dashed rgba(96, 165, 250, 0.55);
+  background: rgba(37, 99, 235, 0.08);
+  border-radius: 18px;
+  padding: 18px;
+  color: #bfdbfe;
+  font-weight: 800;
+  text-align: center;
+  cursor: pointer;
+}
+
+.uploadBox input {
+  display: none;
+}
+
+.cameraButton {
+  margin-bottom: 12px;
+}
+
+.hint {
+  color: #94a3b8;
+  font-size: 14px;
+}
+
+.fileList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 10px 0 20px;
+}
+
+.fileList a {
+  color: #93c5fd;
+  background: rgba(37, 99, 235, 0.08);
+  border: 1px solid rgba(59, 130, 246, 0.35);
+  padding: 10px 14px;
+  border-radius: 999px;
+  text-decoration: none;
+  font-weight: 800;
+}
+
+.aiReport {
+  margin-top: 18px;
+  padding: 18px;
+  border-radius: 18px;
+  background: rgba(15, 23, 42, 0.9);
+  border: 1px solid rgba(96, 165, 250, 0.32);
+}
+
+.aiReport h3 {
+  margin-top: 0;
+  color: white;
+}
+
+.aiReport pre {
+  white-space: pre-wrap;
+  font-family: inherit;
+  color: #dbeafe;
+  line-height: 1.6;
+  margin: 0;
+}
+
+.riskBox {
+  margin-top: 18px;
+  padding: 18px;
+  border-radius: 18px;
+  background: rgba(127, 29, 29, 0.35);
+  border: 1px solid rgba(239, 68, 68, 0.55);
+}
+
+.riskBox h3 {
+  margin-top: 0;
+  color: #fecaca;
+}
+
+.riskBox p {
+  color: #fecaca;
+  font-weight: 700;
+}
+
+.stkBox {
+  margin-top: 18px;
+  display: grid;
+  gap: 8px;
+}
+
+.stkBox label {
+  font-weight: 800;
+  color: white;
+}
+
+.stkBox input {
+  background: rgba(255,255,255,0.035);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 16px;
+  padding: 14px;
+  color: white;
+  font-size: 15px;
+}
+
+hr {
+  border: 0;
+  border-top: 1px solid rgba(255,255,255,0.08);
+  margin: 24px 0;
+}
+
+button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  transform: none !important;
+}
+
+@media (max-width: 700px) {
+  .documentActions {
+    grid-template-columns: 1fr;
+  }
 }

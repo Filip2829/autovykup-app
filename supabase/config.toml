@@ -1,0 +1,22 @@
+
+[functions.analyze-technical-problem]
+enabled = true
+verify_jwt = false
+import_map = "./functions/analyze-technical-problem/deno.json"
+# Uncomment to specify a custom file path to the entrypoint.
+# Supported file extensions are: .ts, .js, .mjs, .jsx, .tsx
+entrypoint = "./functions/analyze-technical-problem/index.ts"
+# Specifies static files to be bundled with the function. Supports glob patterns.
+# For example, if you want to serve static HTML pages in your function:
+# static_files = [ "./functions/analyze-technical-problem/*.html" ]
+
+[functions.analyze-car-valuation]
+enabled = true
+verify_jwt = false
+import_map = "./functions/analyze-car-valuation/deno.json"
+# Uncomment to specify a custom file path to the entrypoint.
+# Supported file extensions are: .ts, .js, .mjs, .jsx, .tsx
+entrypoint = "./functions/analyze-car-valuation/index.ts"
+# Specifies static files to be bundled with the function. Supports glob patterns.
+# For example, if you want to serve static HTML pages in your function:
+# static_files = [ "./functions/analyze-car-valuation/*.html" ]

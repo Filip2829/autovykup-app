@@ -16,29 +16,12 @@ import "./App.css";
 import { supabase } from "./supabase";
 
 const emptyChecklist = {
-  "TP k dispozici": false,
-  "ORV k dispozici": false,
-  "Plná moc podepsána": false,
-  "Výkupní smlouva podepsána": false,
-  "Přejímací protokol podepsán": false,
   "Servisní historie": false,
-  "Počet klíčů 2": false,
-  "Provedena technická inspekce": false,
-  "Diagnostika": false,
-  "Kontrola pneumatik": false,
-  "Kontrola karoserie": false,
-  "Zkušební jízda provedena": false,
-  "Vozidlo pojištěno": false,
-  "Přepis zahájen": false,
-  "Kontrola leasingu/exekuce": false,
+  "Provedeno čištění": false,
+  "Počet klíčů 2x": false,
   "Kontrola CEBIA / CarVertical": false,
-  "Výkup schválen": false,
-  "Výkup proplacen": false,
-  "Faktura zaúčtována": false,
-  "Vozidlo nafoceno": false,
-  "Inzerce připravena": false,
-  "Inzerce zveřejněna": false,
-  "Vozidlo připraveno k prodeji": false,
+  "Mechanická prohlídka + diagnostika": false,
+  "Platnost STK": "",
 };
 
 const equipmentItems = [
@@ -64,7 +47,6 @@ const equipmentItems = [
   "Isofix",
   "Kožené sedačky",
   "LED světlomety",
-  "Masážní sedačky",
   "Matrix LED",
   "Multifunkční volant",
   "Navigace",
@@ -81,27 +63,88 @@ const equipmentItems = [
   "Vzduchový podvozek",
 ];
 
+const STATUS = {
+  MISSING_DOCS: "Chybí podklady",
+  READY_FOR_VALUATION: "Připraveno k nacenění",
+  VALUATED: "Nacenění hotové",
+  APPROVED: "Výkupní cena potvrzena",
+};
+
 function getUsername(user) {
   return user?.email ? user.email.replace("@autovykup.local", "") : "";
+}
+
+function clone(value, fallback) {
+  try {
+    return JSON.parse(JSON.stringify(value ?? fallback));
+  } catch {
+    return fallback;
+  }
+}
+
+function normalizeArray(value) {
+  return Array.isArray(value) ? [...value] : [];
 }
 
 function prepareCar(car) {
   return {
     ...car,
-    photos: Array.isArray(car.photos) ? car.photos : [],
+    photos: normalizeArray(car.photos),
+    technicalCardPhotos: normalizeArray(car.technical_card_photos),
+    cebiaFiles: normalizeArray(car.cebia_files),
     checklist:
-      car.checklist && Object.keys(car.checklist).length > 0
-        ? car.checklist
+      car.checklist && typeof car.checklist === "object"
+        ? clone({ ...emptyChecklist, ...car.checklist }, { ...emptyChecklist })
         : { ...emptyChecklist },
     equipment:
-      car.equipment && Object.keys(car.equipment).length > 0
-        ? car.equipment
+      car.equipment && typeof car.equipment === "object"
+        ? clone(car.equipment, {})
         : {},
-    notes: Array.isArray(car.notes) ? car.notes : [],
+    notes: normalizeArray(car.notes),
+    aiRiskFlags: normalizeArray(car.ai_risk_flags),
     saleEstimate: car.sale_estimate || "",
     buyEstimate: car.buy_estimate || "",
     approvedPrice: car.approved_price || "",
+    aiTechnicalReport: car.ai_technical_report || "",
+    aiDocumentReport: car.ai_document_report || "",
   };
+}
+
+function isChecklistComplete(checklist = {}) {
+  return (
+    Boolean(checklist["Servisní historie"]) &&
+    Boolean(checklist["Provedeno čištění"]) &&
+    Boolean(checklist["Počet klíčů 2x"]) &&
+    Boolean(checklist["Kontrola CEBIA / CarVertical"]) &&
+    Boolean(checklist["Mechanická prohlídka + diagnostika"]) &&
+    Boolean(checklist["Platnost STK"])
+  );
+}
+
+function calculateStatus(car) {
+  const hasPhotos = Array.isArray(car.photos) && car.photos.length > 0;
+  const checklistComplete = isChecklistComplete(car.checklist);
+  const hasValuation = Boolean(car.saleEstimate || car.sale_estimate);
+  const hasApprovedPrice = Boolean(car.approvedPrice || car.approved_price);
+
+  if (hasApprovedPrice) return STATUS.APPROVED;
+  if (hasValuation) return STATUS.VALUATED;
+  if (hasPhotos && checklistComplete) return STATUS.READY_FOR_VALUATION;
+  return STATUS.MISSING_DOCS;
+}
+
+function getWorkflow(car) {
+  const hasPhotos = Array.isArray(car.photos) && car.photos.length > 0;
+  const checklistComplete = isChecklistComplete(car.checklist);
+  const hasValuation = Boolean(car.saleEstimate || car.sale_estimate);
+  const hasApprovedPrice = Boolean(car.approvedPrice || car.approved_price);
+
+  return [
+    { label: "Podklady", done: checklistComplete },
+    { label: "Fotky", done: hasPhotos },
+    { label: "Nacenění", done: hasValuation },
+    { label: "Schválení", done: hasApprovedPrice },
+  ];
 }
 
 export default function App() {
@@ -111,6 +154,8 @@ export default function App() {
   const [view, setView] = useState("list");
   const [module, setModule] = useState("overview");
   const [noteText, setNoteText] = useState("");
+  const [problemText, setProblemText] = useState("");
+  const [aiLoading, setAiLoading] = useState(false);
   const [editMode, setEditMode] = useState(false);
 
   const [user, setUser] = useState(null);
@@ -214,10 +259,10 @@ export default function App() {
 
     const loadedCars = (data || []).map(prepareCar);
     setCars(loadedCars);
-
-    if (loadedCars.length > 0) {
-      setSelectedCar(loadedCars[0]);
-    }
+    setSelectedCar((currentSelected) => {
+      if (!currentSelected) return loadedCars[0] || null;
+      return loadedCars.find((car) => car.id === currentSelected.id) || loadedCars[0] || null;
+    });
   }
 
   const currentUsername = getUsername(user) || username;
@@ -229,6 +274,15 @@ export default function App() {
         .includes(query.toLowerCase())
     );
   }, [cars, query]);
+
+  function selectCar(car) {
+    setSelectedCar(prepareCar(car));
+    setView("detail");
+    setModule("overview");
+    setEditMode(false);
+    setNoteText("");
+    setProblemText("");
+  }
 
   function validateRequiredCarFields(car) {
     if (!car.name?.trim()) {
@@ -262,6 +316,7 @@ export default function App() {
   async function updateCar(updated) {
     const updatedWithUser = {
       ...updated,
+      status: calculateStatus(updated),
       updated_by: currentUsername,
     };
 
@@ -273,7 +328,7 @@ export default function App() {
       )
     );
 
-    await supabase
+    const { error } = await supabase
       .from("cars")
       .update({
         status: updatedWithUser.status,
@@ -281,13 +336,23 @@ export default function App() {
         equipment: updatedWithUser.equipment || {},
         notes: updatedWithUser.notes || [],
         photos: updatedWithUser.photos || [],
+        technical_card_photos: updatedWithUser.technicalCardPhotos || [],
+        cebia_files: updatedWithUser.cebiaFiles || [],
         sale_estimate: updatedWithUser.saleEstimate || null,
         buy_estimate: updatedWithUser.buyEstimate || null,
         approved_price: updatedWithUser.approvedPrice || null,
+        ai_technical_report: updatedWithUser.aiTechnicalReport || null,
+        ai_document_report: updatedWithUser.aiDocumentReport || null,
+        ai_risk_flags: updatedWithUser.aiRiskFlags || [],
         updated_by: currentUsername,
         updated_at: new Date().toISOString(),
       })
       .eq("id", updatedWithUser.id);
+
+    if (error) {
+      console.error(error);
+      alert(error.message);
+    }
   }
 
   async function createCar() {
@@ -297,16 +362,21 @@ export default function App() {
       km: Number(newCarForm.km) || 0,
       vin: newCarForm.vin.trim(),
       spz: newCarForm.spz.trim(),
-      status: "Rozpracováno",
+      status: STATUS.MISSING_DOCS,
       created_by: currentUsername,
       updated_by: currentUsername,
       checklist: { ...emptyChecklist },
       equipment: {},
       notes: [],
       photos: [],
+      technical_card_photos: [],
+      cebia_files: [],
       sale_estimate: null,
       buy_estimate: null,
       approved_price: null,
+      ai_technical_report: null,
+      ai_document_report: null,
+      ai_risk_flags: [],
     };
 
     if (!validateRequiredCarFields(carToInsert)) return;
@@ -353,12 +423,6 @@ export default function App() {
 
     if (!validateRequiredCarFields(updated)) return;
 
-    setSelectedCar(updated);
-
-    setCars((currentCars) =>
-      currentCars.map((car) => (car.id === updated.id ? updated : car))
-    );
-
     const { error } = await supabase
       .from("cars")
       .update({
@@ -377,6 +441,10 @@ export default function App() {
       return;
     }
 
+    setSelectedCar(updated);
+    setCars((currentCars) =>
+      currentCars.map((car) => (car.id === updated.id ? updated : car))
+    );
     setEditMode(false);
   }
 
@@ -407,12 +475,11 @@ export default function App() {
     setView("list");
   }
 
-  async function addPhoto(event) {
-    const file = event.target.files?.[0];
+  async function uploadFile(file, folder = "vehicle-photos") {
+    if (!file || !selectedCar) return null;
 
-    if (!file || !selectedCar) return;
-
-    const fileName = `${selectedCar.id}-${Date.now()}-${file.name}`;
+    const safeName = file.name.replace(/\s+/g, "-");
+    const fileName = `${folder}/${selectedCar.id}-${Date.now()}-${safeName}`;
 
     const { error: uploadError } = await supabase.storage
       .from("car-photos")
@@ -420,19 +487,64 @@ export default function App() {
 
     if (uploadError) {
       alert(uploadError.message);
-      return;
+      return null;
     }
 
-    const { data } = supabase.storage
-      .from("car-photos")
-      .getPublicUrl(fileName);
+    const { data } = supabase.storage.from("car-photos").getPublicUrl(fileName);
+    return data.publicUrl;
+  }
 
-    const updatedPhotos = [...selectedCar.photos, data.publicUrl];
+  async function addPhoto(event) {
+    const files = Array.from(event.target.files || []);
+    if (!files.length || !selectedCar) return;
 
-    updateCar({
-      ...selectedCar,
-      photos: updatedPhotos,
-    });
+    const urls = [];
+
+    for (const file of files) {
+      const url = await uploadFile(file, "vehicle-photos");
+      if (url) urls.push(url);
+    }
+
+    if (urls.length > 0) {
+      await updateCar({
+        ...selectedCar,
+        photos: [...selectedCar.photos, ...urls],
+      });
+    }
+
+    event.target.value = "";
+  }
+
+  async function addTechnicalCardPhoto(event) {
+    const file = event.target.files?.[0];
+    const url = await uploadFile(file, "technical-card");
+
+    if (url) {
+      await updateCar({
+        ...selectedCar,
+        technicalCardPhotos: [...selectedCar.technicalCardPhotos, url],
+      });
+    }
+
+    event.target.value = "";
+  }
+
+  async function addCebiaFile(event) {
+    const file = event.target.files?.[0];
+    const url = await uploadFile(file, "cebia");
+
+    if (url) {
+      await updateCar({
+        ...selectedCar,
+        cebiaFiles: [...selectedCar.cebiaFiles, url],
+        checklist: {
+          ...selectedCar.checklist,
+          "Kontrola CEBIA / CarVertical": true,
+        },
+      });
+    }
+
+    event.target.value = "";
   }
 
   function toggleChecklist(item) {
@@ -443,6 +555,18 @@ export default function App() {
       checklist: {
         ...selectedCar.checklist,
         [item]: !selectedCar.checklist[item],
+      },
+    });
+  }
+
+  function updateStk(value) {
+    if (!selectedCar) return;
+
+    updateCar({
+      ...selectedCar,
+      checklist: {
+        ...selectedCar.checklist,
+        "Platnost STK": value,
       },
     });
   }
@@ -464,13 +588,47 @@ export default function App() {
 
     updateCar({
       ...selectedCar,
-      notes: [
-        ...selectedCar.notes,
-        `${currentUsername}: ${noteText.trim()}`,
-      ],
+      notes: [...selectedCar.notes, `${currentUsername}: ${noteText.trim()}`],
     });
 
     setNoteText("");
+  }
+
+  async function analyzeTechnicalProblem() {
+    if (!problemText.trim() || !selectedCar) {
+      alert("Popiš závadu.");
+      return;
+    }
+
+    setAiLoading(true);
+
+    try {
+      const { data, error } = await supabase.functions.invoke(
+        "analyze-technical-problem",
+        {
+          body: {
+            car: selectedCar,
+            problem: problemText,
+          },
+        }
+      );
+
+      if (error) {
+        console.error(error);
+        alert("AI analýza selhala.");
+        return;
+      }
+
+      updateCar({
+        ...selectedCar,
+        aiTechnicalReport: data?.report || "AI nevrátila žádný výsledek.",
+      });
+    } catch (err) {
+      console.error(err);
+      alert("Chyba AI.");
+    } finally {
+      setAiLoading(false);
+    }
   }
 
   function recalculatePrice() {
@@ -480,7 +638,6 @@ export default function App() {
       ...selectedCar,
       saleEstimate: 309000,
       buyEstimate: "265 000–270 000 Kč",
-      status: "Nacenění hotové",
     });
 
     alert(`
@@ -514,7 +671,6 @@ Rizika:
     updateCar({
       ...selectedCar,
       approvedPrice: price,
-      status: "Výkupní cena potvrzena",
     });
   }
 
@@ -527,14 +683,14 @@ Rizika:
           <input
             placeholder="Uživatelské jméno"
             value={username}
-            onChange={(e) => setUsername(e.target.value)}
+            onChange={(event) => setUsername(event.target.value)}
           />
 
           <input
             type="password"
             placeholder="Heslo"
             value={password}
-            onChange={(e) => setPassword(e.target.value)}
+            onChange={(event) => setPassword(event.target.value)}
           />
 
           <button className="primary" onClick={signIn}>
@@ -549,88 +705,70 @@ Rizika:
     );
   }
 
-  const checklistComplete =
-    selectedCar &&
-    Object.values(selectedCar.checklist || {}).length > 0 &&
-    Object.values(selectedCar.checklist || {}).every(Boolean);
+  const checklistComplete = selectedCar && isChecklistComplete(selectedCar.checklist);
 
   return (
     <div className="app">
       <header className="header">
         <div>
           <p className="label">Interní výkupní aplikace</p>
-
           <h1>AutoVýkup</h1>
-
           <p>Přihlášen: {currentUsername}</p>
+        </div>
+
+        <div className="headerActions">
+          <button className="primary" onClick={createCar}>
+            <Plus size={18} />
+            Nový výkup
+          </button>
 
           <button className="back" onClick={signOut}>
             Odhlásit
           </button>
         </div>
-
-        <button className="primary" onClick={createCar}>
-          <Plus size={18} />
-          Nový výkup
-        </button>
       </header>
 
-      <div className="card" style={{ marginBottom: 20 }}>
+      <div className="card newCarCard">
         <h2>Nový výkup</h2>
 
         <div className="formGrid">
           <input
             placeholder="Název vozu *"
             value={newCarForm.name}
-            onChange={(e) =>
-              setNewCarForm({
-                ...newCarForm,
-                name: e.target.value,
-              })
+            onChange={(event) =>
+              setNewCarForm({ ...newCarForm, name: event.target.value })
             }
           />
 
           <input
             placeholder="Rok *"
             value={newCarForm.year}
-            onChange={(e) =>
-              setNewCarForm({
-                ...newCarForm,
-                year: e.target.value,
-              })
+            onChange={(event) =>
+              setNewCarForm({ ...newCarForm, year: event.target.value })
             }
           />
 
           <input
             placeholder="Km *"
             value={newCarForm.km}
-            onChange={(e) =>
-              setNewCarForm({
-                ...newCarForm,
-                km: e.target.value,
-              })
+            onChange={(event) =>
+              setNewCarForm({ ...newCarForm, km: event.target.value })
             }
           />
 
           <input
             placeholder="VIN *"
             value={newCarForm.vin}
-            onChange={(e) =>
-              setNewCarForm({
-                ...newCarForm,
-                vin: e.target.value,
-              })
+            onChange={(event) =>
+              setNewCarForm({ ...newCarForm, vin: event.target.value })
             }
           />
 
           <input
             placeholder="SPZ *"
             value={newCarForm.spz}
-            onChange={(e) =>
-              setNewCarForm({
-                ...newCarForm,
-                spz: e.target.value,
-              })
+            onChange={(event) =>
+              setNewCarForm({ ...newCarForm, spz: event.target.value })
             }
           />
         </div>
@@ -644,7 +782,7 @@ Rizika:
             <input
               placeholder="Hledat auto"
               value={query}
-              onChange={(e) => setQuery(e.target.value)}
+              onChange={(event) => setQuery(event.target.value)}
             />
           </div>
 
@@ -652,23 +790,19 @@ Rizika:
             {filteredCars.map((car) => (
               <article
                 key={car.id}
-                className="card"
-                onClick={() => {
-                  setSelectedCar(car);
-                  setView("detail");
-                  setEditMode(false);
-                }}
+                className="card carListCard"
+                onClick={() => selectCar(car)}
               >
                 {car.photos?.[0] && (
-  <img
-    src={car.photos[0]}
-    alt="Náhled vozu"
-    className="carPreview"
-  />
-)}
+                  <img
+                    src={car.photos[0]}
+                    alt="Náhled vozu"
+                    className="carPreview"
+                  />
+                )}
+
                 <div className="cardTop">
                   <h2>{car.name}</h2>
-
                   <span>{car.status}</span>
                 </div>
 
@@ -688,46 +822,84 @@ Rizika:
 
       {view === "detail" && selectedCar && (
         <section>
-          <button className="back" onClick={() => setView("list")}>
+          <button className="back bigBack" onClick={() => setView("list")}>
             ← Zpět
           </button>
 
-          <div className="card">
-            <div className="cardTop">
-              <h2>{selectedCar.name}</h2>
+          <div className="card carHero">
+            <div className="carHeroTop">
+              <div>
+                <h2>{selectedCar.name}</h2>
+                <p>
+                  {selectedCar.year} ·{" "}
+                  {selectedCar.km?.toLocaleString("cs-CZ")} km
+                </p>
+              </div>
 
-              <span>{selectedCar.status}</span>
+              <span
+                className={`statusBadge ${
+                  selectedCar.status === STATUS.MISSING_DOCS
+                    ? "statusDanger"
+                    : selectedCar.status === STATUS.APPROVED
+                    ? "statusSuccess"
+                    : "statusWarning"
+                }`}
+              >
+                {selectedCar.status}
+              </span>
             </div>
 
-            <p>
-              {selectedCar.year} · {selectedCar.km?.toLocaleString("cs-CZ")} km
-            </p>
+            <div className="carHeroBody">
+              <div className="carInfoGrid">
+                <div>
+                  <strong>VIN:</strong>
+                  <p>{selectedCar.vin || "—"}</p>
+                </div>
 
-            <p>
-              <b>VIN:</b> {selectedCar.vin || "—"}
-            </p>
+                <div>
+                  <strong>SPZ:</strong>
+                  <p>{selectedCar.spz || "—"}</p>
+                </div>
 
-            <p>
-              <b>SPZ:</b> {selectedCar.spz || "—"}
-            </p>
+                <div>
+                  <strong>Vytvořil:</strong>
+                  <p>{selectedCar.created_by || "—"}</p>
+                </div>
 
-            <p>
-              <b>Vytvořil:</b> {selectedCar.created_by || "—"}
-            </p>
+                <div>
+                  <strong>Poslední úprava:</strong>
+                  <p>{selectedCar.updated_by || "—"}</p>
+                </div>
+              </div>
 
-            <p>
-              <b>Poslední úprava:</b> {selectedCar.updated_by || "—"}
-            </p>
+              <div className="heroActions">
+                <button
+                  className="primary outline"
+                  onClick={() => setEditMode(true)}
+                >
+                  <Edit size={18} />
+                  Upravit údaje
+                </button>
 
-            <button className="primary" onClick={() => setEditMode(true)}>
-              <Edit size={18} />
-              Upravit údaje
-            </button>
+                <button className="danger outlineDanger" onClick={deleteCar}>
+                  <Trash2 size={18} />
+                  Smazat záznam
+                </button>
+              </div>
+            </div>
+          </div>
 
-            <button className="danger" onClick={deleteCar}>
-              <Trash2 size={18} />
-              Smazat záznam
-            </button>
+          <div className="workflowPanel">
+            {getWorkflow(selectedCar).map((step, index) => (
+              <div
+                key={step.label}
+                className={`workflowStep ${step.done ? "done" : "missing"}`}
+              >
+                <div className="workflowCircle">{index + 1}</div>
+                <h4>{step.label}</h4>
+                <p>{step.done ? "Hotovo" : index < 2 ? "Chybí" : "Čeká se"}</p>
+              </div>
+            ))}
           </div>
 
           {editMode && (
@@ -738,32 +910,26 @@ Rizika:
                 <input
                   placeholder="Název vozu *"
                   value={selectedCar.name || ""}
-                  onChange={(e) =>
-                    setSelectedCar({
-                      ...selectedCar,
-                      name: e.target.value,
-                    })
+                  onChange={(event) =>
+                    setSelectedCar({ ...selectedCar, name: event.target.value })
                   }
                 />
 
                 <input
                   placeholder="Rok *"
                   value={selectedCar.year || ""}
-                  onChange={(e) =>
-                    setSelectedCar({
-                      ...selectedCar,
-                      year: e.target.value,
-                    })
+                  onChange={(event) =>
+                    setSelectedCar({ ...selectedCar, year: event.target.value })
                   }
                 />
 
                 <input
                   placeholder="Km *"
                   value={selectedCar.km || ""}
-                  onChange={(e) =>
+                  onChange={(event) =>
                     setSelectedCar({
                       ...selectedCar,
-                      km: Number(e.target.value) || 0,
+                      km: Number(event.target.value) || 0,
                     })
                   }
                 />
@@ -771,22 +937,16 @@ Rizika:
                 <input
                   placeholder="VIN *"
                   value={selectedCar.vin || ""}
-                  onChange={(e) =>
-                    setSelectedCar({
-                      ...selectedCar,
-                      vin: e.target.value,
-                    })
+                  onChange={(event) =>
+                    setSelectedCar({ ...selectedCar, vin: event.target.value })
                   }
                 />
 
                 <input
                   placeholder="SPZ *"
                   value={selectedCar.spz || ""}
-                  onChange={(e) =>
-                    setSelectedCar({
-                      ...selectedCar,
-                      spz: e.target.value,
-                    })
+                  onChange={(event) =>
+                    setSelectedCar({ ...selectedCar, spz: event.target.value })
                   }
                 />
               </div>
@@ -804,64 +964,55 @@ Rizika:
           <div className="grid">
             <div className="module">
               <Camera />
-
-              <h3>TP a fotky</h3>
-
-              <button onClick={() => setModule("photos")}>
-                Otevřít
-              </button>
+              <h3>Fotky vozu</h3>
+              <button onClick={() => setModule("photos")}>Otevřít</button>
             </div>
 
             <div className="module">
               <ClipboardList />
-
-              <h3>Checklist</h3>
-
-              <p style={{ color: checklistComplete ? "#86efac" : "#fca5a5" }}>
-                {checklistComplete ? "Checklist hotový" : "Chybí položky"}
+              <h3>Administrativa</h3>
+              <p className={checklistComplete ? "okText" : "badText"}>
+                {checklistComplete ? "Hotovo" : "Není hotovo"}
               </p>
-
-              <button onClick={() => setModule("checklist")}>
-                Otevřít
-              </button>
+              <button onClick={() => setModule("checklist")}>Otevřít</button>
             </div>
 
             <div className="module">
               <Star />
-
               <h3>Výbava</h3>
-
-              <button onClick={() => setModule("equipment")}>
-                Otevřít
-              </button>
+              <button onClick={() => setModule("equipment")}>Otevřít</button>
             </div>
 
             <div className="module">
               <MessageCircle />
-
-              <h3>Poznámky</h3>
-
-              <button onClick={() => setModule("notes")}>
-                Otevřít
-              </button>
+              <h3>Poznámky + AI</h3>
+              <button onClick={() => setModule("notes")}>Otevřít</button>
             </div>
 
             <div className="module">
               <ShieldCheck />
-
               <h3>Nacenění</h3>
-
-              <button onClick={() => setModule("valuation")}>
-                Otevřít
-              </button>
+              <p className={selectedCar.saleEstimate ? "okText" : ""}>
+                {selectedCar.saleEstimate ? "Hotovo" : "Zatím neprovedeno"}
+              </p>
+              <button onClick={() => setModule("valuation")}>Otevřít</button>
             </div>
           </div>
 
           {module === "photos" && (
             <div className="card decision">
-              <h2>TP a fotky</h2>
+              <h2>Fotky vozu</h2>
 
-              <input type="file" accept="image/*" onChange={addPhoto} />
+              <label className="uploadBox">
+                Začít fotit / nahrát fotky
+                <input
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  multiple
+                  onChange={addPhoto}
+                />
+              </label>
 
               <div className="photoGrid">
                 {selectedCar.photos.map((photo, index) => (
@@ -872,50 +1023,50 @@ Rizika:
           )}
 
           {module === "checklist" && (
-            <div
-              className="card decision"
-              style={{
-                border: checklistComplete
-                  ? "2px solid #22c55e"
-                  : "2px solid #ef4444",
-              }}
-            >
-              <h2>Checklist</h2>
+            <div className="card decision">
+              <h2>Administrativa vozu</h2>
 
-              {!checklistComplete && (
-                <div
-                  style={{
-                    background: "#450a0a",
-                    border: "1px solid #ef4444",
-                    color: "#fecaca",
-                    padding: 12,
-                    borderRadius: 12,
-                    marginBottom: 16,
-                  }}
-                >
-                  <strong>Chybí dokončit:</strong>
+              {Object.keys(emptyChecklist)
+                .filter((item) => item !== "Platnost STK")
+                .map((item) => (
+                  <label key={item} className="checkItem">
+                    <input
+                      type="checkbox"
+                      checked={Boolean(selectedCar.checklist[item])}
+                      onChange={() => toggleChecklist(item)}
+                    />
+                    {item}
+                  </label>
+                ))}
 
-                  <ul style={{ marginTop: 8 }}>
-                    {Object.entries(selectedCar.checklist || {})
-                      .filter(([_, value]) => !value)
-                      .map(([key]) => (
-                        <li key={key}>{key}</li>
-                      ))}
-                  </ul>
-                </div>
-              )}
+              <div className="stkBox">
+                <label>Platnost STK</label>
+                <input
+                  type="date"
+                  value={selectedCar.checklist["Platnost STK"] || ""}
+                  onChange={(event) => updateStk(event.target.value)}
+                />
+              </div>
 
-              {Object.keys(selectedCar.checklist).map((item) => (
-                <label key={item} className="checkItem">
-                  <input
-                    type="checkbox"
-                    checked={selectedCar.checklist[item]}
-                    onChange={() => toggleChecklist(item)}
-                  />
+              <h3>TP / doklad</h3>
+              <input type="file" accept="image/*,.pdf" onChange={addTechnicalCardPhoto} />
 
-                  {item}
-                </label>
-              ))}
+              <h3>CEBIA / CarVertical</h3>
+              <input type="file" accept="image/*,.pdf" onChange={addCebiaFile} />
+
+              <div className="fileList">
+                {selectedCar.technicalCardPhotos.map((url, index) => (
+                  <a key={index} href={url} target="_blank" rel="noreferrer">
+                    TP {index + 1}
+                  </a>
+                ))}
+
+                {selectedCar.cebiaFiles.map((url, index) => (
+                  <a key={index} href={url} target="_blank" rel="noreferrer">
+                    CEBIA {index + 1}
+                  </a>
+                ))}
+              </div>
             </div>
           )}
 
@@ -930,7 +1081,6 @@ Rizika:
                     checked={Boolean(selectedCar.equipment?.[item])}
                     onChange={() => toggleEquipment(item)}
                   />
-
                   {item}
                 </label>
               ))}
@@ -944,7 +1094,7 @@ Rizika:
               <textarea
                 placeholder="Poznámka..."
                 value={noteText}
-                onChange={(e) => setNoteText(e.target.value)}
+                onChange={(event) => setNoteText(event.target.value)}
               />
 
               <button className="primary" onClick={addNote}>
@@ -954,6 +1104,31 @@ Rizika:
               {selectedCar.notes.map((note, index) => (
                 <p key={index}>• {note}</p>
               ))}
+
+              <hr />
+
+              <h2>AI technický poradce</h2>
+
+              <textarea
+                placeholder="Např. vůz táhne doprava, vibruje volant při brzdění..."
+                value={problemText}
+                onChange={(event) => setProblemText(event.target.value)}
+              />
+
+              <button
+                className="primary"
+                onClick={analyzeTechnicalProblem}
+                disabled={aiLoading}
+              >
+                {aiLoading ? "AI analyzuje..." : "Vyhodnotit závadu AI"}
+              </button>
+
+              {selectedCar.aiTechnicalReport && (
+                <div className="aiReport">
+                  <h3>AI technické zhodnocení</h3>
+                  <pre>{selectedCar.aiTechnicalReport}</pre>
+                </div>
+              )}
             </div>
           )}
 
