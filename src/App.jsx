@@ -160,12 +160,13 @@ export default function App() {
   const [cars, setCars] = useState([]);
   const [query, setQuery] = useState("");
   const [selectedCar, setSelectedCar] = useState(null);
-  const [view, setView] = useState("list");
+  const [view, setView] = useState("home");
   const [module, setModule] = useState("overview");
   const [noteText, setNoteText] = useState("");
   const [problemText, setProblemText] = useState("");
   const [aiLoading, setAiLoading] = useState(false);
   const [documentAiLoading, setDocumentAiLoading] = useState(false);
+  const [technicalAiLoading, setTechnicalAiLoading] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [fullscreenPhoto, setFullscreenPhoto] = useState(null);
 
@@ -254,7 +255,7 @@ export default function App() {
     setUser(null);
     setCars([]);
     setSelectedCar(null);
-    setView("list");
+    setView("home");
   }
 
   async function loadCars() {
@@ -690,6 +691,83 @@ export default function App() {
     return selectedCar?.technicalParams?.[key] || "";
   }
 
+  async function analyzeVehicleTechnicalData() {
+    if (!selectedCar) return;
+
+    const hasTechnicalCard =
+      Array.isArray(selectedCar.technicalCardPhotos) &&
+      selectedCar.technicalCardPhotos.length > 0;
+
+    const hasCebia =
+      Array.isArray(selectedCar.cebiaFiles) &&
+      selectedCar.cebiaFiles.length > 0;
+
+    if (!hasTechnicalCard && !hasCebia) {
+      alert("Nejdřív nahraj CEBIA nebo TP do Administrativy.");
+      return;
+    }
+
+    setTechnicalAiLoading(true);
+
+    try {
+      const { data, error } = await supabase.functions.invoke(
+        "analyze-vehicle-technical-data",
+        {
+          body: {
+            car: selectedCar,
+            technicalCardPhotos: selectedCar.technicalCardPhotos || [],
+            cebiaFiles: selectedCar.cebiaFiles || [],
+          },
+        }
+      );
+
+      if (error) {
+        console.error(error);
+        alert("AI doplnění technických dat selhalo.");
+        return;
+      }
+
+      const extractedParams = data?.technicalParams || {};
+      const cebiaHistory = data?.cebiaHistory || {};
+      const extractedEquipment = Array.isArray(data?.equipment)
+        ? data.equipment
+        : [];
+
+      const updatedEquipment = { ...selectedCar.equipment };
+
+      for (const item of extractedEquipment) {
+        if (equipmentItems.includes(item)) {
+          updatedEquipment[item] = true;
+        }
+      }
+
+      const report =
+        data?.report || "AI zpracovala technické údaje bez textového výstupu.";
+
+      await updateCar({
+        ...selectedCar,
+        technicalParams: {
+          ...selectedCar.technicalParams,
+          ...extractedParams,
+        },
+        cebiaHistory: {
+          ...selectedCar.cebiaHistory,
+          ...cebiaHistory,
+        },
+        equipment: updatedEquipment,
+        aiDocumentReport: report,
+        aiCebiaReport: selectedCar.aiCebiaReport || report,
+      });
+
+      alert("AI doplnila technická data. Prosím zkontroluj je.");
+    } catch (err) {
+      console.error(err);
+      alert("Chyba při AI doplnění technických dat.");
+    } finally {
+      setTechnicalAiLoading(false);
+    }
+  }
+
   async function analyzeDocuments() {
     if (!selectedCar) return;
 
@@ -879,7 +957,7 @@ Rizika:
         </div>
 
         <div className="headerActions">
-          <button className="primary" onClick={createCar}>
+          <button className="primary" onClick={() => setView("new")}>
             <Plus size={18} />
             Nový výkup
           </button>
@@ -890,54 +968,119 @@ Rizika:
         </div>
       </header>
 
-      <div className="card newCarCard">
-        <h2>Nový výkup</h2>
+      {view === "home" && (
+        <section className="homeMenu">
+          <div className="card decision">
+            <h2>Rozcestník AutoVýkup</h2>
+            <p>Vyber, s čím chceš pracovat.</p>
 
-        <div className="formGrid">
-          <input
-            placeholder="Název vozu *"
-            value={newCarForm.name}
-            onChange={(event) =>
-              setNewCarForm({ ...newCarForm, name: event.target.value })
-            }
-          />
+            <div className="grid">
+              <div className="module">
+                <Plus />
+                <h3>Přidat nový výkup</h3>
+                <button onClick={() => setView("new")}>Otevřít</button>
+              </div>
 
-          <input
-            placeholder="Rok *"
-            value={newCarForm.year}
-            onChange={(event) =>
-              setNewCarForm({ ...newCarForm, year: event.target.value })
-            }
-          />
+              <div className="module">
+                <Search />
+                <h3>Aktuální evidence vozidel</h3>
+                <p>{cars.length} záznamů</p>
+                <button onClick={() => setView("list")}>Otevřít</button>
+              </div>
 
-          <input
-            placeholder="Km *"
-            value={newCarForm.km}
-            onChange={(event) =>
-              setNewCarForm({ ...newCarForm, km: event.target.value })
-            }
-          />
+              <div className="module">
+                <MessageCircle />
+                <h3>Seznam zákazníků</h3>
+                <p>Zatím připravujeme</p>
+                <button onClick={() => alert("Seznam zákazníků doprogramujeme v další fázi.")}>
+                  Otevřít
+                </button>
+              </div>
 
-          <input
-            placeholder="VIN *"
-            value={newCarForm.vin}
-            onChange={(event) =>
-              setNewCarForm({ ...newCarForm, vin: event.target.value })
-            }
-          />
+              <div className="module">
+                <ShieldCheck />
+                <h3>Vykoupená vozidla</h3>
+                <p>Zatím připravujeme</p>
+                <button onClick={() => alert("Přehled vykoupených vozidel doprogramujeme v další fázi.")}>
+                  Otevřít
+                </button>
+              </div>
 
-          <input
-            placeholder="SPZ *"
-            value={newCarForm.spz}
-            onChange={(event) =>
-              setNewCarForm({ ...newCarForm, spz: event.target.value })
-            }
-          />
+              <div className="module">
+                <CheckCircle />
+                <h3>Prodané vozy</h3>
+                <p>Zatím připravujeme</p>
+                <button onClick={() => alert("Přehled prodaných vozů doprogramujeme v další fázi.")}>
+                  Otevřít
+                </button>
+              </div>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {view === "new" && (
+        <div className="card newCarCard">
+          <h2>Nový výkup</h2>
+
+          <div className="formGrid">
+            <input
+              placeholder="Název vozu *"
+              value={newCarForm.name}
+              onChange={(event) =>
+                setNewCarForm({ ...newCarForm, name: event.target.value })
+              }
+            />
+
+            <input
+              placeholder="Rok *"
+              value={newCarForm.year}
+              onChange={(event) =>
+                setNewCarForm({ ...newCarForm, year: event.target.value })
+              }
+            />
+
+            <input
+              placeholder="Km *"
+              value={newCarForm.km}
+              onChange={(event) =>
+                setNewCarForm({ ...newCarForm, km: event.target.value })
+              }
+            />
+
+            <input
+              placeholder="VIN *"
+              value={newCarForm.vin}
+              onChange={(event) =>
+                setNewCarForm({ ...newCarForm, vin: event.target.value })
+              }
+            />
+
+            <input
+              placeholder="SPZ *"
+              value={newCarForm.spz}
+              onChange={(event) =>
+                setNewCarForm({ ...newCarForm, spz: event.target.value })
+              }
+            />
+          </div>
+
+          <button className="success" onClick={createCar}>
+            Vytvořit výkup
+          </button>
+
+          <button className="back" onClick={() => setView("home")}>
+            Zpět na rozcestník
+          </button>
         </div>
-      </div>
+      )}
 
       {view === "list" && (
         <>
+          <button className="back bigBack" onClick={() => setView("home")}>
+            ← Zpět na rozcestník
+          </button>
+
           <div className="search">
             <Search size={18} />
 
@@ -1185,6 +1328,23 @@ Rizika:
             <div className="card decision">
               <h2>Technické parametry vozidla</h2>
 
+              <button
+                className="primary"
+                onClick={analyzeVehicleTechnicalData}
+                disabled={technicalAiLoading}
+              >
+                {technicalAiLoading
+                  ? "AI doplňuje technická data..."
+                  : "AI doplnit technická data"}
+              </button>
+
+              {selectedCar.aiDocumentReport && (
+                <div className="aiReport">
+                  <h3>AI poznámka k technickým datům</h3>
+                  <pre>{selectedCar.aiDocumentReport}</pre>
+                </div>
+              )}
+
               <h3>Identifikace</h3>
               <div className="formGrid">
                 <input
@@ -1212,7 +1372,15 @@ Rizika:
                 />
 
                 <input
-                  placeholder="Typ vozu, např. SUV, kombi, hatchback"
+                  placeholder="Výbava"
+                  value={getTechnicalParam("equipmentLevel")}
+                  onChange={(event) =>
+                    updateTechnicalParam("equipmentLevel", event.target.value)
+                  }
+                />
+
+                <input
+                  placeholder="Kategorie / typ vozu, např. SUV, kombi, hatchback"
                   value={getTechnicalParam("bodyType")}
                   onChange={(event) =>
                     updateTechnicalParam("bodyType", event.target.value)
@@ -1266,21 +1434,31 @@ Rizika:
 
               <h3>Karoserie</h3>
               <div className="formGrid">
-                <input
-                  placeholder="Počet dveří"
-                  value={getTechnicalParam("doors")}
-                  onChange={(event) =>
-                    updateTechnicalParam("doors", event.target.value)
-                  }
-                />
+                <div>
+                  <input
+                    placeholder="Počet dveří"
+                    value={getTechnicalParam("doors")}
+                    onChange={(event) =>
+                      updateTechnicalParam("doors", event.target.value)
+                    }
+                  />
+                  {getTechnicalParam("doors") && (
+                    <p className="label">Počet dveří: {getTechnicalParam("doors")}</p>
+                  )}
+                </div>
 
-                <input
-                  placeholder="Počet míst"
-                  value={getTechnicalParam("seats")}
-                  onChange={(event) =>
-                    updateTechnicalParam("seats", event.target.value)
-                  }
-                />
+                <div>
+                  <input
+                    placeholder="Počet míst / sedadel"
+                    value={getTechnicalParam("seats")}
+                    onChange={(event) =>
+                      updateTechnicalParam("seats", event.target.value)
+                    }
+                  />
+                  {getTechnicalParam("seats") && (
+                    <p className="label">Počet sedadel: {getTechnicalParam("seats")}</p>
+                  )}
+                </div>
 
                 <input
                   placeholder="Barva"
