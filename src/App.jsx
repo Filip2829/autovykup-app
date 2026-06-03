@@ -101,12 +101,21 @@ function prepareCar(car) {
         ? clone(car.equipment, {})
         : {},
     notes: normalizeArray(car.notes),
+    technicalParams:
+      car.technical_params && typeof car.technical_params === "object"
+        ? clone(car.technical_params, {})
+        : {},
     aiRiskFlags: normalizeArray(car.ai_risk_flags),
+    cebiaHistory:
+      car.cebia_history && typeof car.cebia_history === "object"
+        ? clone(car.cebia_history, {})
+        : {},
     saleEstimate: car.sale_estimate || "",
     buyEstimate: car.buy_estimate || "",
     approvedPrice: car.approved_price || "",
     aiTechnicalReport: car.ai_technical_report || "",
     aiDocumentReport: car.ai_document_report || "",
+    aiCebiaReport: car.ai_cebia_report || "",
   };
 }
 
@@ -156,7 +165,9 @@ export default function App() {
   const [noteText, setNoteText] = useState("");
   const [problemText, setProblemText] = useState("");
   const [aiLoading, setAiLoading] = useState(false);
+  const [documentAiLoading, setDocumentAiLoading] = useState(false);
   const [editMode, setEditMode] = useState(false);
+  const [fullscreenPhoto, setFullscreenPhoto] = useState(null);
 
   const [user, setUser] = useState(null);
   const [username, setUsername] = useState("");
@@ -336,6 +347,7 @@ export default function App() {
         equipment: updatedWithUser.equipment || {},
         notes: updatedWithUser.notes || [],
         photos: updatedWithUser.photos || [],
+        technical_params: updatedWithUser.technicalParams || {},
         technical_card_photos: updatedWithUser.technicalCardPhotos || [],
         cebia_files: updatedWithUser.cebiaFiles || [],
         sale_estimate: updatedWithUser.saleEstimate || null,
@@ -343,6 +355,8 @@ export default function App() {
         approved_price: updatedWithUser.approvedPrice || null,
         ai_technical_report: updatedWithUser.aiTechnicalReport || null,
         ai_document_report: updatedWithUser.aiDocumentReport || null,
+        ai_cebia_report: updatedWithUser.aiCebiaReport || null,
+        cebia_history: updatedWithUser.cebiaHistory || {},
         ai_risk_flags: updatedWithUser.aiRiskFlags || [],
         updated_by: currentUsername,
         updated_at: new Date().toISOString(),
@@ -369,6 +383,7 @@ export default function App() {
       equipment: {},
       notes: [],
       photos: [],
+      technical_params: {},
       technical_card_photos: [],
       cebia_files: [],
       sale_estimate: null,
@@ -376,6 +391,8 @@ export default function App() {
       approved_price: null,
       ai_technical_report: null,
       ai_document_report: null,
+      ai_cebia_report: null,
+      cebia_history: {},
       ai_risk_flags: [],
     };
 
@@ -493,6 +510,80 @@ export default function App() {
     const { data } = supabase.storage.from("car-photos").getPublicUrl(fileName);
     return data.publicUrl;
   }
+  async function downloadPhoto(url, index) {
+  try {
+    const response = await fetch(url);
+    const blob = await response.blob();
+
+    const objectUrl = window.URL.createObjectURL(blob);
+
+    const link = document.createElement("a");
+    link.href = objectUrl;
+    link.download = `${selectedCar?.name || "auto"}-foto-${index + 1}.jpg`;
+
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    window.URL.revokeObjectURL(objectUrl);
+  } catch (error) {
+    console.error(error);
+    window.open(url, "_blank");
+  }
+
+  }
+
+  async function deletePhoto(indexToDelete) {
+    if (!selectedCar) return;
+
+    const confirmDelete = window.confirm("Opravdu chceš smazat tuto fotku?");
+    if (!confirmDelete) return;
+
+    const updatedPhotos = selectedCar.photos.filter(
+      (_photo, index) => index !== indexToDelete
+    );
+
+    await updateCar({
+      ...selectedCar,
+      photos: updatedPhotos,
+    });
+  }
+
+  async function deleteTechnicalCard(indexToDelete) {
+    if (!selectedCar) return;
+
+    const confirmDelete = window.confirm("Opravdu chceš smazat tento TP / doklad?");
+    if (!confirmDelete) return;
+
+    const updatedFiles = selectedCar.technicalCardPhotos.filter(
+      (_file, index) => index !== indexToDelete
+    );
+
+    await updateCar({
+      ...selectedCar,
+      technicalCardPhotos: updatedFiles,
+    });
+  }
+
+  async function deleteCebiaFile(indexToDelete) {
+    if (!selectedCar) return;
+
+    const confirmDelete = window.confirm("Opravdu chceš smazat tento CEBIA dokument?");
+    if (!confirmDelete) return;
+
+    const updatedFiles = selectedCar.cebiaFiles.filter(
+      (_file, index) => index !== indexToDelete
+    );
+
+    await updateCar({
+      ...selectedCar,
+      cebiaFiles: updatedFiles,
+      checklist: {
+        ...selectedCar.checklist,
+        "Kontrola CEBIA / CarVertical": updatedFiles.length > 0,
+      },
+    });
+  }
 
   async function addPhoto(event) {
     const files = Array.from(event.target.files || []);
@@ -581,6 +672,77 @@ export default function App() {
         [item]: !selectedCar.equipment?.[item],
       },
     });
+  }
+
+  function updateTechnicalParam(key, value) {
+    if (!selectedCar) return;
+
+    updateCar({
+      ...selectedCar,
+      technicalParams: {
+        ...selectedCar.technicalParams,
+        [key]: value,
+      },
+    });
+  }
+
+  function getTechnicalParam(key) {
+    return selectedCar?.technicalParams?.[key] || "";
+  }
+
+  async function analyzeDocuments() {
+    if (!selectedCar) return;
+
+    if (!selectedCar.cebiaFiles || selectedCar.cebiaFiles.length === 0) {
+      alert("Nejdřív nahraj CEBIA PDF do Administrativy.");
+      return;
+    }
+
+    setDocumentAiLoading(true);
+
+    try {
+      const { data, error } = await supabase.functions.invoke(
+        "analyze-cebia-history",
+        {
+          body: {
+            car: selectedCar,
+            cebiaFiles: selectedCar.cebiaFiles || [],
+          },
+        }
+      );
+
+      if (error) {
+        console.error(error);
+        alert("AI vyhodnocení CEBIA selhalo.");
+        return;
+      }
+
+      const extractedParams = data?.technicalParams || {};
+      const cebiaHistory = data?.cebiaHistory || {};
+      const report = data?.report || "AI CEBIA zpracovala bez textového výstupu.";
+
+      await updateCar({
+        ...selectedCar,
+        technicalParams: {
+          ...selectedCar.technicalParams,
+          ...extractedParams,
+        },
+        cebiaHistory: {
+          ...selectedCar.cebiaHistory,
+          ...cebiaHistory,
+        },
+        aiCebiaReport: report,
+        aiDocumentReport: report,
+      });
+
+      alert("AI vyhodnotila CEBIA. Zkontroluj Historii CEBIA a technické parametry.");
+      setModule("cebiaHistory");
+    } catch (err) {
+      console.error(err);
+      alert("Chyba při AI vyhodnocení CEBIA.");
+    } finally {
+      setDocumentAiLoading(false);
+    }
   }
 
   function addNote() {
@@ -798,6 +960,11 @@ Rizika:
                     src={car.photos[0]}
                     alt="Náhled vozu"
                     className="carPreview"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      window.open(car.photos[0], "_blank");
+                    }}
+                    style={{ cursor: "pointer" }}
                   />
                 )}
 
@@ -963,6 +1130,12 @@ Rizika:
 
           <div className="grid">
             <div className="module">
+              <ClipboardList />
+              <h3>Technické parametry</h3>
+              <button onClick={() => setModule("technical")}>Otevřít</button>
+            </div>
+
+            <div className="module">
               <Camera />
               <h3>Fotky vozu</h3>
               <button onClick={() => setModule("photos")}>Otevřít</button>
@@ -975,6 +1148,15 @@ Rizika:
                 {checklistComplete ? "Hotovo" : "Není hotovo"}
               </p>
               <button onClick={() => setModule("checklist")}>Otevřít</button>
+            </div>
+
+            <div className="module">
+              <ShieldCheck />
+              <h3>Historie CEBIA</h3>
+              <p className={selectedCar.aiCebiaReport ? "okText" : ""}>
+                {selectedCar.aiCebiaReport ? "Vyhodnoceno" : "Zatím nevyhodnoceno"}
+              </p>
+              <button onClick={() => setModule("cebiaHistory")}>Otevřít</button>
             </div>
 
             <div className="module">
@@ -999,6 +1181,150 @@ Rizika:
             </div>
           </div>
 
+          {module === "technical" && (
+            <div className="card decision">
+              <h2>Technické parametry vozidla</h2>
+
+              <h3>Identifikace</h3>
+              <div className="formGrid">
+                <input
+                  placeholder="Značka"
+                  value={getTechnicalParam("brand")}
+                  onChange={(event) =>
+                    updateTechnicalParam("brand", event.target.value)
+                  }
+                />
+
+                <input
+                  placeholder="Model"
+                  value={getTechnicalParam("model")}
+                  onChange={(event) =>
+                    updateTechnicalParam("model", event.target.value)
+                  }
+                />
+
+                <input
+                  placeholder="Verze / výbavový stupeň"
+                  value={getTechnicalParam("version")}
+                  onChange={(event) =>
+                    updateTechnicalParam("version", event.target.value)
+                  }
+                />
+
+                <input
+                  placeholder="Typ vozu, např. SUV, kombi, hatchback"
+                  value={getTechnicalParam("bodyType")}
+                  onChange={(event) =>
+                    updateTechnicalParam("bodyType", event.target.value)
+                  }
+                />
+              </div>
+
+              <h3>Motor a pohon</h3>
+              <div className="formGrid">
+                <input
+                  placeholder="Palivo"
+                  value={getTechnicalParam("fuel")}
+                  onChange={(event) =>
+                    updateTechnicalParam("fuel", event.target.value)
+                  }
+                />
+
+                <input
+                  placeholder="Objem motoru"
+                  value={getTechnicalParam("engine")}
+                  onChange={(event) =>
+                    updateTechnicalParam("engine", event.target.value)
+                  }
+                />
+
+                <input
+                  placeholder="Výkon kW"
+                  value={getTechnicalParam("powerKw")}
+                  onChange={(event) =>
+                    updateTechnicalParam("powerKw", event.target.value)
+                  }
+                />
+
+                <input
+                  placeholder="Převodovka"
+                  value={getTechnicalParam("transmission")}
+                  onChange={(event) =>
+                    updateTechnicalParam("transmission", event.target.value)
+                  }
+                />
+
+                <input
+                  placeholder="Pohon, např. přední, 4x4"
+                  value={getTechnicalParam("drive")}
+                  onChange={(event) =>
+                    updateTechnicalParam("drive", event.target.value)
+                  }
+                />
+
+              </div>
+
+              <h3>Karoserie</h3>
+              <div className="formGrid">
+                <input
+                  placeholder="Počet dveří"
+                  value={getTechnicalParam("doors")}
+                  onChange={(event) =>
+                    updateTechnicalParam("doors", event.target.value)
+                  }
+                />
+
+                <input
+                  placeholder="Počet míst"
+                  value={getTechnicalParam("seats")}
+                  onChange={(event) =>
+                    updateTechnicalParam("seats", event.target.value)
+                  }
+                />
+
+                <input
+                  placeholder="Barva"
+                  value={getTechnicalParam("color")}
+                  onChange={(event) =>
+                    updateTechnicalParam("color", event.target.value)
+                  }
+                />
+              </div>
+
+              <h3>Registrace a nájezd</h3>
+              <div className="formGrid">
+                <input
+                  placeholder="První registrace"
+                  value={getTechnicalParam("firstRegistration")}
+                  onChange={(event) =>
+                    updateTechnicalParam(
+                      "firstRegistration",
+                      event.target.value
+                    )
+                  }
+                />
+
+                <input
+                  placeholder="Rok výroby"
+                  value={getTechnicalParam("productionYear")}
+                  onChange={(event) =>
+                    updateTechnicalParam("productionYear", event.target.value)
+                  }
+                />
+
+                <input
+                  type="date"
+                  placeholder="STK do"
+                  value={getTechnicalParam("stkValidUntil")}
+                  onChange={(event) =>
+                    updateTechnicalParam("stkValidUntil", event.target.value)
+                  }
+                />
+
+              </div>
+            </div>
+          )}
+
           {module === "photos" && (
             <div className="card decision">
               <h2>Fotky vozu</h2>
@@ -1016,7 +1342,30 @@ Rizika:
 
               <div className="photoGrid">
                 {selectedCar.photos.map((photo, index) => (
-                  <img key={index} src={photo} alt="" />
+                  <div key={index} className="photoItem">
+                    <img
+                      src={photo}
+                      alt={`Fotka vozu ${index + 1}`}
+                      onClick={() => window.open(photo, "_blank")}
+                      style={{ cursor: "pointer" }}
+                    />
+
+                    <div className="photoActions">
+                      <button
+                        className="primary outline"
+                        onClick={() => downloadPhoto(photo, index)}
+                      >
+                        Stáhnout
+                      </button>
+
+                      <button
+                        className="danger outlineDanger"
+                        onClick={() => deletePhoto(index)}
+                      >
+                        Smazat
+                      </button>
+                    </div>
+                  </div>
                 ))}
               </div>
             </div>
@@ -1054,19 +1403,199 @@ Rizika:
               <h3>CEBIA / CarVertical</h3>
               <input type="file" accept="image/*,.pdf" onChange={addCebiaFile} />
 
+              <button
+                className="primary"
+                onClick={analyzeDocuments}
+                disabled={documentAiLoading}
+              >
+                {documentAiLoading
+                  ? "AI čte CEBIA..."
+                  : "AI vyhodnotit CEBIA"}
+              </button>
+
+              {selectedCar.aiDocumentReport && (
+                <div className="aiReport">
+                  <h3>AI výstup z dokumentů</h3>
+                  <pre>{selectedCar.aiDocumentReport}</pre>
+                </div>
+              )}
+
               <div className="fileList">
                 {selectedCar.technicalCardPhotos.map((url, index) => (
-                  <a key={index} href={url} target="_blank" rel="noreferrer">
-                    TP {index + 1}
-                  </a>
+                  <div key={`tp-${index}`} className="fileRow">
+                    <a href={url} target="_blank" rel="noreferrer">
+                      TP {index + 1}
+                    </a>
+
+                    <button
+                      className="danger outlineDanger"
+                      onClick={() => deleteTechnicalCard(index)}
+                    >
+                      Smazat
+                    </button>
+                  </div>
                 ))}
 
                 {selectedCar.cebiaFiles.map((url, index) => (
-                  <a key={index} href={url} target="_blank" rel="noreferrer">
-                    CEBIA {index + 1}
-                  </a>
+                  <div key={`cebia-${index}`} className="fileRow">
+                    <a href={url} target="_blank" rel="noreferrer">
+                      CEBIA {index + 1}
+                    </a>
+
+                    <button
+                      className="danger outlineDanger"
+                      onClick={() => deleteCebiaFile(index)}
+                    >
+                      Smazat
+                    </button>
+                  </div>
                 ))}
               </div>
+            </div>
+          )}
+
+          {module === "cebiaHistory" && (
+            <div className="card decision">
+              <h2>Historie CEBIA</h2>
+
+              <div className="formGrid">
+                <input
+                  placeholder="Počet majitelů"
+                  value={selectedCar.cebiaHistory?.owners || ""}
+                  onChange={(event) =>
+                    updateCar({
+                      ...selectedCar,
+                      cebiaHistory: {
+                        ...selectedCar.cebiaHistory,
+                        owners: event.target.value,
+                      },
+                    })
+                  }
+                />
+
+                <input
+                  placeholder="Země původu"
+                  value={selectedCar.cebiaHistory?.countryOfOrigin || ""}
+                  onChange={(event) =>
+                    updateCar({
+                      ...selectedCar,
+                      cebiaHistory: {
+                        ...selectedCar.cebiaHistory,
+                        countryOfOrigin: event.target.value,
+                      },
+                    })
+                  }
+                />
+
+                <input
+                  placeholder="Financování / leasing"
+                  value={selectedCar.cebiaHistory?.financing || ""}
+                  onChange={(event) =>
+                    updateCar({
+                      ...selectedCar,
+                      cebiaHistory: {
+                        ...selectedCar.cebiaHistory,
+                        financing: event.target.value,
+                      },
+                    })
+                  }
+                />
+
+                <input
+                  placeholder="Taxi / půjčovna"
+                  value={selectedCar.cebiaHistory?.taxiOrRental || ""}
+                  onChange={(event) =>
+                    updateCar({
+                      ...selectedCar,
+                      cebiaHistory: {
+                        ...selectedCar.cebiaHistory,
+                        taxiOrRental: event.target.value,
+                      },
+                    })
+                  }
+                />
+
+                <input
+                  placeholder="Dovoz / import"
+                  value={selectedCar.cebiaHistory?.importInfo || ""}
+                  onChange={(event) =>
+                    updateCar({
+                      ...selectedCar,
+                      cebiaHistory: {
+                        ...selectedCar.cebiaHistory,
+                        importInfo: event.target.value,
+                      },
+                    })
+                  }
+                />
+              </div>
+
+              <h3>Historie škod</h3>
+              <textarea
+                placeholder="Škody / pojistné události"
+                value={selectedCar.cebiaHistory?.damageHistory || ""}
+                onChange={(event) =>
+                  updateCar({
+                    ...selectedCar,
+                    cebiaHistory: {
+                      ...selectedCar.cebiaHistory,
+                      damageHistory: event.target.value,
+                    },
+                  })
+                }
+              />
+
+              <h3>Historie kilometrů</h3>
+              <textarea
+                placeholder="Historie kilometrů"
+                value={selectedCar.cebiaHistory?.mileageHistory || ""}
+                onChange={(event) =>
+                  updateCar({
+                    ...selectedCar,
+                    cebiaHistory: {
+                      ...selectedCar.cebiaHistory,
+                      mileageHistory: event.target.value,
+                    },
+                  })
+                }
+              />
+
+              <h3>Podezření na stočení km</h3>
+              <textarea
+                placeholder="Podezření / nesrovnalosti v km"
+                value={selectedCar.cebiaHistory?.mileageSuspicion || ""}
+                onChange={(event) =>
+                  updateCar({
+                    ...selectedCar,
+                    cebiaHistory: {
+                      ...selectedCar.cebiaHistory,
+                      mileageSuspicion: event.target.value,
+                    },
+                  })
+                }
+              />
+
+              <h3>Rizikové poznámky</h3>
+              <textarea
+                placeholder="Rizika z CEBIA"
+                value={selectedCar.cebiaHistory?.riskNotes || ""}
+                onChange={(event) =>
+                  updateCar({
+                    ...selectedCar,
+                    cebiaHistory: {
+                      ...selectedCar.cebiaHistory,
+                      riskNotes: event.target.value,
+                    },
+                  })
+                }
+              />
+
+              {selectedCar.aiCebiaReport && (
+                <div className="aiReport">
+                  <h3>AI shrnutí CEBIA</h3>
+                  <pre>{selectedCar.aiCebiaReport}</pre>
+                </div>
+              )}
             </div>
           )}
 
@@ -1167,6 +1696,29 @@ Rizika:
             </button>
           </div>
         </section>
+      )}
+      {fullscreenPhoto && (
+        <div
+          className="fullscreenOverlay"
+          onClick={() => setFullscreenPhoto(null)}
+        >
+          <img
+            src={fullscreenPhoto}
+            className="fullscreenImage"
+            alt="Fotka vozu v plném rozlišení"
+            onClick={(event) => event.stopPropagation()}
+          />
+
+          <button
+            className="closeFullscreen"
+            onClick={(event) => {
+              event.stopPropagation();
+              setFullscreenPhoto(null);
+            }}
+          >
+            ×
+          </button>
+        </div>
       )}
     </div>
   );
