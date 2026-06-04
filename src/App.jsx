@@ -1763,22 +1763,23 @@ Rizika:
             </div>
           )}
 
-          {module === "equipment" && (
-            <div className="card decision">
-              <h2>Výbava vozu</h2>
+        {module === "equipment" && (
+  <div className="card decision">
+    <h2>Výbava vozu</h2>
 
-              {equipmentItems.map((item) => (
-                <label key={item} className="checkItem">
-                  <input
-                    type="checkbox"
-                    checked={Boolean(selectedCar.equipment?.[item])}
-                    onChange={() => toggleEquipment(item)}
-                  />
-                  {item}
-                </label>
-              ))}
-            </div>
-          )}
+    {equipmentItems.map((item) => (
+      <label key={item} className="checkItem">
+        <input
+          type="checkbox"
+          checked={Boolean(selectedCar.equipment?.[item])}
+          onChange={() => toggleEquipment(item)}
+        />
+        {item}
+      </label>
+    ))}
+  </div>
+)}
+          )
 
           {module === "notes" && (
             <div className="card decision">
