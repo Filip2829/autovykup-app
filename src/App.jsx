@@ -1581,22 +1581,8 @@ Rizika:
               <h3>CEBIA / CarVertical</h3>
               <input type="file" accept="image/*,.pdf" onChange={addCebiaFile} />
 
-              <button
-                className="primary"
-                onClick={analyzeDocuments}
-                disabled={documentAiLoading}
-              >
-                {documentAiLoading
-                  ? "AI čte CEBIA..."
-                  : "AI vyhodnotit CEBIA"}
-              </button>
 
-              {selectedCar.aiDocumentReport && (
-                <div className="aiReport">
-                  <h3>AI výstup z dokumentů</h3>
-                  <pre>{selectedCar.aiDocumentReport}</pre>
-                </div>
-              )}
+           
 
               <div className="fileList">
                 {selectedCar.technicalCardPhotos.map((url, index) => (
