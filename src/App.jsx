@@ -157,9 +157,17 @@ function getWorkflow(car) {
 }
 
 export default function App() {
+
   const [cars, setCars] = useState([]);
   const [query, setQuery] = useState("");
   const [selectedCar, setSelectedCar] = useState(null);
+  const selectedEquipment = equipmentItems.filter(
+  (item) => selectedCar?.equipment?.[item]
+);
+
+const remainingEquipment = equipmentItems.filter(
+  (item) => !selectedCar?.equipment?.[item]
+);
   const [view, setView] = useState("home");
   const [module, setModule] = useState("overview");
   const [noteText, setNoteText] = useState("");
@@ -1767,7 +1775,9 @@ Rizika:
   <div className="card decision">
     <h2>Výbava vozu</h2>
 
-    {equipmentItems.map((item) => (
+    <h3>Zjištěná výbava</h3>
+
+{selectedEquipment.map((item) => (
       <label key={item} className="checkItem">
         <input
           type="checkbox"
@@ -1779,7 +1789,18 @@ Rizika:
     ))}
   </div>
 )}
-          )
+          <h3 style={{ marginTop: "20px" }}>Další výbava k doplnění</h3>
+
+{remainingEquipment.map((item) => (
+  <label key={item} className="checkItem">
+    <input
+      type="checkbox"
+      checked={false}
+      onChange={() => toggleEquipment(item)}
+    />
+    {item}
+  </label>
+))}
 
           {module === "notes" && (
             <div className="card decision">
