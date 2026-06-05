@@ -1771,36 +1771,41 @@ Rizika:
             </div>
           )}
 
-        {module === "equipment" && (
-  <div className="card decision">
-    <h2>Výbava vozu</h2>
+          {module === "equipment" && (
+            <div className="card decision">
+              <h2>Výbava vozu</h2>
 
-    <h3>Zjištěná výbava</h3>
+              <h3>Zjištěná výbava</h3>
 
-{selectedEquipment.map((item) => (
-      <label key={item} className="checkItem">
-        <input
-          type="checkbox"
-          checked={Boolean(selectedCar.equipment?.[item])}
-          onChange={() => toggleEquipment(item)}
-        />
-        {item}
-      </label>
-    ))}
-  </div>
-)}
-          <h3 style={{ marginTop: "20px" }}>Další výbava k doplnění</h3>
+              {[...selectedEquipment]
+                .sort((a, b) => a.localeCompare(b, "cs"))
+                .map((item) => (
+                  <label key={item} className="checkItem">
+                    <input
+                      type="checkbox"
+                      checked={Boolean(selectedCar.equipment?.[item])}
+                      onChange={() => toggleEquipment(item)}
+                    />
+                    {item}
+                  </label>
+                ))}
 
-{remainingEquipment.map((item) => (
-  <label key={item} className="checkItem">
-    <input
-      type="checkbox"
-      checked={false}
-      onChange={() => toggleEquipment(item)}
-    />
-    {item}
-  </label>
-))}
+              <h3 style={{ marginTop: "20px" }}>Další výbava k doplnění</h3>
+
+              {[...remainingEquipment]
+                .sort((a, b) => a.localeCompare(b, "cs"))
+                .map((item) => (
+                  <label key={item} className="checkItem">
+                    <input
+                      type="checkbox"
+                      checked={false}
+                      onChange={() => toggleEquipment(item)}
+                    />
+                    {item}
+                  </label>
+                ))}
+            </div>
+          )}
 
           {module === "notes" && (
             <div className="card decision">
