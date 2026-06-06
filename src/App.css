@@ -147,7 +147,8 @@ h2 {
   margin: 0;
 }
 
-.cardTop span {
+.cardTop span,
+.carListMeta span {
   background: rgba(37, 99, 235, 0.18);
   color: #60a5fa;
   border: 1px solid rgba(59,130,246,0.3);
@@ -155,6 +156,59 @@ h2 {
   border-radius: 999px;
   font-size: 12px;
   font-weight: 800;
+}
+
+.carListMeta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+  min-width: 190px;
+  text-align: right;
+}
+
+.caseAge {
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 14px;
+  padding: 8px 10px;
+}
+
+.caseAge p {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.45;
+}
+
+.caseAgeFresh {
+  background: rgba(22, 163, 74, 0.16);
+  border-color: rgba(34, 197, 94, 0.42);
+}
+
+.carListMeta .caseAgeFresh p {
+  color: #86efac;
+}
+
+.caseAgeWarning {
+  background: rgba(234, 88, 12, 0.16);
+  border-color: rgba(251, 146, 60, 0.45);
+}
+
+.carListMeta .caseAgeWarning p {
+  color: #fdba74;
+}
+
+.caseAgeDanger {
+  background: rgba(220, 38, 38, 0.16);
+  border-color: rgba(248, 113, 113, 0.45);
+}
+
+.carListMeta .caseAgeDanger p {
+  color: #fca5a5;
+}
+
+.carListMeta .caseAgeNeutral p {
+  color: #cbd5e1;
 }
 
 .card p,

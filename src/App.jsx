@@ -98,6 +98,40 @@ function isValuationComplete(car) {
   );
 }
 
+function getDateValue(value) {
+  const date = value ? new Date(value) : null;
+  return date && !Number.isNaN(date.getTime()) ? date : null;
+}
+
+function formatDate(value, includeTime = false) {
+  const date = getDateValue(value);
+  if (!date) return "—";
+
+  const day = String(date.getDate()).padStart(2, "0");
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const year = date.getFullYear();
+
+  if (!includeTime) return `${day}.${month}.${year}`;
+
+  const hours = String(date.getHours()).padStart(2, "0");
+  const minutes = String(date.getMinutes()).padStart(2, "0");
+  return `${day}.${month}.${year} ${hours}:${minutes}`;
+}
+
+function getCaseAgeClass(createdAt) {
+  const date = getDateValue(createdAt);
+  if (!date) return "caseAgeNeutral";
+
+  const ageInDays = Math.max(
+    0,
+    Math.floor((Date.now() - date.getTime()) / (1000 * 60 * 60 * 24))
+  );
+
+  if (ageInDays <= 7) return "caseAgeFresh";
+  if (ageInDays <= 14) return "caseAgeWarning";
+  return "caseAgeDanger";
+}
+
 function prepareCar(car) {
   return {
     ...car,
@@ -1107,7 +1141,13 @@ const remainingEquipment = equipmentItems.filter(
 
                 <div className="cardTop">
                   <h2>{car.name}</h2>
-                  <span>{car.status}</span>
+                  <div className="carListMeta">
+                    <div className={`caseAge ${getCaseAgeClass(car.created_at)}`}>
+                      <p>Přidáno: {formatDate(car.created_at)}</p>
+                      <p>Upraveno: {formatDate(car.updated_at, true)}</p>
+                    </div>
+                    <span>{car.status}</span>
+                  </div>
                 </div>
 
                 <p>
