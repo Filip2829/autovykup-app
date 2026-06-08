@@ -1211,8 +1211,18 @@ const remainingEquipment = equipmentItems.filter(
                 </div>
 
                 <div>
+                  <strong>Přidáno:</strong>
+                  <p>{formatDate(selectedCar.created_at)}</p>
+                </div>
+
+                <div>
                   <strong>Poslední úprava:</strong>
                   <p>{selectedCar.updated_by || "—"}</p>
+                </div>
+
+                <div>
+                  <strong>Upraveno:</strong>
+                  <p>{formatDate(selectedCar.updated_at, true)}</p>
                 </div>
               </div>
 
