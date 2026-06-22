@@ -86,52 +86,6 @@ function normalizeArray(value) {
   return Array.isArray(value) ? [...value] : [];
 }
 
-function hasFilledValue(value) {
-  return value !== null && value !== undefined && String(value).trim() !== "";
-}
-
-function isValuationComplete(car) {
-  return (
-    hasFilledValue(car?.valuationDate ?? car?.valuation_date) &&
-    hasFilledValue(car?.buyEstimate ?? car?.buy_estimate) &&
-    hasFilledValue(car?.saleEstimate ?? car?.sale_estimate)
-  );
-}
-
-function getDateValue(value) {
-  const date = value ? new Date(value) : null;
-  return date && !Number.isNaN(date.getTime()) ? date : null;
-}
-
-function formatDate(value, includeTime = false) {
-  const date = getDateValue(value);
-  if (!date) return "—";
-
-  const day = String(date.getDate()).padStart(2, "0");
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const year = date.getFullYear();
-
-  if (!includeTime) return `${day}.${month}.${year}`;
-
-  const hours = String(date.getHours()).padStart(2, "0");
-  const minutes = String(date.getMinutes()).padStart(2, "0");
-  return `${day}.${month}.${year} ${hours}:${minutes}`;
-}
-
-function getCaseAgeClass(createdAt) {
-  const date = getDateValue(createdAt);
-  if (!date) return "caseAgeNeutral";
-
-  const ageInDays = Math.max(
-    0,
-    Math.floor((Date.now() - date.getTime()) / (1000 * 60 * 60 * 24))
-  );
-
-  if (ageInDays <= 7) return "caseAgeFresh";
-  if (ageInDays <= 14) return "caseAgeWarning";
-  return "caseAgeDanger";
-}
-
 function prepareCar(car) {
   return {
     ...car,
@@ -156,7 +110,6 @@ function prepareCar(car) {
       car.cebia_history && typeof car.cebia_history === "object"
         ? clone(car.cebia_history, {})
         : {},
-    valuationDate: car.valuation_date || "",
     saleEstimate: car.sale_estimate || "",
     buyEstimate: car.buy_estimate || "",
     approvedPrice: car.approved_price || "",
@@ -180,8 +133,8 @@ function isChecklistComplete(checklist = {}) {
 function calculateStatus(car) {
   const hasPhotos = Array.isArray(car.photos) && car.photos.length > 0;
   const checklistComplete = isChecklistComplete(car.checklist);
-  const hasValuation = isValuationComplete(car);
-  const hasApprovedPrice = hasFilledValue(car.approvedPrice ?? car.approved_price);
+  const hasValuation = Boolean(car.saleEstimate || car.sale_estimate);
+  const hasApprovedPrice = Boolean(car.approvedPrice || car.approved_price);
 
   if (hasApprovedPrice) return STATUS.APPROVED;
   if (hasValuation) return STATUS.VALUATED;
@@ -192,8 +145,8 @@ function calculateStatus(car) {
 function getWorkflow(car) {
   const hasPhotos = Array.isArray(car.photos) && car.photos.length > 0;
   const checklistComplete = isChecklistComplete(car.checklist);
-  const hasValuation = isValuationComplete(car);
-  const hasApprovedPrice = hasFilledValue(car.approvedPrice ?? car.approved_price);
+  const hasValuation = Boolean(car.saleEstimate || car.sale_estimate);
+  const hasApprovedPrice = Boolean(car.approvedPrice || car.approved_price);
 
   return [
     { label: "Podklady", done: checklistComplete },
@@ -406,7 +359,6 @@ const remainingEquipment = equipmentItems.filter(
         technical_params: updatedWithUser.technicalParams || {},
         technical_card_photos: updatedWithUser.technicalCardPhotos || [],
         cebia_files: updatedWithUser.cebiaFiles || [],
-        valuation_date: updatedWithUser.valuationDate || null,
         sale_estimate: updatedWithUser.saleEstimate || null,
         buy_estimate: updatedWithUser.buyEstimate || null,
         approved_price: updatedWithUser.approvedPrice || null,
@@ -443,7 +395,6 @@ const remainingEquipment = equipmentItems.filter(
       technical_params: {},
       technical_card_photos: [],
       cebia_files: [],
-      valuation_date: null,
       sale_estimate: null,
       buy_estimate: null,
       approved_price: null,
@@ -748,19 +699,6 @@ const remainingEquipment = equipmentItems.filter(
     return selectedCar?.technicalParams?.[key] || "";
   }
 
-  function updateValuationField(key, value) {
-    if (!selectedCar) return;
-
-    updateCar({
-      ...selectedCar,
-      [key]: value,
-    });
-  }
-
-  function updateValuationPrice(key, value) {
-    updateValuationField(key, value === "" ? "" : Number(value));
-  }
-
   async function analyzeVehicleTechnicalData() {
     if (!selectedCar) return;
 
@@ -941,6 +879,49 @@ const remainingEquipment = equipmentItems.filter(
     }
   }
 
+  function recalculatePrice() {
+    if (!selectedCar) return;
+
+    updateCar({
+      ...selectedCar,
+      saleEstimate: 309000,
+      buyEstimate: "265 000–270 000 Kč",
+    });
+
+    alert(`
+AI NACENĚNÍ HOTOVO
+
+Odhad prodejní ceny:
+309 000 Kč
+
+Doporučený výkup:
+265 000–270 000 Kč
+
+Doporučení:
+Rychlý prodej do 30 dní.
+
+Silné stránky:
+• DSG servis doložen
+• Atraktivní konfigurace
+• Dobrá likvidita modelu
+
+Rizika:
+• Ověřit vibrace brzd
+• Lehké kosmetické vady
+    `);
+  }
+
+  function approvePrice() {
+    const price = prompt("Zadej schválenou výkupní cenu");
+
+    if (!price || !selectedCar) return;
+
+    updateCar({
+      ...selectedCar,
+      approvedPrice: price,
+    });
+  }
+
   if (!user) {
     return (
       <div className="app">
@@ -973,7 +954,6 @@ const remainingEquipment = equipmentItems.filter(
   }
 
   const checklistComplete = selectedCar && isChecklistComplete(selectedCar.checklist);
-  const valuationComplete = selectedCar && isValuationComplete(selectedCar);
 
   return (
     <div className="app">
@@ -1141,13 +1121,7 @@ const remainingEquipment = equipmentItems.filter(
 
                 <div className="cardTop">
                   <h2>{car.name}</h2>
-                  <div className="carListMeta">
-                    <div className={`caseAge ${getCaseAgeClass(car.created_at)}`}>
-                      <p>Přidáno: {formatDate(car.created_at)}</p>
-                      <p>Upraveno: {formatDate(car.updated_at, true)}</p>
-                    </div>
-                    <span>{car.status}</span>
-                  </div>
+                  <span>{car.status}</span>
                 </div>
 
                 <p>
@@ -1211,18 +1185,8 @@ const remainingEquipment = equipmentItems.filter(
                 </div>
 
                 <div>
-                  <strong>Přidáno:</strong>
-                  <p>{formatDate(selectedCar.created_at)}</p>
-                </div>
-
-                <div>
                   <strong>Poslední úprava:</strong>
                   <p>{selectedCar.updated_by || "—"}</p>
-                </div>
-
-                <div>
-                  <strong>Upraveno:</strong>
-                  <p>{formatDate(selectedCar.updated_at, true)}</p>
                 </div>
               </div>
 
@@ -1361,8 +1325,8 @@ const remainingEquipment = equipmentItems.filter(
             <div className="module">
               <ShieldCheck />
               <h3>Nacenění</h3>
-              <p className={valuationComplete ? "okText" : ""}>
-                {valuationComplete ? "Hotovo" : "Zatím neprovedeno"}
+              <p className={selectedCar.saleEstimate ? "okText" : ""}>
+                {selectedCar.saleEstimate ? "Hotovo" : "Zatím neprovedeno"}
               </p>
               <button onClick={() => setModule("valuation")}>Otevřít</button>
             </div>
@@ -1807,41 +1771,36 @@ const remainingEquipment = equipmentItems.filter(
             </div>
           )}
 
-          {module === "equipment" && (
-            <div className="card decision">
-              <h2>Výbava vozu</h2>
+        {module === "equipment" && (
+  <div className="card decision">
+    <h2>Výbava vozu</h2>
 
-              <h3>Zjištěná výbava</h3>
+    <h3>Zjištěná výbava</h3>
 
-              {[...selectedEquipment]
-                .sort((a, b) => a.localeCompare(b, "cs"))
-                .map((item) => (
-                  <label key={item} className="checkItem">
-                    <input
-                      type="checkbox"
-                      checked={Boolean(selectedCar.equipment?.[item])}
-                      onChange={() => toggleEquipment(item)}
-                    />
-                    {item}
-                  </label>
-                ))}
+{selectedEquipment.map((item) => (
+      <label key={item} className="checkItem">
+        <input
+          type="checkbox"
+          checked={Boolean(selectedCar.equipment?.[item])}
+          onChange={() => toggleEquipment(item)}
+        />
+        {item}
+      </label>
+    ))}
+  </div>
+)}
+          <h3 style={{ marginTop: "20px" }}>Další výbava k doplnění</h3>
 
-              <h3 style={{ marginTop: "20px" }}>Další výbava k doplnění</h3>
-
-              {[...remainingEquipment]
-                .sort((a, b) => a.localeCompare(b, "cs"))
-                .map((item) => (
-                  <label key={item} className="checkItem">
-                    <input
-                      type="checkbox"
-                      checked={false}
-                      onChange={() => toggleEquipment(item)}
-                    />
-                    {item}
-                  </label>
-                ))}
-            </div>
-          )}
+{remainingEquipment.map((item) => (
+  <label key={item} className="checkItem">
+    <input
+      type="checkbox"
+      checked={false}
+      onChange={() => toggleEquipment(item)}
+    />
+    {item}
+  </label>
+))}
 
           {module === "notes" && (
             <div className="card decision">
@@ -1892,66 +1851,36 @@ const remainingEquipment = equipmentItems.filter(
             <div className="card decision">
               <h2>Nacenění vozu</h2>
 
-              <div className="formGrid">
-                <div>
-                  <p className="label">Datum nacenění</p>
-                  <input
-                    type="date"
-                    value={selectedCar.valuationDate || ""}
-                    onChange={(event) =>
-                      updateValuationField("valuationDate", event.target.value)
-                    }
-                    style={{ width: "100%" }}
-                  />
-                </div>
+              <p>
+                <b>Odhad prodeje:</b>{" "}
+                {selectedCar.saleEstimate
+                  ? `${selectedCar.saleEstimate.toLocaleString("cs-CZ")} Kč`
+                  : "—"}
+              </p>
 
-                <div>
-                  <p className="label">Návrh výkupní ceny</p>
-                  <input
-                    type="number"
-                    min="0"
-                    step="1"
-                    placeholder="Návrh výkupní ceny"
-                    value={selectedCar.buyEstimate ?? ""}
-                    onChange={(event) =>
-                      updateValuationPrice("buyEstimate", event.target.value)
-                    }
-                    style={{ width: "100%" }}
-                  />
-                </div>
+              <p>
+                <b>Doporučený výkup:</b> {selectedCar.buyEstimate || "—"}
+              </p>
 
-                <div>
-                  <p className="label">Návrh prodejní ceny</p>
-                  <input
-                    type="number"
-                    min="0"
-                    step="1"
-                    placeholder="Návrh prodejní ceny"
-                    value={selectedCar.saleEstimate ?? ""}
-                    onChange={(event) =>
-                      updateValuationPrice("saleEstimate", event.target.value)
-                    }
-                    style={{ width: "100%" }}
-                  />
-                </div>
-
-                <div>
-                  <p className="label">Potvrzená výkupní cena</p>
-                  <input
-                    type="number"
-                    min="0"
-                    step="1"
-                    placeholder="Potvrzená výkupní cena"
-                    value={selectedCar.approvedPrice ?? ""}
-                    onChange={(event) =>
-                      updateValuationPrice("approvedPrice", event.target.value)
-                    }
-                    style={{ width: "100%" }}
-                  />
-                </div>
-              </div>
+              <button className="primary" onClick={recalculatePrice}>
+                Přepočítat cenu
+              </button>
             </div>
           )}
+
+          <div className="card decision">
+            <h2>Finální rozhodnutí</h2>
+
+            <p>
+              <b>Schválená cena:</b>{" "}
+              {selectedCar.approvedPrice || "zatím nepotvrzena"}
+            </p>
+
+            <button className="success" onClick={approvePrice}>
+              <CheckCircle size={18} />
+              Výkupní cena potvrzena
+            </button>
+          </div>
         </section>
       )}
       {fullscreenPhoto && (
