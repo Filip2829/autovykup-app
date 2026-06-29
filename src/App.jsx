@@ -1392,6 +1392,7 @@ const remainingEquipment = equipmentItems.filter(
               <h3>Identifikace</h3>
               <div className="formGrid">
                 <div>
+                  <p className="label">Značka</p>
                   <input
                     placeholder="Značka"
                     value={getTechnicalParam("brand")}
@@ -1399,10 +1400,10 @@ const remainingEquipment = equipmentItems.filter(
                       updateTechnicalParam("brand", event.target.value)
                     }
                   />
-                  <p className="label">Značka</p>
                 </div>
 
                 <div>
+                  <p className="label">Model</p>
                   <input
                     placeholder="Model"
                     value={getTechnicalParam("model")}
@@ -1410,10 +1411,10 @@ const remainingEquipment = equipmentItems.filter(
                       updateTechnicalParam("model", event.target.value)
                     }
                   />
-                  <p className="label">Model</p>
                 </div>
 
                 <div>
+                  <p className="label">Verze / výbavový stupeň</p>
                   <input
                     placeholder="Verze / výbavový stupeň"
                     value={getTechnicalParam("version")}
@@ -1421,10 +1422,10 @@ const remainingEquipment = equipmentItems.filter(
                       updateTechnicalParam("version", event.target.value)
                     }
                   />
-                  <p className="label">Verze / výbavový stupeň</p>
                 </div>
 
                 <div>
+                  <p className="label">Výbava</p>
                   <input
                     placeholder="Výbava"
                     value={getTechnicalParam("equipmentLevel")}
@@ -1432,10 +1433,10 @@ const remainingEquipment = equipmentItems.filter(
                       updateTechnicalParam("equipmentLevel", event.target.value)
                     }
                   />
-                  <p className="label">Výbava</p>
                 </div>
 
                 <div>
+                  <p className="label">Kategorie / typ vozu</p>
                   <input
                     placeholder="Kategorie / typ vozu, např. SUV, kombi, hatchback"
                     value={getTechnicalParam("bodyType")}
@@ -1443,13 +1444,13 @@ const remainingEquipment = equipmentItems.filter(
                       updateTechnicalParam("bodyType", event.target.value)
                     }
                   />
-                  <p className="label">Kategorie / typ vozu</p>
                 </div>
               </div>
 
               <h3>Motor a pohon</h3>
               <div className="formGrid">
                 <div>
+                  <p className="label">Palivo</p>
                   <input
                     placeholder="Palivo"
                     value={getTechnicalParam("fuel")}
@@ -1457,10 +1458,10 @@ const remainingEquipment = equipmentItems.filter(
                       updateTechnicalParam("fuel", event.target.value)
                     }
                   />
-                  <p className="label">Palivo</p>
                 </div>
 
                 <div>
+                  <p className="label">Objem motoru</p>
                   <input
                     placeholder="Objem motoru"
                     value={getTechnicalParam("engine")}
@@ -1468,10 +1469,10 @@ const remainingEquipment = equipmentItems.filter(
                       updateTechnicalParam("engine", event.target.value)
                     }
                   />
-                  <p className="label">Objem motoru</p>
                 </div>
 
                 <div>
+                  <p className="label">Výkon kW</p>
                   <input
                     placeholder="Výkon kW"
                     value={getTechnicalParam("powerKw")}
@@ -1479,10 +1480,10 @@ const remainingEquipment = equipmentItems.filter(
                       updateTechnicalParam("powerKw", event.target.value)
                     }
                   />
-                  <p className="label">Výkon kW</p>
                 </div>
 
                 <div>
+                  <p className="label">Převodovka</p>
                   <input
                     placeholder="Převodovka"
                     value={getTechnicalParam("transmission")}
@@ -1490,10 +1491,10 @@ const remainingEquipment = equipmentItems.filter(
                       updateTechnicalParam("transmission", event.target.value)
                     }
                   />
-                  <p className="label">Převodovka</p>
                 </div>
 
                 <div>
+                  <p className="label">Pohon</p>
                   <input
                     placeholder="Pohon, např. přední, 4x4"
                     value={getTechnicalParam("drive")}
@@ -1501,7 +1502,6 @@ const remainingEquipment = equipmentItems.filter(
                       updateTechnicalParam("drive", event.target.value)
                     }
                   />
-                  <p className="label">Pohon</p>
                 </div>
 
               </div>
@@ -1509,6 +1509,7 @@ const remainingEquipment = equipmentItems.filter(
               <h3>Karoserie</h3>
               <div className="formGrid">
                 <div>
+                  <p className="label">Počet dveří</p>
                   <input
                     placeholder="Počet dveří"
                     value={getTechnicalParam("doors")}
@@ -1516,10 +1517,10 @@ const remainingEquipment = equipmentItems.filter(
                       updateTechnicalParam("doors", event.target.value)
                     }
                   />
-                  <p className="label">Počet dveří</p>
                 </div>
 
                 <div>
+                  <p className="label">Počet sedadel</p>
                   <input
                     placeholder="Počet míst / sedadel"
                     value={getTechnicalParam("seats")}
@@ -1527,10 +1528,10 @@ const remainingEquipment = equipmentItems.filter(
                       updateTechnicalParam("seats", event.target.value)
                     }
                   />
-                  <p className="label">Počet sedadel</p>
                 </div>
 
                 <div>
+                  <p className="label">Barva</p>
                   <input
                     placeholder="Barva"
                     value={getTechnicalParam("color")}
@@ -1538,13 +1539,13 @@ const remainingEquipment = equipmentItems.filter(
                       updateTechnicalParam("color", event.target.value)
                     }
                   />
-                  <p className="label">Barva</p>
                 </div>
               </div>
 
               <h3>Registrace a nájezd</h3>
               <div className="formGrid">
                 <div>
+                  <p className="label">První registrace</p>
                   <input
                     placeholder="První registrace"
                     value={getTechnicalParam("firstRegistration")}
@@ -1555,10 +1556,10 @@ const remainingEquipment = equipmentItems.filter(
                       )
                     }
                   />
-                  <p className="label">První registrace</p>
                 </div>
 
                 <div>
+                  <p className="label">Rok výroby</p>
                   <input
                     placeholder="Rok výroby"
                     value={getTechnicalParam("productionYear")}
@@ -1566,10 +1567,10 @@ const remainingEquipment = equipmentItems.filter(
                       updateTechnicalParam("productionYear", event.target.value)
                     }
                   />
-                  <p className="label">Rok výroby</p>
                 </div>
 
                 <div>
+                  <p className="label">STK do</p>
                   <input
                     type="date"
                     placeholder="STK do"
@@ -1578,7 +1579,6 @@ const remainingEquipment = equipmentItems.filter(
                       updateTechnicalParam("stkValidUntil", event.target.value)
                     }
                   />
-                  <p className="label">STK do</p>
                 </div>
 
               </div>
