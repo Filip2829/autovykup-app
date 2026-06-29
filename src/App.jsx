@@ -1391,88 +1391,118 @@ const remainingEquipment = equipmentItems.filter(
 
               <h3>Identifikace</h3>
               <div className="formGrid">
-                <input
-                  placeholder="Značka"
-                  value={getTechnicalParam("brand")}
-                  onChange={(event) =>
-                    updateTechnicalParam("brand", event.target.value)
-                  }
-                />
+                <div>
+                  <input
+                    placeholder="Značka"
+                    value={getTechnicalParam("brand")}
+                    onChange={(event) =>
+                      updateTechnicalParam("brand", event.target.value)
+                    }
+                  />
+                  <p className="label">Značka</p>
+                </div>
 
-                <input
-                  placeholder="Model"
-                  value={getTechnicalParam("model")}
-                  onChange={(event) =>
-                    updateTechnicalParam("model", event.target.value)
-                  }
-                />
+                <div>
+                  <input
+                    placeholder="Model"
+                    value={getTechnicalParam("model")}
+                    onChange={(event) =>
+                      updateTechnicalParam("model", event.target.value)
+                    }
+                  />
+                  <p className="label">Model</p>
+                </div>
 
-                <input
-                  placeholder="Verze / výbavový stupeň"
-                  value={getTechnicalParam("version")}
-                  onChange={(event) =>
-                    updateTechnicalParam("version", event.target.value)
-                  }
-                />
+                <div>
+                  <input
+                    placeholder="Verze / výbavový stupeň"
+                    value={getTechnicalParam("version")}
+                    onChange={(event) =>
+                      updateTechnicalParam("version", event.target.value)
+                    }
+                  />
+                  <p className="label">Verze / výbavový stupeň</p>
+                </div>
 
-                <input
-                  placeholder="Výbava"
-                  value={getTechnicalParam("equipmentLevel")}
-                  onChange={(event) =>
-                    updateTechnicalParam("equipmentLevel", event.target.value)
-                  }
-                />
+                <div>
+                  <input
+                    placeholder="Výbava"
+                    value={getTechnicalParam("equipmentLevel")}
+                    onChange={(event) =>
+                      updateTechnicalParam("equipmentLevel", event.target.value)
+                    }
+                  />
+                  <p className="label">Výbava</p>
+                </div>
 
-                <input
-                  placeholder="Kategorie / typ vozu, např. SUV, kombi, hatchback"
-                  value={getTechnicalParam("bodyType")}
-                  onChange={(event) =>
-                    updateTechnicalParam("bodyType", event.target.value)
-                  }
-                />
+                <div>
+                  <input
+                    placeholder="Kategorie / typ vozu, např. SUV, kombi, hatchback"
+                    value={getTechnicalParam("bodyType")}
+                    onChange={(event) =>
+                      updateTechnicalParam("bodyType", event.target.value)
+                    }
+                  />
+                  <p className="label">Kategorie / typ vozu</p>
+                </div>
               </div>
 
               <h3>Motor a pohon</h3>
               <div className="formGrid">
-                <input
-                  placeholder="Palivo"
-                  value={getTechnicalParam("fuel")}
-                  onChange={(event) =>
-                    updateTechnicalParam("fuel", event.target.value)
-                  }
-                />
+                <div>
+                  <input
+                    placeholder="Palivo"
+                    value={getTechnicalParam("fuel")}
+                    onChange={(event) =>
+                      updateTechnicalParam("fuel", event.target.value)
+                    }
+                  />
+                  <p className="label">Palivo</p>
+                </div>
 
-                <input
-                  placeholder="Objem motoru"
-                  value={getTechnicalParam("engine")}
-                  onChange={(event) =>
-                    updateTechnicalParam("engine", event.target.value)
-                  }
-                />
+                <div>
+                  <input
+                    placeholder="Objem motoru"
+                    value={getTechnicalParam("engine")}
+                    onChange={(event) =>
+                      updateTechnicalParam("engine", event.target.value)
+                    }
+                  />
+                  <p className="label">Objem motoru</p>
+                </div>
 
-                <input
-                  placeholder="Výkon kW"
-                  value={getTechnicalParam("powerKw")}
-                  onChange={(event) =>
-                    updateTechnicalParam("powerKw", event.target.value)
-                  }
-                />
+                <div>
+                  <input
+                    placeholder="Výkon kW"
+                    value={getTechnicalParam("powerKw")}
+                    onChange={(event) =>
+                      updateTechnicalParam("powerKw", event.target.value)
+                    }
+                  />
+                  <p className="label">Výkon kW</p>
+                </div>
 
-                <input
-                  placeholder="Převodovka"
-                  value={getTechnicalParam("transmission")}
-                  onChange={(event) =>
-                    updateTechnicalParam("transmission", event.target.value)
-                  }
-                />
+                <div>
+                  <input
+                    placeholder="Převodovka"
+                    value={getTechnicalParam("transmission")}
+                    onChange={(event) =>
+                      updateTechnicalParam("transmission", event.target.value)
+                    }
+                  />
+                  <p className="label">Převodovka</p>
+                </div>
 
-                <input
-                  placeholder="Pohon, např. přední, 4x4"
-                  value={getTechnicalParam("drive")}
-                  onChange={(event) =>
-                    updateTechnicalParam("drive", event.target.value)
-                  }
-                />
+                <div>
+                  <input
+                    placeholder="Pohon, např. přední, 4x4"
+                    value={getTechnicalParam("drive")}
+                    onChange={(event) =>
+                      updateTechnicalParam("drive", event.target.value)
+                    }
+                  />
+                  <p className="label">Pohon</p>
+                </div>
 
               </div>
 
@@ -1486,9 +1516,7 @@ const remainingEquipment = equipmentItems.filter(
                       updateTechnicalParam("doors", event.target.value)
                     }
                   />
-                  {getTechnicalParam("doors") && (
-                    <p className="label">Počet dveří: {getTechnicalParam("doors")}</p>
-                  )}
+                  <p className="label">Počet dveří</p>
                 </div>
 
                 <div>
@@ -1499,49 +1527,59 @@ const remainingEquipment = equipmentItems.filter(
                       updateTechnicalParam("seats", event.target.value)
                     }
                   />
-                  {getTechnicalParam("seats") && (
-                    <p className="label">Počet sedadel: {getTechnicalParam("seats")}</p>
-                  )}
+                  <p className="label">Počet sedadel</p>
                 </div>
 
-                <input
-                  placeholder="Barva"
-                  value={getTechnicalParam("color")}
-                  onChange={(event) =>
-                    updateTechnicalParam("color", event.target.value)
-                  }
-                />
+                <div>
+                  <input
+                    placeholder="Barva"
+                    value={getTechnicalParam("color")}
+                    onChange={(event) =>
+                      updateTechnicalParam("color", event.target.value)
+                    }
+                  />
+                  <p className="label">Barva</p>
+                </div>
               </div>
 
               <h3>Registrace a nájezd</h3>
               <div className="formGrid">
-                <input
-                  placeholder="První registrace"
-                  value={getTechnicalParam("firstRegistration")}
-                  onChange={(event) =>
-                    updateTechnicalParam(
-                      "firstRegistration",
-                      event.target.value
-                    )
-                  }
-                />
+                <div>
+                  <input
+                    placeholder="První registrace"
+                    value={getTechnicalParam("firstRegistration")}
+                    onChange={(event) =>
+                      updateTechnicalParam(
+                        "firstRegistration",
+                        event.target.value
+                      )
+                    }
+                  />
+                  <p className="label">První registrace</p>
+                </div>
 
-                <input
-                  placeholder="Rok výroby"
-                  value={getTechnicalParam("productionYear")}
-                  onChange={(event) =>
-                    updateTechnicalParam("productionYear", event.target.value)
-                  }
-                />
+                <div>
+                  <input
+                    placeholder="Rok výroby"
+                    value={getTechnicalParam("productionYear")}
+                    onChange={(event) =>
+                      updateTechnicalParam("productionYear", event.target.value)
+                    }
+                  />
+                  <p className="label">Rok výroby</p>
+                </div>
 
-                <input
-                  type="date"
-                  placeholder="STK do"
-                  value={getTechnicalParam("stkValidUntil")}
-                  onChange={(event) =>
-                    updateTechnicalParam("stkValidUntil", event.target.value)
-                  }
-                />
+                <div>
+                  <input
+                    type="date"
+                    placeholder="STK do"
+                    value={getTechnicalParam("stkValidUntil")}
+                    onChange={(event) =>
+                      updateTechnicalParam("stkValidUntil", event.target.value)
+                    }
+                  />
+                  <p className="label">STK do</p>
+                </div>
 
               </div>
             </div>
@@ -1667,136 +1705,163 @@ const remainingEquipment = equipmentItems.filter(
               <h2>Historie CEBIA</h2>
 
               <div className="formGrid">
-                <input
-                  placeholder="Počet majitelů"
-                  value={selectedCar.cebiaHistory?.owners || ""}
-                  onChange={(event) =>
-                    updateCar({
-                      ...selectedCar,
-                      cebiaHistory: {
-                        ...selectedCar.cebiaHistory,
-                        owners: event.target.value,
-                      },
-                    })
-                  }
-                />
+                <div>
+                  <input
+                    placeholder="Počet majitelů"
+                    value={selectedCar.cebiaHistory?.owners || ""}
+                    onChange={(event) =>
+                      updateCar({
+                        ...selectedCar,
+                        cebiaHistory: {
+                          ...selectedCar.cebiaHistory,
+                          owners: event.target.value,
+                        },
+                      })
+                    }
+                  />
+                  <p className="label">Počet majitelů / provozovatelů</p>
+                </div>
 
-                <input
-                  placeholder="Země původu"
-                  value={selectedCar.cebiaHistory?.countryOfOrigin || ""}
-                  onChange={(event) =>
-                    updateCar({
-                      ...selectedCar,
-                      cebiaHistory: {
-                        ...selectedCar.cebiaHistory,
-                        countryOfOrigin: event.target.value,
-                      },
-                    })
-                  }
-                />
+                <div>
+                  <input
+                    placeholder="Země původu"
+                    value={selectedCar.cebiaHistory?.countryOfOrigin || ""}
+                    onChange={(event) =>
+                      updateCar({
+                        ...selectedCar,
+                        cebiaHistory: {
+                          ...selectedCar.cebiaHistory,
+                          countryOfOrigin: event.target.value,
+                        },
+                      })
+                    }
+                  />
+                  <p className="label">Země původu</p>
+                </div>
 
-                <input
-                  placeholder="Financování / leasing"
-                  value={selectedCar.cebiaHistory?.financing || ""}
-                  onChange={(event) =>
-                    updateCar({
-                      ...selectedCar,
-                      cebiaHistory: {
-                        ...selectedCar.cebiaHistory,
-                        financing: event.target.value,
-                      },
-                    })
-                  }
-                />
+                <div>
+                  <input
+                    placeholder="Financování / leasing"
+                    value={selectedCar.cebiaHistory?.financing || ""}
+                    onChange={(event) =>
+                      updateCar({
+                        ...selectedCar,
+                        cebiaHistory: {
+                          ...selectedCar.cebiaHistory,
+                          financing: event.target.value,
+                        },
+                      })
+                    }
+                  />
+                  <p className="label">Financování</p>
+                </div>
 
-                <input
-                  placeholder="Taxi / půjčovna"
-                  value={selectedCar.cebiaHistory?.taxiOrRental || ""}
-                  onChange={(event) =>
-                    updateCar({
-                      ...selectedCar,
-                      cebiaHistory: {
-                        ...selectedCar.cebiaHistory,
-                        taxiOrRental: event.target.value,
-                      },
-                    })
-                  }
-                />
+                <div>
+                  <input
+                    placeholder="Taxi / půjčovna"
+                    value={selectedCar.cebiaHistory?.taxiOrRental || ""}
+                    onChange={(event) =>
+                      updateCar({
+                        ...selectedCar,
+                        cebiaHistory: {
+                          ...selectedCar.cebiaHistory,
+                          taxiOrRental: event.target.value,
+                        },
+                      })
+                    }
+                  />
+                  <p className="label">Taxi / půjčovna</p>
+                </div>
 
-                <input
-                  placeholder="Dovoz / import"
-                  value={selectedCar.cebiaHistory?.importInfo || ""}
-                  onChange={(event) =>
-                    updateCar({
-                      ...selectedCar,
-                      cebiaHistory: {
-                        ...selectedCar.cebiaHistory,
-                        importInfo: event.target.value,
-                      },
-                    })
-                  }
-                />
+                <div>
+                  <input
+                    placeholder="Dovoz / import"
+                    value={selectedCar.cebiaHistory?.importInfo || ""}
+                    onChange={(event) =>
+                      updateCar({
+                        ...selectedCar,
+                        cebiaHistory: {
+                          ...selectedCar.cebiaHistory,
+                          importInfo: event.target.value,
+                        },
+                      })
+                    }
+                  />
+                  <p className="label">Import / registrace</p>
+                </div>
               </div>
 
               <h3>Historie škod</h3>
-              <textarea
-                placeholder="Škody / pojistné události"
-                value={selectedCar.cebiaHistory?.damageHistory || ""}
-                onChange={(event) =>
-                  updateCar({
-                    ...selectedCar,
-                    cebiaHistory: {
-                      ...selectedCar.cebiaHistory,
-                      damageHistory: event.target.value,
-                    },
-                  })
-                }
-              />
+              <div>
+                <textarea
+                  placeholder="Škody / pojistné události"
+                  value={selectedCar.cebiaHistory?.damageHistory || ""}
+                  onChange={(event) =>
+                    updateCar({
+                      ...selectedCar,
+                      cebiaHistory: {
+                        ...selectedCar.cebiaHistory,
+                        damageHistory: event.target.value,
+                      },
+                    })
+                  }
+                />
+                <p className="label">Historie poškození</p>
+              </div>
 
               <h3>Historie kilometrů</h3>
-              <textarea
-                placeholder="Historie kilometrů"
-                value={selectedCar.cebiaHistory?.mileageHistory || ""}
-                onChange={(event) =>
-                  updateCar({
-                    ...selectedCar,
-                    cebiaHistory: {
-                      ...selectedCar.cebiaHistory,
-                      mileageHistory: event.target.value,
-                    },
-                  })
-                }
-              />
+              <div>
+                <textarea
+                  placeholder="Historie kilometrů"
+                  value={selectedCar.cebiaHistory?.mileageHistory || ""}
+                  onChange={(event) =>
+                    updateCar({
+                      ...selectedCar,
+                      cebiaHistory: {
+                        ...selectedCar.cebiaHistory,
+                        mileageHistory: event.target.value,
+                      },
+                    })
+                  }
+                />
+                <p className="label">Historie tachometru</p>
+              </div>
 
               <h3>Podezření na stočení km</h3>
-              <textarea
-                placeholder="Podezření / nesrovnalosti v km"
-                value={selectedCar.cebiaHistory?.mileageSuspicion || ""}
-                onChange={(event) =>
-                  updateCar({
-                    ...selectedCar,
-                    cebiaHistory: {
-                      ...selectedCar.cebiaHistory,
-                      mileageSuspicion: event.target.value,
-                    },
-                  })
-                }
-              />
+              <div>
+                <textarea
+                  placeholder="Podezření / nesrovnalosti v km"
+                  value={selectedCar.cebiaHistory?.mileageSuspicion || ""}
+                  onChange={(event) =>
+                    updateCar({
+                      ...selectedCar,
+                      cebiaHistory: {
+                        ...selectedCar.cebiaHistory,
+                        mileageSuspicion: event.target.value,
+                      },
+                    })
+                  }
+                />
+                <p className="label">Podezření na stav km</p>
+              </div>
 
               <h3>Rizikové poznámky</h3>
-              <textarea
-                placeholder="Rizika z CEBIA"
-                value={selectedCar.cebiaHistory?.riskNotes || ""}
-                onChange={(event) =>
-                  updateCar({
-                    ...selectedCar,
-                    cebiaHistory: {
-                      ...selectedCar.cebiaHistory,
-                      riskNotes: event.target.value,
-                    },
-                  })
-                }
-              />
+              <div>
+                <textarea
+                  placeholder="Rizika z CEBIA"
+                  value={selectedCar.cebiaHistory?.riskNotes || ""}
+                  onChange={(event) =>
+                    updateCar({
+                      ...selectedCar,
+                      cebiaHistory: {
+                        ...selectedCar.cebiaHistory,
+                        riskNotes: event.target.value,
+                      },
+                    })
+                  }
+                />
+                <p className="label">Rizikové poznámky</p>
+              </div>
 
               {selectedCar.aiCebiaReport && (
                 <div className="aiReport">
