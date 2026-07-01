@@ -21,7 +21,6 @@ const emptyChecklist = {
   "Počet klíčů 2x": false,
   "Kontrola CEBIA / CarVertical": false,
   "Mechanická prohlídka + diagnostika": false,
-  "Platnost STK": "",
 };
 
 const equipmentItems = [
@@ -159,6 +158,7 @@ function prepareCar(car) {
     valuationDate: car.valuation_date || "",
     saleEstimate: car.sale_estimate || "",
     buyEstimate: car.buy_estimate || "",
+    customerExpectedPrice: car.customer_expected_price || "",
     approvedPrice: car.approved_price || "",
     aiTechnicalReport: car.ai_technical_report || "",
     aiDocumentReport: car.ai_document_report || "",
@@ -172,8 +172,7 @@ function isChecklistComplete(checklist = {}) {
     Boolean(checklist["Provedeno čištění"]) &&
     Boolean(checklist["Počet klíčů 2x"]) &&
     Boolean(checklist["Kontrola CEBIA / CarVertical"]) &&
-    Boolean(checklist["Mechanická prohlídka + diagnostika"]) &&
-    Boolean(checklist["Platnost STK"])
+    Boolean(checklist["Mechanická prohlídka + diagnostika"])
   );
 }
 
@@ -422,6 +421,7 @@ const remainingEquipment = equipmentItems.filter(
         valuation_date: updatedWithUser.valuationDate || null,
         sale_estimate: updatedWithUser.saleEstimate || null,
         buy_estimate: updatedWithUser.buyEstimate || null,
+        customer_expected_price: updatedWithUser.customerExpectedPrice || null,
         approved_price: updatedWithUser.approvedPrice || null,
         ai_technical_report: updatedWithUser.aiTechnicalReport || null,
         ai_document_report: updatedWithUser.aiDocumentReport || null,
@@ -459,6 +459,7 @@ const remainingEquipment = equipmentItems.filter(
       valuation_date: null,
       sale_estimate: null,
       buy_estimate: null,
+      customer_expected_price: null,
       approved_price: null,
       ai_technical_report: null,
       ai_document_report: null,
@@ -717,18 +718,6 @@ const remainingEquipment = equipmentItems.filter(
       checklist: {
         ...selectedCar.checklist,
         [item]: !selectedCar.checklist[item],
-      },
-    });
-  }
-
-  function updateStk(value) {
-    if (!selectedCar) return;
-
-    updateCar({
-      ...selectedCar,
-      checklist: {
-        ...selectedCar.checklist,
-        "Platnost STK": value,
       },
     });
   }
@@ -1583,7 +1572,7 @@ const remainingEquipment = equipmentItems.filter(
                 </div>
 
                 <div>
-                  <p className="label">STK do</p>
+                  <p className="label">Platnost STK / STK do</p>
                   <input
                     type="date"
                     placeholder="STK do"
@@ -1648,9 +1637,7 @@ const remainingEquipment = equipmentItems.filter(
             <div className="card decision" ref={moduleContentRef}>
               <h2>Administrativa vozu</h2>
 
-              {Object.keys(emptyChecklist)
-                .filter((item) => item !== "Platnost STK")
-                .map((item) => (
+              {Object.keys(emptyChecklist).map((item) => (
                   <label key={item} className="checkItem">
                     <input
                       type="checkbox"
@@ -1660,15 +1647,6 @@ const remainingEquipment = equipmentItems.filter(
                     {item}
                   </label>
                 ))}
-
-              <div className="stkBox">
-                <label>Platnost STK</label>
-                <input
-                  type="date"
-                  value={selectedCar.checklist["Platnost STK"] || ""}
-                  onChange={(event) => updateStk(event.target.value)}
-                />
-              </div>
 
               <h3>TP / doklad</h3>
               <input type="file" accept="image/*,.pdf" onChange={addTechnicalCardPhoto} />
@@ -1993,6 +1971,24 @@ const remainingEquipment = equipmentItems.filter(
                     value={selectedCar.buyEstimate ?? ""}
                     onChange={(event) =>
                       updateValuationPrice("buyEstimate", event.target.value)
+                    }
+                    style={{ width: "100%" }}
+                  />
+                </div>
+
+                <div>
+                  <p className="label">Představa zákazníka</p>
+                  <input
+                    type="number"
+                    min="0"
+                    step="1"
+                    placeholder="Představa zákazníka"
+                    value={selectedCar.customerExpectedPrice ?? ""}
+                    onChange={(event) =>
+                      updateValuationPrice(
+                        "customerExpectedPrice",
+                        event.target.value
+                      )
                     }
                     style={{ width: "100%" }}
                   />
