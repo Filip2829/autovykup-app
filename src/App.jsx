@@ -160,6 +160,8 @@ function prepareCar(car) {
     buyEstimate: car.buy_estimate || "",
     customerExpectedPrice: car.customer_expected_price || "",
     approvedPrice: car.approved_price || "",
+    dealType: car.deal_type || "buyout",
+    tradeInSource: car.trade_in_source || "",
     aiTechnicalReport: car.ai_technical_report || "",
     aiDocumentReport: car.ai_document_report || "",
     aiCebiaReport: car.ai_cebia_report || "",
@@ -423,6 +425,8 @@ const remainingEquipment = equipmentItems.filter(
         buy_estimate: updatedWithUser.buyEstimate || null,
         customer_expected_price: updatedWithUser.customerExpectedPrice || null,
         approved_price: updatedWithUser.approvedPrice || null,
+        deal_type: updatedWithUser.dealType || null,
+        trade_in_source: updatedWithUser.tradeInSource || null,
         ai_technical_report: updatedWithUser.aiTechnicalReport || null,
         ai_document_report: updatedWithUser.aiDocumentReport || null,
         ai_cebia_report: updatedWithUser.aiCebiaReport || null,
@@ -461,6 +465,8 @@ const remainingEquipment = equipmentItems.filter(
       buy_estimate: null,
       customer_expected_price: null,
       approved_price: null,
+      deal_type: "buyout",
+      trade_in_source: null,
       ai_technical_report: null,
       ai_document_report: null,
       ai_cebia_report: null,
@@ -1901,6 +1907,40 @@ const remainingEquipment = equipmentItems.filter(
 
           {module === "notes" && (
             <div className="card decision" ref={moduleContentRef}>
+              <h2>Obchodní informace</h2>
+
+              <div className="formGrid">
+                <div>
+                  <p className="label">Typ obchodu</p>
+                  <select
+                    value={selectedCar.dealType || "buyout"}
+                    onChange={(event) =>
+                      updateCar({ ...selectedCar, dealType: event.target.value })
+                    }
+                  >
+                    <option value="buyout">Výkup</option>
+                    <option value="trade_in">Protiúčet</option>
+                    <option value="commission">Komise</option>
+                  </select>
+                </div>
+
+                <div>
+                  <p className="label">Prodejce / pobočka / zdroj protiúčtu</p>
+                  <input
+                    placeholder="Prodejce / pobočka / zdroj protiúčtu"
+                    value={selectedCar.tradeInSource || ""}
+                    onChange={(event) =>
+                      updateCar({
+                        ...selectedCar,
+                        tradeInSource: event.target.value,
+                      })
+                    }
+                  />
+                </div>
+              </div>
+
+              <hr />
+
               <h2>Poznámky</h2>
 
               <textarea
