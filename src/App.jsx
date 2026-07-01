@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Camera,
   CheckCircle,
@@ -217,6 +217,7 @@ const remainingEquipment = equipmentItems.filter(
 );
   const [view, setView] = useState("home");
   const [module, setModule] = useState("overview");
+  const moduleContentRef = useRef(null);
   const [noteText, setNoteText] = useState("");
   const [problemText, setProblemText] = useState("");
   const [aiLoading, setAiLoading] = useState(false);
@@ -236,6 +237,18 @@ const remainingEquipment = equipmentItems.filter(
     vin: "",
     spz: "",
   });
+
+  function openModule(nextModule) {
+    setModule(nextModule);
+
+    requestAnimationFrame(() => {
+      const element = moduleContentRef.current;
+      if (!element) return;
+
+      const top = element.getBoundingClientRect().top + window.scrollY - 16;
+      window.scrollTo({ top, behavior: "smooth" });
+    });
+  }
 
   useEffect(() => {
     checkUser();
@@ -1319,13 +1332,13 @@ const remainingEquipment = equipmentItems.filter(
             <div className="module">
               <ClipboardList />
               <h3>Technické parametry</h3>
-              <button onClick={() => setModule("technical")}>Otevřít</button>
+              <button onClick={() => openModule("technical")}>Otevřít</button>
             </div>
 
             <div className="module">
               <Camera />
               <h3>Fotky vozu</h3>
-              <button onClick={() => setModule("photos")}>Otevřít</button>
+              <button onClick={() => openModule("photos")}>Otevřít</button>
             </div>
 
             <div className="module">
@@ -1334,7 +1347,7 @@ const remainingEquipment = equipmentItems.filter(
               <p className={checklistComplete ? "okText" : "badText"}>
                 {checklistComplete ? "Hotovo" : "Není hotovo"}
               </p>
-              <button onClick={() => setModule("checklist")}>Otevřít</button>
+              <button onClick={() => openModule("checklist")}>Otevřít</button>
             </div>
 
             <div className="module">
@@ -1343,19 +1356,19 @@ const remainingEquipment = equipmentItems.filter(
               <p className={selectedCar.aiCebiaReport ? "okText" : ""}>
                 {selectedCar.aiCebiaReport ? "Vyhodnoceno" : "Zatím nevyhodnoceno"}
               </p>
-              <button onClick={() => setModule("cebiaHistory")}>Otevřít</button>
+              <button onClick={() => openModule("cebiaHistory")}>Otevřít</button>
             </div>
 
             <div className="module">
               <Star />
               <h3>Výbava</h3>
-              <button onClick={() => setModule("equipment")}>Otevřít</button>
+              <button onClick={() => openModule("equipment")}>Otevřít</button>
             </div>
 
             <div className="module">
               <MessageCircle />
               <h3>Poznámky + AI</h3>
-              <button onClick={() => setModule("notes")}>Otevřít</button>
+              <button onClick={() => openModule("notes")}>Otevřít</button>
             </div>
 
             <div className="module">
@@ -1364,12 +1377,12 @@ const remainingEquipment = equipmentItems.filter(
               <p className={valuationComplete ? "okText" : ""}>
                 {valuationComplete ? "Hotovo" : "Zatím neprovedeno"}
               </p>
-              <button onClick={() => setModule("valuation")}>Otevřít</button>
+              <button onClick={() => openModule("valuation")}>Otevřít</button>
             </div>
           </div>
 
           {module === "technical" && (
-            <div className="card decision">
+            <div className="card decision" ref={moduleContentRef}>
               <h2>Technické parametry vozidla</h2>
 
               <button
@@ -1586,7 +1599,7 @@ const remainingEquipment = equipmentItems.filter(
           )}
 
           {module === "photos" && (
-            <div className="card decision">
+            <div className="card decision" ref={moduleContentRef}>
               <h2>Fotky vozu</h2>
 
               <label className="uploadBox">
@@ -1632,7 +1645,7 @@ const remainingEquipment = equipmentItems.filter(
           )}
 
           {module === "checklist" && (
-            <div className="card decision">
+            <div className="card decision" ref={moduleContentRef}>
               <h2>Administrativa vozu</h2>
 
               {Object.keys(emptyChecklist)
@@ -1701,7 +1714,7 @@ const remainingEquipment = equipmentItems.filter(
           )}
 
           {module === "cebiaHistory" && (
-            <div className="card decision">
+            <div className="card decision" ref={moduleContentRef}>
               <h2>Historie CEBIA</h2>
 
               <div className="formGrid">
@@ -1873,7 +1886,7 @@ const remainingEquipment = equipmentItems.filter(
           )}
 
           {module === "equipment" && (
-            <div className="card decision">
+            <div className="card decision" ref={moduleContentRef}>
               <h2>Výbava vozu</h2>
 
               <h3>Zjištěná výbava</h3>
@@ -1909,7 +1922,7 @@ const remainingEquipment = equipmentItems.filter(
           )}
 
           {module === "notes" && (
-            <div className="card decision">
+            <div className="card decision" ref={moduleContentRef}>
               <h2>Poznámky</h2>
 
               <textarea
@@ -1954,7 +1967,7 @@ const remainingEquipment = equipmentItems.filter(
           )}
 
           {module === "valuation" && (
-            <div className="card decision">
+            <div className="card decision" ref={moduleContentRef}>
               <h2>Nacenění vozu</h2>
 
               <div className="formGrid">
