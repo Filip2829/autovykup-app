@@ -1,77 +1,92 @@
-# Codex workflow pro AutoVykup
+# AutoVykup - Master Workflow v2 pro Codex
 
-Tento soubor definuje pravidla pro dalsi praci Codexu v projektu AutoVykup.
-Cilem je drzet zmeny male, kontrolovatelne a bez zasahu do nesouvisejicich casti aplikace.
+Tento dokument urcuje zavazny postup pro dalsi praci s Codexem v projektu AutoVykup.
+Cilem je delat male, citelne a overitelne zmeny bez zmatku mezi lokalnim projektem,
+GitHubem a Vercel.
 
-## Audit projektu
+## A) Zakladni pravidla
 
-- Hlavni repozitar: `/workspaces/autovykup-app`
-- Aktualni lokalni cesta v tomto behu: `C:/Users/filip.kralik/Documents/autovykup-app`
-- Git top-level: `C:/Users/filip.kralik/Documents/autovykup-app`
-- Vetev pri auditu: `main`
-- Stav pri auditu: `main...origin/main [ahead 2]`, zmeneny `README.md`, necommitnute dokumentacni soubory `ARCHITECTURE.md`, `BACKLOG.md`, `CHANGELOG.md`, `DEVELOPMENT_GUIDE.md`, `PRODUCT_VISION.md`, `PROJECT.md`, `ROADMAP.md`, `TASKS.md`
-- Posledni commit pri auditu: `c074ae3d9a24c12c0056c4f3306f40d69937735e` - `UI popisky technickych parametru`
-- Hlavni vstup aplikace: `src/main.jsx`
-- Hlavni komponenta aplikace: `src/App.jsx`
-- Styl aplikace: `src/App.css`, `src/index.css`
-- Supabase klient: `src/supabase.js`
-- Supabase edge funkce: `supabase/functions/*`
-- Build konfigurace: `vite.config.js`, `package.json`
+- Pracovat pouze v `C:\Users\filip.kralik\Documents\autovykup-app`.
+- Nepouzivat GitHub Codespaces.
+- Nikdy nevytvaret kopii projektu.
+- Jedna zmena = jeden maly ukol.
+- Nemenit nesouvisejici casti aplikace.
+- Nemenit databazi bez vyslovneho schvaleni uzivatele.
+- Nepushovat bez potvrzeni uzivatele.
+- Pri existujicich necommitnutych zmenach uzivatele je nerevertovat a nestagovat bez potvrzeni.
+- Commitovat pouze soubory, ktere patri k danemu ukolu.
 
-## Hlavni moduly v App.jsx
+## B) Povinny postup pred kazdou zmenou
 
-`src/App.jsx` je aktualne velky soubor s temito castmi:
+Pred jakoukoliv upravou musi Codex spustit:
 
-- konstanty a ciselniky: `emptyChecklist`, `equipmentItems`, `STATUS`
-- pomocne funkce: `getUsername`, `clone`, `normalizeArray`, `formatDate`, `prepareCar`, `calculateStatus`, `getWorkflow`
-- stav aplikace: seznam aut, vyhledavani, vybrane auto, aktivni view, aktivni modul, prihlaseny uzivatel, formular noveho auta, AI loading stavy
-- autentizace: `checkUser`, `signUp`, `signIn`, `signOut`
-- datove operace nad autem: `loadCars`, `createCar`, `updateCar`, `saveCarEdit`, `deleteCar`
-- soubory a fotky: `uploadFile`, `downloadPhoto`, `addPhoto`, `deletePhoto`, `addTechnicalCardPhoto`, `deleteTechnicalCard`, `addCebiaFile`, `deleteCebiaFile`
-- editace detailu auta: checklist, STK, vybava, technicke parametry, naceneni, poznamky
-- AI akce: `analyzeVehicleTechnicalData`, `analyzeDocuments`, `analyzeTechnicalProblem`
-- UI moduly rizene hodnotou `module`: `technical`, `photos`, `checklist`, `cebiaHistory`, `equipment`, `notes`, `valuation`
+```powershell
+pwd
+git status
+git log --oneline -5
+git rev-parse --show-toplevel
+```
 
-## Pravidla vyvoje pro Codex
+Kontrola musi potvrdit:
 
-- Pracuj pouze v `/workspaces/autovykup-app`.
-- Nikdy nevytvarej kopii projektu.
-- Jedna zmena = jeden ukol.
-- Pred kazdou upravou vzdy spust `git status`.
-- Po kazde uprave vzdy ukaz `git diff`.
-- Pred commitem vzdy spust build.
-- Nepushuj na GitHub bez vyslovneho potvrzeni.
-- Nemen databazi bez vyslovneho zadani.
-- Nemen nesouvisejici casti aplikace.
-- Pokud si nejsi jisty, zastav se a zeptej se.
-- U UI zmen vzdy uved presne soubory a casti kodu, kterych se zmena tyka.
-- Pri existujicich necommitnutych zmenach uzivatele je nerevertuj a nestaguj je bez potvrzeni.
-- Commituj pouze soubory, ktere patri k danemu ukolu.
+- projekt bezi lokalne v `C:\Users\filip.kralik\Documents\autovykup-app`
+- nejde o GitHub Codespaces ani jinou kopii projektu
+- jsou zname aktualni necommitnute soubory
+- dalsi zmena je dost mala a presne ohranicena
 
-## Doporuceny dalsi architektonicky krok
+## C) Povinny postup po zmene
 
-`src/App.jsx` rozdelovat postupne, bez zmeny chovani a bez soucasneho redesignu UI.
+Po kazde zmene musi Codex:
 
-Prvni bezpecny krok:
+```powershell
+git status --short
+git diff
+npm.cmd run build
+```
 
-1. Vyjmout ciste konstanty a pomocne funkce do samostatnych souboru:
-   - `src/constants/carWorkflow.js` pro `STATUS`, `emptyChecklist`, `equipmentItems`
-   - `src/utils/carData.js` pro `prepareCar`, `calculateStatus`, `getWorkflow`, formatovani dat a validace vyplnenych hodnot
-2. Pridat minimalni testy pro funkce `prepareCar`, `calculateStatus` a `isChecklistComplete`, aby dalsi presuny mely kontrolu chovani.
-3. Teprve potom oddelovat UI moduly podle hodnoty `module`:
-   - `TechnicalModule`
-   - `PhotosModule`
-   - `ChecklistModule`
-   - `CebiaHistoryModule`
-   - `EquipmentModule`
-   - `NotesModule`
-   - `ValuationModule`
-4. Datove operace nad Supabase presunout az pozdeji do hooku nebo service vrstvy, napriklad `useCarsRepository`, protoze maji nejvetsi riziko behavioralnich regresi.
+Pravidla po buildu:
 
-Snizeni rizika pri dalsich upravach:
+- vypsat zmenene soubory
+- ukazat konkretni `git diff`
+- pokud build selze, necommitovat
+- pokud build projde, navrhnout commit
+- nepushovat bez dalsiho potvrzeni uzivatele
 
-- delat vzdy jeden maly presun bez funkcni zmeny
-- po kazdem kroku spustit build
-- porovnat `git diff` a overit, ze se nemenila business logika
-- pri UI modulech nejdrive jen presunout JSX a predat existujici handlery pres props
-- teprve po stabilnim rozdeleni resit zjednoduseni stavu, hooky a testy
+## D) Doporuceny vyvojovy cyklus
+
+1. Codex udela jednu malou zmenu.
+2. Codex ukaze zmenene soubory, diff a vysledek buildu.
+3. Uzivatel otestuje aplikaci na `localhost:5173`.
+4. Uzivatel potvrdi, ze zmena je v poradku.
+5. Codex vytvori commit.
+6. Uzivatel potvrdi push.
+7. Codex pushne zmenu.
+8. Overi se Vercel deployment.
+
+## E) Pravidla pro UI zmeny
+
+- Nejdriv najit presny modul, ktery se ma menit.
+- Upravovat pouze dany modul a souvisejici styly.
+- Nemenit texty, logiku ani rozlozeni mimo zadany modul.
+- U vetsich zmen preferovat refaktor do komponent misto dalsiho zvetsovani `src/App.jsx`.
+- Vzdy ukazat konkretni `git diff`.
+- Pokud UI zmena muze ovlivnit data nebo workflow, zastavit se a vyzadat potvrzeni.
+
+## F) Doporucena architektura do budoucna
+
+`src/App.jsx` rozdelovat postupne a po malych krocich bez soucasne zmeny chovani.
+
+Doporucene poradi:
+
+1. Zacit modulem `TechnicalParameters`.
+2. Potom oddelit `CebiaHistory`.
+3. Potom oddelit `Notes`.
+4. Potom oddelit `Valuation`.
+
+Pravidla pro sdilene casti:
+
+- spolecne definice poli davat do `src/data`
+- helper funkce davat do `src/utils`
+- presuny delat bez zmeny business logiky
+- po kazdem kroku spustit `npm.cmd run build`
+- pri vetsim presunu pridat nebo upravit testy tam, kde to snizi riziko regresi
