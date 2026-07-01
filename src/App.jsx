@@ -62,6 +62,24 @@ const equipmentItems = [
   "Vzduchový podvozek",
 ];
 
+const vehicleDocumentCategories = [
+  "Servisní knížka",
+  "Faktura",
+  "Servisní zakázka",
+  "Diagnostika",
+  "STK",
+  "Emise",
+  "Kupní smlouva",
+  "Jiný dokument",
+];
+
+const emptyVehicleDocumentForm = {
+  category: "Servisní knížka",
+  title: "",
+  documentDate: "",
+  description: "",
+};
+
 const STATUS = {
   MISSING_DOCS: "Chybí podklady",
   READY_FOR_VALUATION: "Připraveno k nacenění",
@@ -168,6 +186,29 @@ function prepareCar(car) {
   };
 }
 
+function prepareVehicleDocument(document) {
+  return {
+    ...document,
+    documentDate: document.document_date || "",
+    filePath: document.file_path || "",
+    fileName: document.file_name || "",
+    fileSize: document.file_size || 0,
+    mimeType: document.mime_type || "",
+    uploadedBy: document.uploaded_by || "",
+    createdAt: document.created_at || "",
+    aiSummary: document.ai_summary || "",
+    aiProcessed: Boolean(document.ai_processed),
+    isVisibleToCustomer: Boolean(document.is_visible_to_customer),
+  };
+}
+
+function formatFileSize(size) {
+  const bytes = Number(size) || 0;
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} kB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
 function isChecklistComplete(checklist = {}) {
   return (
     Boolean(checklist["Servisní historie"]) &&
@@ -221,6 +262,12 @@ const remainingEquipment = equipmentItems.filter(
   const moduleContentRef = useRef(null);
   const [noteText, setNoteText] = useState("");
   const [problemText, setProblemText] = useState("");
+  const [vehicleDocuments, setVehicleDocuments] = useState([]);
+  const [vehicleDocumentsLoading, setVehicleDocumentsLoading] = useState(false);
+  const [vehicleDocumentForm, setVehicleDocumentForm] = useState({
+    ...emptyVehicleDocumentForm,
+  });
+  const [vehicleDocumentFile, setVehicleDocumentFile] = useState(null);
   const [aiLoading, setAiLoading] = useState(false);
   const [documentAiLoading, setDocumentAiLoading] = useState(false);
   const [technicalAiLoading, setTechnicalAiLoading] = useState(false);
@@ -267,6 +314,14 @@ const remainingEquipment = equipmentItems.filter(
 
     return () => subscription.unsubscribe();
   }, []);
+
+  useEffect(() => {
+    if (view === "detail" && selectedCar?.id) {
+      loadVehicleDocuments(selectedCar.id);
+    } else {
+      setVehicleDocuments([]);
+    }
+  }, [selectedCar?.id, view]);
 
   function createEmailFromUsername() {
     return `${username}@autovykup.local`;
@@ -363,6 +418,8 @@ const remainingEquipment = equipmentItems.filter(
     setEditMode(false);
     setNoteText("");
     setProblemText("");
+    setVehicleDocumentForm({ ...emptyVehicleDocumentForm });
+    setVehicleDocumentFile(null);
   }
 
   function validateRequiredCarFields(car) {
@@ -588,6 +645,153 @@ const remainingEquipment = equipmentItems.filter(
     const { data } = supabase.storage.from("car-photos").getPublicUrl(fileName);
     return data.publicUrl;
   }
+
+  async function loadVehicleDocuments(carId) {
+    if (!carId) return;
+
+    setVehicleDocumentsLoading(true);
+
+    const { data, error } = await supabase
+      .from("vehicle_documents")
+      .select("*")
+      .eq("car_id", carId)
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      console.error(error);
+      alert(error.message);
+      setVehicleDocumentsLoading(false);
+      return;
+    }
+
+    setVehicleDocuments((data || []).map(prepareVehicleDocument));
+    setVehicleDocumentsLoading(false);
+  }
+
+  async function addVehicleDocument(event) {
+    event.preventDefault();
+    const formElement = event.currentTarget;
+
+    if (!selectedCar || !vehicleDocumentFile) {
+      alert("Vyber dokument k nahrání.");
+      return;
+    }
+
+    const allowedTypes = ["application/pdf", "image/jpeg", "image/png"];
+    if (!allowedTypes.includes(vehicleDocumentFile.type)) {
+      alert("Povolené jsou pouze PDF, JPG, JPEG a PNG soubory.");
+      return;
+    }
+
+    const extension =
+      vehicleDocumentFile.name.split(".").pop()?.toLowerCase() || "file";
+    const documentId =
+      typeof crypto !== "undefined" && crypto.randomUUID
+        ? crypto.randomUUID()
+        : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    const filePath = `${selectedCar.id}/${documentId}.${extension}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from("vehicle-documents")
+      .upload(filePath, vehicleDocumentFile);
+
+    if (uploadError) {
+      alert(uploadError.message);
+      return;
+    }
+
+    const { data, error } = await supabase
+      .from("vehicle_documents")
+      .insert([
+        {
+          car_id: selectedCar.id,
+          title: vehicleDocumentForm.title.trim() || vehicleDocumentFile.name,
+          category: vehicleDocumentForm.category,
+          description: vehicleDocumentForm.description.trim() || null,
+          document_date: vehicleDocumentForm.documentDate || null,
+          file_path: filePath,
+          file_name: vehicleDocumentFile.name,
+          file_size: vehicleDocumentFile.size,
+          mime_type: vehicleDocumentFile.type || null,
+          uploaded_by: currentUsername,
+          ai_summary: null,
+          ai_processed: false,
+          is_visible_to_customer: false,
+        },
+      ])
+      .select()
+      .single();
+
+    if (error) {
+      await supabase.storage.from("vehicle-documents").remove([filePath]);
+      alert(error.message);
+      return;
+    }
+
+    setVehicleDocuments((currentDocuments) => [
+      prepareVehicleDocument(data),
+      ...currentDocuments,
+    ]);
+    setVehicleDocumentForm({ ...emptyVehicleDocumentForm });
+    setVehicleDocumentFile(null);
+    formElement.reset();
+  }
+
+  async function openVehicleDocument(document) {
+    const { data, error } = await supabase.storage
+      .from("vehicle-documents")
+      .createSignedUrl(document.filePath, 60);
+
+    if (error) {
+      alert(error.message);
+      return;
+    }
+
+    window.open(data.signedUrl, "_blank");
+  }
+
+  async function downloadVehicleDocument(document) {
+    const { data, error } = await supabase.storage
+      .from("vehicle-documents")
+      .download(document.filePath);
+
+    if (error) {
+      alert(error.message);
+      return;
+    }
+
+    const objectUrl = window.URL.createObjectURL(data);
+    const link = window.document.createElement("a");
+    link.href = objectUrl;
+    link.download = document.fileName || document.title || "dokument";
+    window.document.body.appendChild(link);
+    link.click();
+    window.document.body.removeChild(link);
+    window.URL.revokeObjectURL(objectUrl);
+  }
+
+  async function deleteVehicleDocument(document) {
+    const confirmDelete = window.confirm(
+      `Opravdu chceš smazat dokument ${document.title || document.fileName}?`
+    );
+    if (!confirmDelete) return;
+
+    const { error } = await supabase
+      .from("vehicle_documents")
+      .delete()
+      .eq("id", document.id);
+
+    if (error) {
+      alert(error.message);
+      return;
+    }
+
+    await supabase.storage.from("vehicle-documents").remove([document.filePath]);
+    setVehicleDocuments((currentDocuments) =>
+      currentDocuments.filter((item) => item.id !== document.id)
+    );
+  }
+
   async function downloadPhoto(url, index) {
   try {
     const response = await fetch(url);
@@ -1338,6 +1542,13 @@ const remainingEquipment = equipmentItems.filter(
 
             <div className="module">
               <ClipboardList />
+              <h3>Dokumenty vozidla</h3>
+              <p>{vehicleDocuments.length} dokumentů</p>
+              <button onClick={() => openModule("documents")}>Otevřít</button>
+            </div>
+
+            <div className="module">
+              <ClipboardList />
               <h3>Administrativa</h3>
               <p className={checklistComplete ? "okText" : "badText"}>
                 {checklistComplete ? "Hotovo" : "Není hotovo"}
@@ -1629,6 +1840,149 @@ const remainingEquipment = equipmentItems.filter(
                       <button
                         className="danger outlineDanger"
                         onClick={() => deletePhoto(index)}
+                      >
+                        Smazat
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {module === "documents" && (
+            <div className="card decision" ref={moduleContentRef}>
+              <h2>Dokumenty vozidla</h2>
+
+              <h3>Přidat dokument</h3>
+
+              <form onSubmit={addVehicleDocument}>
+                <div className="formGrid">
+                  <div>
+                    <p className="label">Kategorie</p>
+                    <select
+                      value={vehicleDocumentForm.category}
+                      onChange={(event) =>
+                        setVehicleDocumentForm({
+                          ...vehicleDocumentForm,
+                          category: event.target.value,
+                        })
+                      }
+                    >
+                      {vehicleDocumentCategories.map((category) => (
+                        <option key={category} value={category}>
+                          {category}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <p className="label">Název</p>
+                    <input
+                      placeholder="Název dokumentu"
+                      value={vehicleDocumentForm.title}
+                      onChange={(event) =>
+                        setVehicleDocumentForm({
+                          ...vehicleDocumentForm,
+                          title: event.target.value,
+                        })
+                      }
+                    />
+                  </div>
+
+                  <div>
+                    <p className="label">Datum dokumentu</p>
+                    <input
+                      type="date"
+                      value={vehicleDocumentForm.documentDate}
+                      onChange={(event) =>
+                        setVehicleDocumentForm({
+                          ...vehicleDocumentForm,
+                          documentDate: event.target.value,
+                        })
+                      }
+                    />
+                  </div>
+                </div>
+
+                <textarea
+                  placeholder="Popis"
+                  value={vehicleDocumentForm.description}
+                  onChange={(event) =>
+                    setVehicleDocumentForm({
+                      ...vehicleDocumentForm,
+                      description: event.target.value,
+                    })
+                  }
+                />
+
+                <label className="uploadBox">
+                  Vybrat PDF / JPG / JPEG / PNG
+                  <input
+                    type="file"
+                    accept=".pdf,image/jpeg,image/png"
+                    onChange={(event) =>
+                      setVehicleDocumentFile(event.target.files?.[0] || null)
+                    }
+                  />
+                </label>
+
+                {vehicleDocumentFile && (
+                  <p>
+                    {vehicleDocumentFile.name} ·{" "}
+                    {formatFileSize(vehicleDocumentFile.size)}
+                  </p>
+                )}
+
+                <button className="primary" type="submit">
+                  Přidat dokument
+                </button>
+              </form>
+
+              <hr />
+
+              {vehicleDocumentsLoading && <p>Načítám dokumenty...</p>}
+
+              {!vehicleDocumentsLoading && vehicleDocuments.length === 0 && (
+                <p>Zatím nejsou nahrané žádné dokumenty.</p>
+              )}
+
+              <div className="fileList">
+                {vehicleDocuments.map((document) => (
+                  <div key={document.id} className="fileRow">
+                    <div>
+                      <strong>{document.title}</strong>
+                      <p className="label">
+                        {document.category}
+                        {document.documentDate
+                          ? ` · ${formatDate(document.documentDate)}`
+                          : ""}
+                      </p>
+                      {document.description && <p>{document.description}</p>}
+                      <p className="label">
+                        {document.fileName} · {formatFileSize(document.fileSize)}
+                      </p>
+                    </div>
+
+                    <div className="photoActions">
+                      <button
+                        className="primary outline"
+                        onClick={() => openVehicleDocument(document)}
+                      >
+                        Otevřít
+                      </button>
+
+                      <button
+                        className="primary outline"
+                        onClick={() => downloadVehicleDocument(document)}
+                      >
+                        Stáhnout
+                      </button>
+
+                      <button
+                        className="danger outlineDanger"
+                        onClick={() => deleteVehicleDocument(document)}
                       >
                         Smazat
                       </button>

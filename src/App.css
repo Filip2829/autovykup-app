@@ -253,6 +253,7 @@ h2 {
 }
 
 .formGrid input,
+.formGrid select,
 textarea {
   background: rgba(255,255,255,0.035);
   border: 1px solid rgba(255,255,255,0.08);
@@ -260,6 +261,10 @@ textarea {
   padding: 14px;
   color: white;
   font-size: 15px;
+}
+
+.formGrid select {
+  width: 100%;
 }
 
 textarea {
@@ -683,6 +688,15 @@ input[type="checkbox"] {
   border-radius: 999px;
   text-decoration: none;
   font-weight: 800;
+}
+
+.fileRow {
+  display: flex;
+  width: 100%;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  flex-wrap: wrap;
 }
 
 .aiReport {
