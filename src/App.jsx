@@ -107,6 +107,13 @@ function hasFilledValue(value) {
   return value !== null && value !== undefined && String(value).trim() !== "";
 }
 
+function toNullableNumber(value) {
+  if (value === "" || value === null || value === undefined) return null;
+
+  const numberValue = Number(value);
+  return Number.isNaN(numberValue) ? null : numberValue;
+}
+
 function isValuationComplete(car) {
   return (
     hasFilledValue(car?.valuationDate ?? car?.valuation_date) &&
@@ -173,11 +180,11 @@ function prepareCar(car) {
       car.cebia_history && typeof car.cebia_history === "object"
         ? clone(car.cebia_history, {})
         : {},
-    valuationDate: car.valuation_date || "",
-    saleEstimate: car.sale_estimate || "",
-    buyEstimate: car.buy_estimate || "",
-    customerExpectedPrice: car.customer_expected_price || "",
-    approvedPrice: car.approved_price || "",
+    valuationDate: car.valuation_date ?? "",
+    saleEstimate: car.sale_estimate ?? "",
+    buyEstimate: car.buy_estimate ?? "",
+    customerExpectedPrice: car.customer_expected_price ?? "",
+    approvedPrice: car.approved_price ?? "",
     dealType: car.deal_type || "buyout",
     tradeInSource: car.trade_in_source || "",
     aiTechnicalReport: car.ai_technical_report || "",
@@ -478,10 +485,12 @@ const remainingEquipment = equipmentItems.filter(
         technical_card_photos: updatedWithUser.technicalCardPhotos || [],
         cebia_files: updatedWithUser.cebiaFiles || [],
         valuation_date: updatedWithUser.valuationDate || null,
-        sale_estimate: updatedWithUser.saleEstimate || null,
-        buy_estimate: updatedWithUser.buyEstimate || null,
-        customer_expected_price: updatedWithUser.customerExpectedPrice || null,
-        approved_price: updatedWithUser.approvedPrice || null,
+        sale_estimate: toNullableNumber(updatedWithUser.saleEstimate),
+        buy_estimate: toNullableNumber(updatedWithUser.buyEstimate),
+        customer_expected_price: toNullableNumber(
+          updatedWithUser.customerExpectedPrice
+        ),
+        approved_price: toNullableNumber(updatedWithUser.approvedPrice),
         deal_type: updatedWithUser.dealType || null,
         trade_in_source: updatedWithUser.tradeInSource || null,
         ai_technical_report: updatedWithUser.aiTechnicalReport || null,
@@ -963,14 +972,74 @@ const remainingEquipment = equipmentItems.filter(
   function updateValuationField(key, value) {
     if (!selectedCar) return;
 
-    updateCar({
+    const updatedCar = {
       ...selectedCar,
       [key]: value,
-    });
+    };
+
+    setSelectedCar(updatedCar);
+    setCars((currentCars) =>
+      currentCars.map((car) => (car.id === updatedCar.id ? updatedCar : car))
+    );
   }
 
   function updateValuationPrice(key, value) {
     updateValuationField(key, value === "" ? "" : Number(value));
+  }
+
+  async function saveValuation() {
+    if (!selectedCar) return;
+
+    const valuationDate = selectedCar.valuationDate || "";
+    const customerExpectedPrice = toNullableNumber(
+      selectedCar.customerExpectedPrice
+    );
+    const buyEstimate = toNullableNumber(selectedCar.buyEstimate);
+    const saleEstimate = toNullableNumber(selectedCar.saleEstimate);
+    const approvedPrice = toNullableNumber(selectedCar.approvedPrice);
+
+    const updatedCar = {
+      ...selectedCar,
+      valuationDate,
+      customerExpectedPrice: customerExpectedPrice ?? "",
+      buyEstimate: buyEstimate ?? "",
+      saleEstimate: saleEstimate ?? "",
+      approvedPrice: approvedPrice ?? "",
+    };
+    const status = calculateStatus(updatedCar);
+
+    const { error } = await supabase
+      .from("cars")
+      .update({
+        valuation_date: valuationDate || null,
+        customer_expected_price: customerExpectedPrice,
+        buy_estimate: buyEstimate,
+        sale_estimate: saleEstimate,
+        approved_price: approvedPrice,
+        status,
+        updated_by: currentUsername,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", selectedCar.id);
+
+    if (error) {
+      console.error(error);
+      alert(error.message);
+      return;
+    }
+
+    const savedCar = {
+      ...updatedCar,
+      status,
+      updated_by: currentUsername,
+    };
+
+    setSelectedCar(savedCar);
+    setCars((currentCars) =>
+      currentCars.map((car) => (car.id === savedCar.id ? savedCar : car))
+    );
+
+    alert("Nacenění uloženo.");
   }
 
   async function analyzeVehicleTechnicalData() {
@@ -2418,6 +2487,10 @@ const remainingEquipment = equipmentItems.filter(
                   />
                 </div>
               </div>
+
+              <button className="success" onClick={saveValuation}>
+                Uložit nacenění
+              </button>
             </div>
           )}
         </section>
