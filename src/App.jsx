@@ -1008,19 +1008,23 @@ const remainingEquipment = equipmentItems.filter(
     };
     const status = calculateStatus(updatedCar);
 
-    const { error } = await supabase
+    const valuationPayload = {
+      valuation_date: valuationDate || null,
+      customer_expected_price: customerExpectedPrice,
+      buy_estimate: buyEstimate,
+      sale_estimate: saleEstimate,
+      approved_price: approvedPrice,
+      status,
+      updated_by: currentUsername,
+      updated_at: new Date().toISOString(),
+    };
+
+    const { data, error } = await supabase
       .from("cars")
-      .update({
-        valuation_date: valuationDate || null,
-        customer_expected_price: customerExpectedPrice,
-        buy_estimate: buyEstimate,
-        sale_estimate: saleEstimate,
-        approved_price: approvedPrice,
-        status,
-        updated_by: currentUsername,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", selectedCar.id);
+      .update(valuationPayload)
+      .eq("id", selectedCar.id)
+      .select()
+      .single();
 
     if (error) {
       console.error(error);
@@ -1028,15 +1032,13 @@ const remainingEquipment = equipmentItems.filter(
       return;
     }
 
-    const savedCar = {
-      ...updatedCar,
-      status,
-      updated_by: currentUsername,
-    };
+    const savedCar = prepareCar(data || { ...updatedCar, ...valuationPayload });
 
     setSelectedCar(savedCar);
     setCars((currentCars) =>
-      currentCars.map((car) => (car.id === savedCar.id ? savedCar : car))
+      currentCars.map((car) =>
+        car.id === savedCar.id ? { ...car, ...savedCar } : car
+      )
     );
 
     alert("Nacenění uloženo.");
