@@ -196,6 +196,7 @@ function prepareCar(car) {
     approvedPrice: car.approved_price ?? "",
     dealType: car.deal_type || "buyout",
     tradeInSource: car.trade_in_source || "",
+    commissionNotes: car.commission_notes || "",
     aiTechnicalReport: car.ai_technical_report || "",
     aiDocumentReport: car.ai_document_report || "",
     aiCebiaReport: car.ai_cebia_report || "",
@@ -502,6 +503,7 @@ const remainingEquipment = equipmentItems.filter(
         approved_price: toNullableNumber(updatedWithUser.approvedPrice),
         deal_type: updatedWithUser.dealType || null,
         trade_in_source: updatedWithUser.tradeInSource || null,
+        commission_notes: updatedWithUser.commissionNotes || null,
         ai_technical_report: updatedWithUser.aiTechnicalReport || null,
         ai_document_report: updatedWithUser.aiDocumentReport || null,
         ai_cebia_report: updatedWithUser.aiCebiaReport || null,
@@ -542,6 +544,7 @@ const remainingEquipment = equipmentItems.filter(
       approved_price: null,
       deal_type: "buyout",
       trade_in_source: null,
+      commission_notes: null,
       ai_technical_report: null,
       ai_document_report: null,
       ai_cebia_report: null,
@@ -2070,6 +2073,22 @@ const remainingEquipment = equipmentItems.filter(
                     }
                   />
                 </div>
+
+                {selectedCar.dealType === "commission" && (
+                  <div>
+                    <p className="label">Poznámky ke komisi</p>
+                    <textarea
+                      placeholder="Poznámky ke komisi"
+                      value={selectedCar.commissionNotes || ""}
+                      onChange={(event) =>
+                        updateCar({
+                          ...selectedCar,
+                          commissionNotes: event.target.value,
+                        })
+                      }
+                    />
+                  </div>
+                )}
               </div>
 
               <hr />
