@@ -17,6 +17,7 @@ import { supabase } from "./supabase";
 import VehicleTechnical from "./components/VehicleTechnical";
 import VehiclePricing from "./components/VehiclePricing";
 import AppSelect from "./components/ui/AppSelect";
+import AppModal from "./components/ui/AppModal";
 
 const emptyChecklist = {
   "Servisní historie": false,
@@ -71,7 +72,7 @@ const vehicleDocumentCategories = [
   "Servisní zakázka",
   "Diagnostika",
   "STK",
-  "Emise",
+  "CEBIA",
   "Kupní smlouva",
   "Jiný dokument",
 ];
@@ -85,7 +86,6 @@ const dealTypeOptions = [
 const emptyVehicleDocumentForm = {
   category: "Servisní knížka",
   title: "",
-  documentDate: "",
   description: "",
 };
 
@@ -106,6 +106,11 @@ function clone(value, fallback) {
   } catch {
     return fallback;
   }
+}
+
+function getChecklistLabel(item) {
+  if (item === "Kontrola CEBIA / CarVertical") return "Kontrola CEBIA";
+  return item;
 }
 
 function normalizeArray(value) {
@@ -285,6 +290,8 @@ const remainingEquipment = equipmentItems.filter(
     ...emptyVehicleDocumentForm,
   });
   const [vehicleDocumentFile, setVehicleDocumentFile] = useState(null);
+  const [isVehicleDocumentModalOpen, setIsVehicleDocumentModalOpen] =
+    useState(false);
   const [aiLoading, setAiLoading] = useState(false);
   const [documentAiLoading, setDocumentAiLoading] = useState(false);
   const [technicalAiLoading, setTechnicalAiLoading] = useState(false);
@@ -313,6 +320,21 @@ const remainingEquipment = equipmentItems.filter(
       const top = element.getBoundingClientRect().top + window.scrollY - 16;
       window.scrollTo({ top, behavior: "smooth" });
     });
+  }
+
+  function resetVehicleDocumentForm() {
+    setVehicleDocumentForm({ ...emptyVehicleDocumentForm });
+    setVehicleDocumentFile(null);
+  }
+
+  function openVehicleDocumentModal() {
+    resetVehicleDocumentForm();
+    setIsVehicleDocumentModalOpen(true);
+  }
+
+  function closeVehicleDocumentModal() {
+    resetVehicleDocumentForm();
+    setIsVehicleDocumentModalOpen(false);
   }
 
   useEffect(() => {
@@ -437,6 +459,7 @@ const remainingEquipment = equipmentItems.filter(
     setProblemText("");
     setVehicleDocumentForm({ ...emptyVehicleDocumentForm });
     setVehicleDocumentFile(null);
+    setIsVehicleDocumentModalOpen(false);
   }
 
   function validateRequiredCarFields(car) {
@@ -729,7 +752,6 @@ const remainingEquipment = equipmentItems.filter(
           title: vehicleDocumentForm.title.trim() || vehicleDocumentFile.name,
           category: vehicleDocumentForm.category,
           description: vehicleDocumentForm.description.trim() || null,
-          document_date: vehicleDocumentForm.documentDate || null,
           file_path: filePath,
           file_name: vehicleDocumentFile.name,
           file_size: vehicleDocumentFile.size,
@@ -755,6 +777,7 @@ const remainingEquipment = equipmentItems.filter(
     ]);
     setVehicleDocumentForm({ ...emptyVehicleDocumentForm });
     setVehicleDocumentFile(null);
+    setIsVehicleDocumentModalOpen(false);
     formElement.reset();
   }
 
@@ -1534,13 +1557,6 @@ const remainingEquipment = equipmentItems.filter(
 
             <div className="module">
               <ClipboardList />
-              <h3>Dokumenty vozidla</h3>
-              <p>{vehicleDocuments.length} dokumentů</p>
-              <button onClick={() => openModule("documents")}>Otevřít</button>
-            </div>
-
-            <div className="module">
-              <ClipboardList />
               <h3>Administrativa</h3>
               <p className={checklistComplete ? "okText" : "badText"}>
                 {checklistComplete ? "Hotovo" : "Není hotovo"}
@@ -1635,96 +1651,63 @@ const remainingEquipment = equipmentItems.filter(
             </div>
           )}
 
-          {module === "documents" && (
+          {module === "checklist" && (
             <div className="card decision" ref={moduleContentRef}>
-              <h2>Dokumenty vozidla</h2>
+              <h2>Administrativa</h2>
 
-              <h3>Přidat dokument</h3>
-
-              <form onSubmit={addVehicleDocument}>
-                <div className="formGrid">
-                  <div>
-                    <p className="label">Kategorie</p>
-                    <AppSelect
-                      ariaLabel="Kategorie dokumentu"
-                      value={vehicleDocumentForm.category}
-                      options={vehicleDocumentCategories.map((category) => ({
-                        value: category,
-                        label: category,
-                      }))}
-                      onChange={(value) =>
-                        setVehicleDocumentForm({
-                          ...vehicleDocumentForm,
-                          category: value,
-                        })
-                      }
-                    />
-                  </div>
-
-                  <div>
-                    <p className="label">Název</p>
+              {Object.keys(emptyChecklist).map((item) => (
+                  <label key={item} className="checkItem">
                     <input
-                      placeholder="Název dokumentu"
-                      value={vehicleDocumentForm.title}
-                      onChange={(event) =>
-                        setVehicleDocumentForm({
-                          ...vehicleDocumentForm,
-                          title: event.target.value,
-                        })
-                      }
+                      type="checkbox"
+                      checked={Boolean(selectedCar.checklist[item])}
+                      onChange={() => toggleChecklist(item)}
                     />
+                    {getChecklistLabel(item)}
+                  </label>
+                ))}
+
+              <h3>TP / doklad</h3>
+              <input type="file" accept="image/*,.pdf" onChange={addTechnicalCardPhoto} />
+
+              <div className="fileList">
+                {selectedCar.technicalCardPhotos.map((url, index) => (
+                  <div key={`tp-${index}`} className="fileRow">
+                    <a href={url} target="_blank" rel="noreferrer">
+                      TP {index + 1}
+                    </a>
+
+                    <button
+                      className="danger outlineDanger"
+                      onClick={() => deleteTechnicalCard(index)}
+                    >
+                      Smazat
+                    </button>
                   </div>
+                ))}
 
-                  <div>
-                    <p className="label">Datum dokumentu</p>
-                    <input
-                      type="date"
-                      value={vehicleDocumentForm.documentDate}
-                      onChange={(event) =>
-                        setVehicleDocumentForm({
-                          ...vehicleDocumentForm,
-                          documentDate: event.target.value,
-                        })
-                      }
-                    />
+                {selectedCar.cebiaFiles.map((url, index) => (
+                  <div key={`cebia-${index}`} className="fileRow">
+                    <a href={url} target="_blank" rel="noreferrer">
+                      CEBIA {index + 1}
+                    </a>
+
+                    <button
+                      className="danger outlineDanger"
+                      onClick={() => deleteCebiaFile(index)}
+                    >
+                      Smazat
+                    </button>
                   </div>
-                </div>
-
-                <textarea
-                  placeholder="Popis"
-                  value={vehicleDocumentForm.description}
-                  onChange={(event) =>
-                    setVehicleDocumentForm({
-                      ...vehicleDocumentForm,
-                      description: event.target.value,
-                    })
-                  }
-                />
-
-                <label className="uploadBox">
-                  Vybrat PDF / JPG / JPEG / PNG
-                  <input
-                    type="file"
-                    accept=".pdf,image/jpeg,image/png"
-                    onChange={(event) =>
-                      setVehicleDocumentFile(event.target.files?.[0] || null)
-                    }
-                  />
-                </label>
-
-                {vehicleDocumentFile && (
-                  <p>
-                    {vehicleDocumentFile.name} ·{" "}
-                    {formatFileSize(vehicleDocumentFile.size)}
-                  </p>
-                )}
-
-                <button className="primary" type="submit">
-                  Přidat dokument
-                </button>
-              </form>
+                ))}
+              </div>
 
               <hr />
+
+              <h2>Dokumenty vozidla</h2>
+
+              <button className="primary" onClick={openVehicleDocumentModal}>
+                + Přidat dokument
+              </button>
 
               {vehicleDocumentsLoading && <p>Načítám dokumenty...</p>}
 
@@ -1739,9 +1722,6 @@ const remainingEquipment = equipmentItems.filter(
                       <strong>{document.title}</strong>
                       <p className="label">
                         {document.category}
-                        {document.documentDate
-                          ? ` · ${formatDate(document.documentDate)}`
-                          : ""}
                       </p>
                       {document.description && <p>{document.description}</p>}
                       <p className="label">
@@ -1777,63 +1757,91 @@ const remainingEquipment = equipmentItems.filter(
             </div>
           )}
 
-          {module === "checklist" && (
-            <div className="card decision" ref={moduleContentRef}>
-              <h2>Administrativa vozu</h2>
+          <AppModal
+            isOpen={isVehicleDocumentModalOpen}
+            title="Přidat dokument"
+            onClose={closeVehicleDocumentModal}
+          >
+            <form onSubmit={addVehicleDocument}>
+              <div className="formGrid">
+                <div>
+                  <p className="label">Kategorie</p>
+                  <AppSelect
+                    ariaLabel="Kategorie dokumentu"
+                    value={vehicleDocumentForm.category}
+                    options={vehicleDocumentCategories.map((category) => ({
+                      value: category,
+                      label: category,
+                    }))}
+                    onChange={(value) =>
+                      setVehicleDocumentForm({
+                        ...vehicleDocumentForm,
+                        category: value,
+                      })
+                    }
+                  />
+                </div>
 
-              {Object.keys(emptyChecklist).map((item) => (
-                  <label key={item} className="checkItem">
-                    <input
-                      type="checkbox"
-                      checked={Boolean(selectedCar.checklist[item])}
-                      onChange={() => toggleChecklist(item)}
-                    />
-                    {item}
-                  </label>
-                ))}
+                <div>
+                  <p className="label">Název</p>
+                  <input
+                    placeholder="Název dokumentu"
+                    value={vehicleDocumentForm.title}
+                    onChange={(event) =>
+                      setVehicleDocumentForm({
+                        ...vehicleDocumentForm,
+                        title: event.target.value,
+                      })
+                    }
+                  />
+                </div>
 
-              <h3>TP / doklad</h3>
-              <input type="file" accept="image/*,.pdf" onChange={addTechnicalCardPhoto} />
-
-              <h3>CEBIA / CarVertical</h3>
-              <input type="file" accept="image/*,.pdf" onChange={addCebiaFile} />
-
-
-           
-
-              <div className="fileList">
-                {selectedCar.technicalCardPhotos.map((url, index) => (
-                  <div key={`tp-${index}`} className="fileRow">
-                    <a href={url} target="_blank" rel="noreferrer">
-                      TP {index + 1}
-                    </a>
-
-                    <button
-                      className="danger outlineDanger"
-                      onClick={() => deleteTechnicalCard(index)}
-                    >
-                      Smazat
-                    </button>
-                  </div>
-                ))}
-
-                {selectedCar.cebiaFiles.map((url, index) => (
-                  <div key={`cebia-${index}`} className="fileRow">
-                    <a href={url} target="_blank" rel="noreferrer">
-                      CEBIA {index + 1}
-                    </a>
-
-                    <button
-                      className="danger outlineDanger"
-                      onClick={() => deleteCebiaFile(index)}
-                    >
-                      Smazat
-                    </button>
-                  </div>
-                ))}
               </div>
-            </div>
-          )}
+
+              <textarea
+                placeholder="Popis"
+                value={vehicleDocumentForm.description}
+                onChange={(event) =>
+                  setVehicleDocumentForm({
+                    ...vehicleDocumentForm,
+                    description: event.target.value,
+                  })
+                }
+              />
+
+              <label className="uploadBox">
+                Vybrat PDF / JPG / JPEG / PNG
+                <input
+                  type="file"
+                  accept=".pdf,image/jpeg,image/png"
+                  onChange={(event) =>
+                    setVehicleDocumentFile(event.target.files?.[0] || null)
+                  }
+                />
+              </label>
+
+              {vehicleDocumentFile && (
+                <p>
+                  {vehicleDocumentFile.name} ·{" "}
+                  {formatFileSize(vehicleDocumentFile.size)}
+                </p>
+              )}
+
+              <div className="appModalActions">
+                <button
+                  className="primary outline"
+                  type="button"
+                  onClick={closeVehicleDocumentModal}
+                >
+                  Zrušit
+                </button>
+
+                <button className="primary" type="submit">
+                  Přidat dokument
+                </button>
+              </div>
+            </form>
+          </AppModal>
 
           {module === "cebiaHistory" && (
             <div className="card decision" ref={moduleContentRef}>
