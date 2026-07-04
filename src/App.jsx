@@ -15,7 +15,7 @@ import {
 import "./App.css";
 import { supabase } from "./supabase";
 import VehicleTechnical from "./components/VehicleTechnical";
-import VehicleValuation from "./components/VehicleValuation";
+import VehiclePricing from "./components/VehiclePricing";
 
 const emptyChecklist = {
   "Servisní historie": false,
@@ -2114,7 +2114,7 @@ const remainingEquipment = equipmentItems.filter(
           )}
 
           {module === "valuation" && (
-            <VehicleValuation
+            <VehiclePricing
               selectedCar={selectedCar}
               setSelectedCar={setSelectedCar}
               setCars={setCars}
