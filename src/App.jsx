@@ -199,6 +199,16 @@ function prepareCar(car) {
     dealType: car.deal_type || "buyout",
     tradeInSource: car.trade_in_source || "",
     commissionNotes: car.commission_notes || "",
+    purchaseDate: car.purchase_date ?? "",
+    purchasePrice: car.purchase_price ?? "",
+    expectedSalePrice: car.expected_sale_price ?? "",
+    postPurchaseCosts:
+      car.post_purchase_costs && typeof car.post_purchase_costs === "object"
+        ? clone(car.post_purchase_costs, {})
+        : {},
+    purchasedStatus: car.purchased_status ?? "",
+    soldPrice: car.sold_price ?? "",
+    soldDate: car.sold_date ?? "",
     aiTechnicalReport: car.ai_technical_report || "",
     aiDocumentReport: car.ai_document_report || "",
     aiCebiaReport: car.ai_cebia_report || "",
