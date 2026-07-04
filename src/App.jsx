@@ -17,6 +17,7 @@ import { supabase } from "./supabase";
 import VehicleTechnical from "./components/VehicleTechnical";
 import VehiclePricing from "./components/VehiclePricing";
 import VehicleChecklist from "./components/VehicleChecklist";
+import VehiclePhotos from "./components/VehiclePhotos";
 import AppSelect from "./components/ui/AppSelect";
 import AppModal from "./components/ui/AppModal";
 
@@ -1602,49 +1603,13 @@ const remainingEquipment = equipmentItems.filter(
           )}
 
           {module === "photos" && (
-            <div className="card decision" ref={moduleContentRef}>
-              <h2>Fotky vozu</h2>
-
-              <label className="uploadBox">
-                Začít fotit / nahrát fotky
-                <input
-                  type="file"
-                  accept="image/*"
-                  capture="environment"
-                  multiple
-                  onChange={addPhoto}
-                />
-              </label>
-
-              <div className="photoGrid">
-                {selectedCar.photos.map((photo, index) => (
-                  <div key={index} className="photoItem">
-                    <img
-                      src={photo}
-                      alt={`Fotka vozu ${index + 1}`}
-                      onClick={() => window.open(photo, "_blank")}
-                      style={{ cursor: "pointer" }}
-                    />
-
-                    <div className="photoActions">
-                      <button
-                        className="primary outline"
-                        onClick={() => downloadPhoto(photo, index)}
-                      >
-                        Stáhnout
-                      </button>
-
-                      <button
-                        className="danger outlineDanger"
-                        onClick={() => deletePhoto(index)}
-                      >
-                        Smazat
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
+            <VehiclePhotos
+              selectedCar={selectedCar}
+              addPhoto={addPhoto}
+              downloadPhoto={downloadPhoto}
+              deletePhoto={deletePhoto}
+              moduleContentRef={moduleContentRef}
+            />
           )}
 
           {module === "checklist" && (
