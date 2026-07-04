@@ -16,6 +16,7 @@ import "./App.css";
 import { supabase } from "./supabase";
 import VehicleTechnical from "./components/VehicleTechnical";
 import VehiclePricing from "./components/VehiclePricing";
+import AppSelect from "./components/ui/AppSelect";
 
 const emptyChecklist = {
   "Servisní historie": false,
@@ -73,6 +74,12 @@ const vehicleDocumentCategories = [
   "Emise",
   "Kupní smlouva",
   "Jiný dokument",
+];
+
+const dealTypeOptions = [
+  { value: "buyout", label: "Výkup" },
+  { value: "trade_in", label: "Protiúčet" },
+  { value: "commission", label: "Komise" },
 ];
 
 const emptyVehicleDocumentForm = {
@@ -1635,21 +1642,20 @@ const remainingEquipment = equipmentItems.filter(
                 <div className="formGrid">
                   <div>
                     <p className="label">Kategorie</p>
-                    <select
+                    <AppSelect
+                      ariaLabel="Kategorie dokumentu"
                       value={vehicleDocumentForm.category}
-                      onChange={(event) =>
+                      options={vehicleDocumentCategories.map((category) => ({
+                        value: category,
+                        label: category,
+                      }))}
+                      onChange={(value) =>
                         setVehicleDocumentForm({
                           ...vehicleDocumentForm,
-                          category: event.target.value,
+                          category: value,
                         })
                       }
-                    >
-                      {vehicleDocumentCategories.map((category) => (
-                        <option key={category} value={category}>
-                          {category}
-                        </option>
-                      ))}
-                    </select>
+                    />
                   </div>
 
                   <div>
@@ -2041,16 +2047,14 @@ const remainingEquipment = equipmentItems.filter(
               <div className="formGrid">
                 <div>
                   <p className="label">Typ obchodu</p>
-                  <select
+                  <AppSelect
+                    ariaLabel="Typ obchodu"
                     value={selectedCar.dealType || "buyout"}
-                    onChange={(event) =>
-                      updateCar({ ...selectedCar, dealType: event.target.value })
+                    options={dealTypeOptions}
+                    onChange={(value) =>
+                      updateCar({ ...selectedCar, dealType: value })
                     }
-                  >
-                    <option value="buyout">Výkup</option>
-                    <option value="trade_in">Protiúčet</option>
-                    <option value="commission">Komise</option>
-                  </select>
+                  />
                 </div>
 
                 <div>
