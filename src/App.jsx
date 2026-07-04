@@ -18,6 +18,7 @@ import VehicleTechnical from "./components/VehicleTechnical";
 import VehiclePricing from "./components/VehiclePricing";
 import VehicleChecklist from "./components/VehicleChecklist";
 import VehiclePhotos from "./components/VehiclePhotos";
+import VehicleNotes from "./components/VehicleNotes";
 import AppSelect from "./components/ui/AppSelect";
 import AppModal from "./components/ui/AppModal";
 
@@ -1973,48 +1974,16 @@ const remainingEquipment = equipmentItems.filter(
                 )}
               </div>
 
-              <hr />
-
-              <h2>Poznámky</h2>
-
-              <textarea
-                placeholder="Poznámka..."
-                value={noteText}
-                onChange={(event) => setNoteText(event.target.value)}
+              <VehicleNotes
+                selectedCar={selectedCar}
+                noteText={noteText}
+                setNoteText={setNoteText}
+                addNote={addNote}
+                problemText={problemText}
+                setProblemText={setProblemText}
+                analyzeTechnicalProblem={analyzeTechnicalProblem}
+                aiLoading={aiLoading}
               />
-
-              <button className="primary" onClick={addNote}>
-                Přidat poznámku
-              </button>
-
-              {selectedCar.notes.map((note, index) => (
-                <p key={index}>• {note}</p>
-              ))}
-
-              <hr />
-
-              <h2>AI technický poradce</h2>
-
-              <textarea
-                placeholder="Např. vůz táhne doprava, vibruje volant při brzdění..."
-                value={problemText}
-                onChange={(event) => setProblemText(event.target.value)}
-              />
-
-              <button
-                className="primary"
-                onClick={analyzeTechnicalProblem}
-                disabled={aiLoading}
-              >
-                {aiLoading ? "AI analyzuje..." : "Vyhodnotit závadu AI"}
-              </button>
-
-              {selectedCar.aiTechnicalReport && (
-                <div className="aiReport">
-                  <h3>AI technické zhodnocení</h3>
-                  <pre>{selectedCar.aiTechnicalReport}</pre>
-                </div>
-              )}
             </div>
           )}
 
