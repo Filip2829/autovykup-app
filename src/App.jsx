@@ -2058,9 +2058,9 @@ const remainingEquipment = equipmentItems.filter(
                 </div>
 
                 <div>
-                  <p className="label">Prodejce / pobočka / zdroj protiúčtu</p>
+                  <p className="label">Prodejce protiúčtu</p>
                   <input
-                    placeholder="Prodejce / pobočka / zdroj protiúčtu"
+                    placeholder="Prodejce protiúčtu"
                     value={selectedCar.tradeInSource || ""}
                     onChange={(event) =>
                       updateCar({
