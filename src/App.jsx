@@ -3,13 +3,11 @@ import {
   Camera,
   CheckCircle,
   ClipboardList,
-  Edit,
   MessageCircle,
   Plus,
   Search,
   ShieldCheck,
   Star,
-  Trash2,
 } from "lucide-react";
 
 import "./App.css";
@@ -19,6 +17,7 @@ import VehiclePricing from "./components/VehiclePricing";
 import VehicleChecklist from "./components/VehicleChecklist";
 import VehiclePhotos from "./components/VehiclePhotos";
 import VehicleNotes from "./components/VehicleNotes";
+import VehicleHeader from "./components/VehicleHeader";
 import AppSelect from "./components/ui/AppSelect";
 import AppModal from "./components/ui/AppModal";
 
@@ -1391,82 +1390,20 @@ const remainingEquipment = equipmentItems.filter(
 
       {view === "detail" && selectedCar && (
         <section>
-          <button className="back bigBack" onClick={() => setView("list")}>
-            ← Zpět
-          </button>
-
-          <div className="card carHero">
-            <div className="carHeroTop">
-              <div>
-                <h2>{selectedCar.name}</h2>
-                <p>
-                  {selectedCar.year} ·{" "}
-                  {selectedCar.km?.toLocaleString("cs-CZ")} km
-                </p>
-              </div>
-
-              <span
-                className={`statusBadge ${
-                  selectedCar.status === STATUS.MISSING_DOCS
-                    ? "statusDanger"
-                    : selectedCar.status === STATUS.APPROVED
-                    ? "statusSuccess"
-                    : "statusWarning"
-                }`}
-              >
-                {selectedCar.status}
-              </span>
-            </div>
-
-            <div className="carHeroBody">
-              <div className="carInfoGrid">
-                <div>
-                  <strong>VIN:</strong>
-                  <p>{selectedCar.vin || "—"}</p>
-                </div>
-
-                <div>
-                  <strong>SPZ:</strong>
-                  <p>{selectedCar.spz || "—"}</p>
-                </div>
-
-                <div>
-                  <strong>Vytvořil:</strong>
-                  <p>{selectedCar.created_by || "—"}</p>
-                </div>
-
-                <div>
-                  <strong>Přidáno:</strong>
-                  <p>{formatDate(selectedCar.created_at)}</p>
-                </div>
-
-                <div>
-                  <strong>Poslední úprava:</strong>
-                  <p>{selectedCar.updated_by || "—"}</p>
-                </div>
-
-                <div>
-                  <strong>Upraveno:</strong>
-                  <p>{formatDate(selectedCar.updated_at, true)}</p>
-                </div>
-              </div>
-
-              <div className="heroActions">
-                <button
-                  className="primary outline"
-                  onClick={() => setEditMode(true)}
-                >
-                  <Edit size={18} />
-                  Upravit údaje
-                </button>
-
-                <button className="danger outlineDanger" onClick={deleteCar}>
-                  <Trash2 size={18} />
-                  Smazat záznam
-                </button>
-              </div>
-            </div>
-          </div>
+          <VehicleHeader
+            selectedCar={selectedCar}
+            statusClassName={
+              selectedCar.status === STATUS.MISSING_DOCS
+                ? "statusDanger"
+                : selectedCar.status === STATUS.APPROVED
+                ? "statusSuccess"
+                : "statusWarning"
+            }
+            onBack={() => setView("list")}
+            onEdit={() => setEditMode(true)}
+            onDelete={deleteCar}
+            formatDate={formatDate}
+          />
 
           <div className="workflowPanel">
             {getWorkflow(selectedCar).map((step, index) => (
