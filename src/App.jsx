@@ -18,6 +18,7 @@ import VehicleChecklist from "./components/VehicleChecklist";
 import VehiclePhotos from "./components/VehiclePhotos";
 import VehicleNotes from "./components/VehicleNotes";
 import VehicleHeader from "./components/VehicleHeader";
+import VehiclePurchase from "./components/VehiclePurchase";
 import AppSelect from "./components/ui/AppSelect";
 import AppModal from "./components/ui/AppModal";
 
@@ -123,6 +124,17 @@ function toNullableNumber(value) {
 
   const numberValue = Number(value);
   return Number.isNaN(numberValue) ? null : numberValue;
+}
+
+function normalizePostPurchaseCosts(costs = {}) {
+  return {
+    service: toNullableNumber(costs.service),
+    cleaning: toNullableNumber(costs.cleaning),
+    bodyPaint: toNullableNumber(costs.bodyPaint),
+    registration: toNullableNumber(costs.registration),
+    other: toNullableNumber(costs.other),
+    note: costs.note || "",
+  };
 }
 
 function isValuationComplete(car) {
@@ -534,6 +546,17 @@ const remainingEquipment = equipmentItems.filter(
         deal_type: updatedWithUser.dealType || null,
         trade_in_source: updatedWithUser.tradeInSource || null,
         commission_notes: updatedWithUser.commissionNotes || null,
+        purchase_date: updatedWithUser.purchaseDate || null,
+        purchase_price: toNullableNumber(updatedWithUser.purchasePrice),
+        expected_sale_price: toNullableNumber(
+          updatedWithUser.expectedSalePrice
+        ),
+        post_purchase_costs: normalizePostPurchaseCosts(
+          updatedWithUser.postPurchaseCosts
+        ),
+        purchased_status: updatedWithUser.purchasedStatus || null,
+        sold_price: toNullableNumber(updatedWithUser.soldPrice),
+        sold_date: updatedWithUser.soldDate || null,
         ai_technical_report: updatedWithUser.aiTechnicalReport || null,
         ai_document_report: updatedWithUser.aiDocumentReport || null,
         ai_cebia_report: updatedWithUser.aiCebiaReport || null,
@@ -1538,6 +1561,17 @@ const remainingEquipment = equipmentItems.filter(
               </p>
               <button onClick={() => openModule("valuation")}>Otevřít</button>
             </div>
+
+            <div className="module">
+              <ShieldCheck />
+              <h3>Výkup vozidla</h3>
+              <p className={selectedCar.purchaseDate || selectedCar.purchasePrice ? "okText" : ""}>
+                {selectedCar.purchaseDate || selectedCar.purchasePrice
+                  ? "Zahájeno"
+                  : "Zatím nevyplněno"}
+              </p>
+              <button onClick={() => openModule("purchase")}>Otevřít</button>
+            </div>
           </div>
 
           {module === "technical" && (
@@ -1944,6 +1978,14 @@ const remainingEquipment = equipmentItems.filter(
               calculateStatus={calculateStatus}
               toNullableNumber={toNullableNumber}
               currentUsername={currentUsername}
+              moduleContentRef={moduleContentRef}
+            />
+          )}
+
+          {module === "purchase" && (
+            <VehiclePurchase
+              selectedCar={selectedCar}
+              updateCar={updateCar}
               moduleContentRef={moduleContentRef}
             />
           )}
