@@ -263,6 +263,7 @@ function prepareCar(car) {
           )
         : { ...emptyDamageReport },
     purchasedStatus: car.purchased_status ?? "",
+    lifecycleStage: car.lifecycleStage ?? car.lifecycle_stage ?? "valuation",
     soldPrice: car.sold_price ?? "",
     soldDate: car.sold_date ?? "",
     aiTechnicalReport: car.ai_technical_report || "",
@@ -343,6 +344,7 @@ const remainingEquipment = equipmentItems.filter(
   (item) => !selectedCar?.equipment?.[item]
 );
   const [view, setView] = useState("home");
+  const [listMode, setListMode] = useState("valuation");
   const [module, setModule] = useState("overview");
   const moduleContentRef = useRef(null);
   const [noteText, setNoteText] = useState("");
@@ -513,6 +515,29 @@ const remainingEquipment = equipmentItems.filter(
     );
   }, [cars, query]);
 
+  const valuationCars = useMemo(
+    () => filteredCars.filter((car) => car.lifecycleStage !== "purchased"),
+    [filteredCars]
+  );
+
+  const purchasedCars = useMemo(
+    () => filteredCars.filter((car) => car.lifecycleStage === "purchased"),
+    [filteredCars]
+  );
+
+  const visibleCars = listMode === "purchased" ? purchasedCars : valuationCars;
+  const visibleListTitle =
+    listMode === "purchased" ? "Vykoupená auta" : "Aktuální nacenění";
+  const visibleEmptyText =
+    listMode === "purchased"
+      ? "Žádná vykoupená auta."
+      : "Žádná aktuální nacenění.";
+
+  function openVehicleList(nextListMode) {
+    setListMode(nextListMode);
+    setView("list");
+  }
+
   function selectCar(car) {
     setSelectedCar(prepareCar(car));
     setView("detail");
@@ -557,6 +582,7 @@ const remainingEquipment = equipmentItems.filter(
   async function updateCar(updated) {
     const updatedWithUser = {
       ...updated,
+      lifecycleStage: updated.lifecycleStage || "valuation",
       status: calculateStatus(updated),
       updated_by: currentUsername,
     };
@@ -600,6 +626,7 @@ const remainingEquipment = equipmentItems.filter(
         ),
         damage_report: normalizeDamageReport(updatedWithUser.damageReport),
         purchased_status: updatedWithUser.purchasedStatus || null,
+        lifecycle_stage: updatedWithUser.lifecycleStage,
         sold_price: toNullableNumber(updatedWithUser.soldPrice),
         sold_date: updatedWithUser.soldDate || null,
         ai_technical_report: updatedWithUser.aiTechnicalReport || null,
@@ -643,6 +670,7 @@ const remainingEquipment = equipmentItems.filter(
       deal_type: "buyout",
       trade_in_source: null,
       commission_notes: null,
+      lifecycle_stage: "valuation",
       ai_technical_report: null,
       ai_document_report: null,
       ai_cebia_report: null,
@@ -717,6 +745,21 @@ const remainingEquipment = equipmentItems.filter(
       currentCars.map((car) => (car.id === updated.id ? updated : car))
     );
     setEditMode(false);
+  }
+
+  async function moveSelectedCarToPurchased() {
+    if (!selectedCar) return;
+
+    const confirmMove = window.confirm(
+      `Přesunout ${selectedCar.name} do vykoupených vozů?`
+    );
+
+    if (!confirmMove) return;
+
+    await updateCar({
+      ...selectedCar,
+      lifecycleStage: "purchased",
+    });
   }
 
   async function deleteCar() {
@@ -1314,8 +1357,8 @@ const remainingEquipment = equipmentItems.filter(
               <div className="module">
                 <Search />
                 <h3>Aktuální evidence vozidel</h3>
-                <p>{cars.length} záznamů</p>
-                <button onClick={() => setView("list")}>Otevřít</button>
+                <p>{valuationCars.length} záznamů</p>
+                <button onClick={() => openVehicleList("valuation")}>Otevřít</button>
               </div>
 
               <div className="module">
@@ -1330,8 +1373,8 @@ const remainingEquipment = equipmentItems.filter(
               <div className="module">
                 <ShieldCheck />
                 <h3>Vykoupená vozidla</h3>
-                <p>Zatím připravujeme</p>
-                <button onClick={() => alert("Přehled vykoupených vozidel doprogramujeme v další fázi.")}>
+                <p>{purchasedCars.length} záznamů</p>
+                <button onClick={() => openVehicleList("purchased")}>
                   Otevřít
                 </button>
               </div>
@@ -1422,46 +1465,58 @@ const remainingEquipment = equipmentItems.filter(
           </div>
 
           <section className="cars">
-            {filteredCars.map((car) => (
-              <article
-                key={car.id}
-                className="card carListCard"
-                onClick={() => selectCar(car)}
-              >
-                {car.photos?.[0] && (
-                  <img
-                    src={car.photos[0]}
-                    alt="Náhled vozu"
-                    className="carPreview"
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      window.open(car.photos[0], "_blank");
-                    }}
-                    style={{ cursor: "pointer" }}
-                  />
-                )}
+            <div>
+              <h2>{visibleListTitle}</h2>
 
-                <div className="cardTop">
-                  <h2>{car.name}</h2>
-                  <div className="carListMeta">
-                    <div className={`caseAge ${getCaseAgeClass(car.created_at)}`}>
-                      <p>Přidáno: {formatDate(car.created_at)}</p>
-                      <p>Upraveno: {formatDate(car.updated_at, true)}</p>
+              <div className="cars">
+                {visibleCars.map((car) => (
+                  <article
+                    key={car.id}
+                    className="card carListCard"
+                    onClick={() => selectCar(car)}
+                  >
+                    {car.photos?.[0] && (
+                      <img
+                        src={car.photos[0]}
+                        alt="Náhled vozu"
+                        className="carPreview"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          window.open(car.photos[0], "_blank");
+                        }}
+                        style={{ cursor: "pointer" }}
+                      />
+                    )}
+
+                    <div className="cardTop">
+                      <h2>{car.name}</h2>
+                      <div className="carListMeta">
+                        <div className={`caseAge ${getCaseAgeClass(car.created_at)}`}>
+                          <p>Přidáno: {formatDate(car.created_at)}</p>
+                          <p>Upraveno: {formatDate(car.updated_at, true)}</p>
+                        </div>
+                        <span>{car.status}</span>
+                      </div>
                     </div>
-                    <span>{car.status}</span>
+
+                    <p>
+                      {car.year} · {car.km?.toLocaleString("cs-CZ")} km
+                    </p>
+
+                    <p>VIN: {car.vin || "—"}</p>
+                    <p>SPZ: {car.spz || "—"}</p>
+                    <p>Vytvořil: {car.created_by || "—"}</p>
+                    <p>Poslední úprava: {car.updated_by || "—"}</p>
+                  </article>
+                ))}
+
+                {visibleCars.length === 0 && (
+                  <div className="card">
+                    <p>{visibleEmptyText}</p>
                   </div>
-                </div>
-
-                <p>
-                  {car.year} · {car.km?.toLocaleString("cs-CZ")} km
-                </p>
-
-                <p>VIN: {car.vin || "—"}</p>
-                <p>SPZ: {car.spz || "—"}</p>
-                <p>Vytvořil: {car.created_by || "—"}</p>
-                <p>Poslední úprava: {car.updated_by || "—"}</p>
-              </article>
-            ))}
+                )}
+              </div>
+            </div>
           </section>
         </>
       )}
@@ -1495,6 +1550,20 @@ const remainingEquipment = equipmentItems.filter(
               </div>
             ))}
           </div>
+
+          {selectedCar.lifecycleStage !== "purchased" && (
+            <div className="card decision">
+              <h2>Přesun do vykoupených vozů</h2>
+              <p>
+                Auto zůstane ve stejném záznamu a přesune se ze sekce
+                aktuálních nacenění do vykoupených aut.
+              </p>
+
+              <button className="success" onClick={moveSelectedCarToPurchased}>
+                Přesunout do vykoupených vozů
+              </button>
+            </div>
+          )}
 
           {editMode && (
             <div className="card decision">
@@ -1613,16 +1682,18 @@ const remainingEquipment = equipmentItems.filter(
               <button onClick={() => openModule("valuation")}>Otevřít</button>
             </div>
 
-            <div className="module">
-              <ShieldCheck />
-              <h3>Výkup vozidla</h3>
-              <p className={selectedCar.purchaseDate || selectedCar.purchasePrice ? "okText" : ""}>
-                {selectedCar.purchaseDate || selectedCar.purchasePrice
-                  ? "Zahájeno"
-                  : "Zatím nevyplněno"}
-              </p>
-              <button onClick={() => openModule("purchase")}>Otevřít</button>
-            </div>
+            {selectedCar.lifecycleStage !== "purchased" && (
+              <div className="module">
+                <ShieldCheck />
+                <h3>Výkup vozidla</h3>
+                <p className={selectedCar.purchaseDate || selectedCar.purchasePrice ? "okText" : ""}>
+                  {selectedCar.purchaseDate || selectedCar.purchasePrice
+                    ? "Zahájeno"
+                    : "Zatím nevyplněno"}
+                </p>
+                <button onClick={() => openModule("purchase")}>Otevřít</button>
+              </div>
+            )}
           </div>
 
           {module === "technical" && (
