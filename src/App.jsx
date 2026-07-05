@@ -1593,6 +1593,12 @@ const remainingEquipment = equipmentItems.filter(
             </div>
 
             <div className="module">
+              <ShieldCheck />
+              <h3>Poškození a opravy</h3>
+              <button onClick={() => openModule("damage")}>Otevřít</button>
+            </div>
+
+            <div className="module">
               <MessageCircle />
               <h3>Poznámky + AI</h3>
               <button onClick={() => openModule("notes")}>Otevřít</button>
@@ -1605,12 +1611,6 @@ const remainingEquipment = equipmentItems.filter(
                 {valuationComplete ? "Hotovo" : "Zatím neprovedeno"}
               </p>
               <button onClick={() => openModule("valuation")}>Otevřít</button>
-            </div>
-
-            <div className="module">
-              <ShieldCheck />
-              <h3>Poškození a opravy</h3>
-              <button onClick={() => openModule("damage")}>Otevřít</button>
             </div>
 
             <div className="module">
