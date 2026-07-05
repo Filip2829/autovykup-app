@@ -19,6 +19,7 @@ import VehiclePhotos from "./components/VehiclePhotos";
 import VehicleNotes from "./components/VehicleNotes";
 import VehicleHeader from "./components/VehicleHeader";
 import VehiclePurchase from "./components/VehiclePurchase";
+import VehicleDamage from "./components/VehicleDamage";
 import AppSelect from "./components/ui/AppSelect";
 import AppModal from "./components/ui/AppModal";
 
@@ -92,6 +93,23 @@ const emptyVehicleDocumentForm = {
   description: "",
 };
 
+const emptyDamageReport = {
+  exterior: "",
+  interior: "",
+  technical: "",
+  tiresBrakes: "",
+  glassLights: "",
+  otherDamage: "",
+  serviceCost: null,
+  bodyPaintCost: null,
+  cleaningCost: null,
+  tiresCost: null,
+  stkRegistrationCost: null,
+  otherCost: null,
+  note: "",
+  recommendation: "",
+};
+
 const STATUS = {
   MISSING_DOCS: "Chybí podklady",
   READY_FOR_VALUATION: "Připraveno k nacenění",
@@ -134,6 +152,25 @@ function normalizePostPurchaseCosts(costs = {}) {
     registration: toNullableNumber(costs.registration),
     other: toNullableNumber(costs.other),
     note: costs.note || "",
+  };
+}
+
+function normalizeDamageReport(report = {}) {
+  return {
+    exterior: report.exterior || "",
+    interior: report.interior || "",
+    technical: report.technical || "",
+    tiresBrakes: report.tiresBrakes || "",
+    glassLights: report.glassLights || "",
+    otherDamage: report.otherDamage || "",
+    serviceCost: toNullableNumber(report.serviceCost),
+    bodyPaintCost: toNullableNumber(report.bodyPaintCost),
+    cleaningCost: toNullableNumber(report.cleaningCost),
+    tiresCost: toNullableNumber(report.tiresCost),
+    stkRegistrationCost: toNullableNumber(report.stkRegistrationCost),
+    otherCost: toNullableNumber(report.otherCost),
+    note: report.note || "",
+    recommendation: report.recommendation || "",
   };
 }
 
@@ -218,6 +255,13 @@ function prepareCar(car) {
       car.post_purchase_costs && typeof car.post_purchase_costs === "object"
         ? clone(car.post_purchase_costs, {})
         : {},
+    damageReport:
+      car.damage_report && typeof car.damage_report === "object"
+        ? clone(
+            { ...emptyDamageReport, ...car.damage_report },
+            { ...emptyDamageReport }
+          )
+        : { ...emptyDamageReport },
     purchasedStatus: car.purchased_status ?? "",
     soldPrice: car.sold_price ?? "",
     soldDate: car.sold_date ?? "",
@@ -554,6 +598,7 @@ const remainingEquipment = equipmentItems.filter(
         post_purchase_costs: normalizePostPurchaseCosts(
           updatedWithUser.postPurchaseCosts
         ),
+        damage_report: normalizeDamageReport(updatedWithUser.damageReport),
         purchased_status: updatedWithUser.purchasedStatus || null,
         sold_price: toNullableNumber(updatedWithUser.soldPrice),
         sold_date: updatedWithUser.soldDate || null,
@@ -1564,6 +1609,12 @@ const remainingEquipment = equipmentItems.filter(
 
             <div className="module">
               <ShieldCheck />
+              <h3>Poškození a opravy</h3>
+              <button onClick={() => openModule("damage")}>Otevřít</button>
+            </div>
+
+            <div className="module">
+              <ShieldCheck />
               <h3>Výkup vozidla</h3>
               <p className={selectedCar.purchaseDate || selectedCar.purchasePrice ? "okText" : ""}>
                 {selectedCar.purchaseDate || selectedCar.purchasePrice
@@ -1978,6 +2029,14 @@ const remainingEquipment = equipmentItems.filter(
               calculateStatus={calculateStatus}
               toNullableNumber={toNullableNumber}
               currentUsername={currentUsername}
+              moduleContentRef={moduleContentRef}
+            />
+          )}
+
+          {module === "damage" && (
+            <VehicleDamage
+              selectedCar={selectedCar}
+              updateCar={updateCar}
               moduleContentRef={moduleContentRef}
             />
           )}
