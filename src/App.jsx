@@ -19,9 +19,9 @@ import VehiclePhotos from "./components/VehiclePhotos";
 import VehicleNotes from "./components/VehicleNotes";
 import VehicleHeader from "./components/VehicleHeader";
 import VehicleDamage from "./components/VehicleDamage";
-import VehiclePostPurchaseCosts from "./components/VehiclePostPurchaseCosts";
-import VehicleAdvertisingPrep from "./components/VehicleAdvertisingPrep";
-import VehicleSummary from "./components/VehicleSummary";
+import VehiclePostPurchaseCosts from "./components/VehiclePostPurchaseCosts.jsx";
+import VehicleAdvertisingPrep from "./components/VehicleAdvertisingPrep.jsx";
+import VehicleSummary from "./components/VehicleSummary.jsx";
 import AppSelect from "./components/ui/AppSelect";
 import AppModal from "./components/ui/AppModal";
 

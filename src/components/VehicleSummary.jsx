@@ -1,7 +1,7 @@
 import {
   formatVehicleCurrency,
   getVehicleEconomy,
-} from "../utils/vehicleEconomy";
+} from "../utils/vehicleEconomy.js";
 
 function hasFilledValue(value) {
   return value !== null && value !== undefined && String(value).trim() !== "";

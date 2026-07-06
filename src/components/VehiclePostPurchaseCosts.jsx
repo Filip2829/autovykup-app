@@ -2,7 +2,7 @@ import {
   formatVehicleCurrency,
   getVehicleEconomy,
   postPurchaseCostFields,
-} from "../utils/vehicleEconomy";
+} from "../utils/vehicleEconomy.js";
 
 export default function VehiclePostPurchaseCosts({
   selectedCar,
