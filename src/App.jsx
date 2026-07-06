@@ -153,6 +153,21 @@ const legacyStatusMap = {
   [LEGACY_STATUS.APPROVED]: VEHICLE_STATUS.APPROVED_FOR_PURCHASE,
 };
 
+const valuationStatusGroup = [
+  VEHICLE_STATUS.VALUATION,
+  VEHICLE_STATUS.APPROVED_FOR_PURCHASE,
+];
+
+const purchasedStatusGroup = [
+  VEHICLE_STATUS.PURCHASED,
+  VEHICLE_STATUS.PREPARATION,
+  VEHICLE_STATUS.READY_FOR_ADVERTISING,
+  VEHICLE_STATUS.ADVERTISED,
+  VEHICLE_STATUS.RESERVED,
+  VEHICLE_STATUS.SOLD,
+  VEHICLE_STATUS.ARCHIVED,
+];
+
 function getUsername(user) {
   return user?.email ? user.email.replace("@autovykup.local", "") : "";
 }
@@ -180,6 +195,10 @@ function normalizeVehicleStatus(status) {
 
 function getVehicleStatusLabel(status) {
   return vehicleStatusLabels[normalizeVehicleStatus(status)];
+}
+
+function hasVehicleStatus(status, statusGroup) {
+  return statusGroup.includes(normalizeVehicleStatus(status));
 }
 
 function getVehicleStatusClassName(status) {
@@ -598,12 +617,18 @@ const remainingEquipment = equipmentItems.filter(
   }, [cars, query]);
 
   const valuationCars = useMemo(
-    () => filteredCars.filter((car) => car.lifecycleStage !== "purchased"),
+    () =>
+      filteredCars.filter((car) =>
+        hasVehicleStatus(car.status, valuationStatusGroup)
+      ),
     [filteredCars]
   );
 
   const purchasedCars = useMemo(
-    () => filteredCars.filter((car) => car.lifecycleStage === "purchased"),
+    () =>
+      filteredCars.filter((car) =>
+        hasVehicleStatus(car.status, purchasedStatusGroup)
+      ),
     [filteredCars]
   );
 
@@ -1653,7 +1678,7 @@ const remainingEquipment = equipmentItems.filter(
             ))}
           </div>
 
-          {selectedCar.lifecycleStage !== "purchased" && (
+          {hasVehicleStatus(selectedCar.status, valuationStatusGroup) && (
             <div className="card decision">
               <h2>Přesun do vykoupených vozů</h2>
               <p>
@@ -1784,7 +1809,7 @@ const remainingEquipment = equipmentItems.filter(
               <button onClick={() => openModule("valuation")}>Otevřít</button>
             </div>
 
-            {selectedCar.lifecycleStage !== "purchased" && (
+            {hasVehicleStatus(selectedCar.status, valuationStatusGroup) && (
               <div className="module">
                 <ShieldCheck />
                 <h3>Výkup vozidla</h3>
