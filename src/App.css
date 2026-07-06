@@ -702,6 +702,54 @@ textarea::placeholder {
   color: #f87171;
 }
 
+.vehicleSummary {
+  margin-bottom: 18px;
+}
+
+.summaryGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+  margin-top: 14px;
+}
+
+.summaryGrid section {
+  min-width: 0;
+}
+
+.summaryGrid h3 {
+  margin: 0 0 10px;
+}
+
+.summaryPercent {
+  margin: 0 0 12px;
+  color: #bfdbfe;
+  font-size: 30px;
+  font-weight: 900;
+}
+
+.summaryList {
+  margin: 0;
+  padding-left: 20px;
+  color: #cbd5e1;
+}
+
+.summaryList li {
+  margin-bottom: 8px;
+}
+
+.readinessGrid.compact {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.readinessGrid.compact .readinessItem {
+  padding: 12px;
+}
+
+.readinessGrid.compact .readinessItem h4 {
+  font-size: 14px;
+}
+
 .grid {
   display: grid;
   grid-template-columns: repeat(5, 1fr);
@@ -855,6 +903,10 @@ input[type="checkbox"] {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .summaryGrid {
+    grid-template-columns: 1fr;
+  }
+
   .workflowStep::after {
     display: none;
   }
@@ -916,6 +968,10 @@ input[type="checkbox"] {
   }
 
   .readinessGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .readinessGrid.compact {
     grid-template-columns: 1fr;
   }
 

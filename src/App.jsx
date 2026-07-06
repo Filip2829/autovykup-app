@@ -20,6 +20,8 @@ import VehicleNotes from "./components/VehicleNotes";
 import VehicleHeader from "./components/VehicleHeader";
 import VehicleDamage from "./components/VehicleDamage";
 import VehiclePostPurchaseCosts from "./components/VehiclePostPurchaseCosts";
+import VehicleAdvertisingPrep from "./components/VehicleAdvertisingPrep";
+import VehicleSummary from "./components/VehicleSummary";
 import AppSelect from "./components/ui/AppSelect";
 import AppModal from "./components/ui/AppModal";
 
@@ -110,6 +112,14 @@ const emptyDamageReport = {
   otherCost: null,
   note: "",
   recommendation: "",
+};
+
+const emptyAdvertisingData = {
+  highlights: "",
+  defects: "",
+  repairs: "",
+  listingNote: "",
+  internalSaleNote: "",
 };
 
 const LEGACY_STATUS = {
@@ -291,6 +301,16 @@ function normalizeDamageReport(report = {}) {
   };
 }
 
+function normalizeAdvertisingData(data = {}) {
+  return {
+    highlights: data.highlights || "",
+    defects: data.defects || "",
+    repairs: data.repairs || "",
+    listingNote: data.listingNote || "",
+    internalSaleNote: data.internalSaleNote || "",
+  };
+}
+
 function isValuationComplete(car) {
   return (
     hasFilledValue(car?.valuationDate ?? car?.valuation_date) &&
@@ -380,6 +400,17 @@ function prepareCar(car) {
             { ...emptyDamageReport }
           )
         : { ...emptyDamageReport },
+    advertisingData:
+      car.technical_params?.advertisingData &&
+      typeof car.technical_params.advertisingData === "object"
+        ? clone(
+            {
+              ...emptyAdvertisingData,
+              ...car.technical_params.advertisingData,
+            },
+            { ...emptyAdvertisingData }
+          )
+        : { ...emptyAdvertisingData },
     purchasedStatus: car.purchased_status ?? "",
     lifecycleStage: car.lifecycleStage ?? car.lifecycle_stage ?? "valuation",
     soldPrice: car.sold_price ?? "",
@@ -454,6 +485,8 @@ function getPurchasedVehicleReadiness(car, documents = []) {
   const cebiaHistory = car?.cebiaHistory || car?.cebia_history || {};
   const damageReport = car?.damageReport || car?.damage_report || {};
   const postPurchaseCosts = car?.postPurchaseCosts || car?.post_purchase_costs || {};
+  const advertisingData =
+    car?.advertisingData || car?.technicalParams?.advertisingData || {};
   const normalizedStatus = normalizeVehicleStatus(car?.status);
   const hasDamageInspection =
     hasFilledValue(damageReport.overallCondition) ||
@@ -524,6 +557,7 @@ function getPurchasedVehicleReadiness(car, documents = []) {
     {
       label: "Inzerát",
       done:
+        hasFilledObjectValue(advertisingData) ||
         hasFilledValue(car?.advertText) ||
         hasFilledValue(car?.advertisingText) ||
         hasFilledValue(car?.listingText),
@@ -803,8 +837,15 @@ const remainingEquipment = equipmentItems.filter(
   }
 
   async function updateCar(updated) {
+    const advertisingData = normalizeAdvertisingData(updated.advertisingData);
+    const technicalParams = {
+      ...(updated.technicalParams || {}),
+      advertisingData,
+    };
     const updatedWithUser = {
       ...updated,
+      advertisingData,
+      technicalParams,
       lifecycleStage: updated.lifecycleStage || "valuation",
       status: normalizeVehicleStatus(updated.status),
       updated_by: currentUsername,
@@ -1773,6 +1814,14 @@ const remainingEquipment = equipmentItems.filter(
             formatDate={formatDate}
           />
 
+          {purchasedVehicleReadiness && (
+            <VehicleSummary
+              selectedCar={selectedCar}
+              readiness={purchasedVehicleReadiness}
+              getVehicleStatusLabel={getVehicleStatusLabel}
+            />
+          )}
+
           <div className="card decision">
             <h2>Stav vozidla</h2>
             <p>Aktuální stav: {getVehicleStatusLabel(selectedCar.status)}</p>
@@ -1941,6 +1990,16 @@ const remainingEquipment = equipmentItems.filter(
                 <ShieldCheck />
                 <h3>Náklady po výkupu</h3>
                 <button onClick={() => openModule("postPurchaseCosts")}>
+                  Otevřít
+                </button>
+              </div>
+            )}
+
+            {hasVehicleStatus(selectedCar.status, purchasedStatusGroup) && (
+              <div className="module">
+                <ClipboardList />
+                <h3>Příprava pro inzerci</h3>
+                <button onClick={() => openModule("advertisingPrep")}>
                   Otevřít
                 </button>
               </div>
@@ -2380,6 +2439,14 @@ const remainingEquipment = equipmentItems.filter(
 
           {module === "postPurchaseCosts" && (
             <VehiclePostPurchaseCosts
+              selectedCar={selectedCar}
+              updateCar={updateCar}
+              moduleContentRef={moduleContentRef}
+            />
+          )}
+
+          {module === "advertisingPrep" && (
+            <VehicleAdvertisingPrep
               selectedCar={selectedCar}
               updateCar={updateCar}
               moduleContentRef={moduleContentRef}
