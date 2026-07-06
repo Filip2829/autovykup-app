@@ -577,6 +577,68 @@ textarea::placeholder {
   color: #f87171;
 }
 
+.readinessGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.readinessItem {
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  border-radius: 16px;
+  padding: 14px;
+  background: rgba(15, 23, 42, 0.55);
+}
+
+.readinessItem h4 {
+  margin: 10px 0 4px;
+  color: white;
+}
+
+.readinessItem p {
+  margin: 0;
+  font-weight: 800;
+}
+
+.readinessNumber {
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 900;
+  background: rgba(148, 163, 184, 0.16);
+  color: #cbd5e1;
+}
+
+.readinessItem.done {
+  border-color: rgba(34, 197, 94, 0.38);
+}
+
+.readinessItem.done .readinessNumber {
+  background: rgba(34, 197, 94, 0.16);
+  color: #86efac;
+}
+
+.readinessItem.done p {
+  color: #86efac;
+}
+
+.readinessItem.missing {
+  border-color: rgba(239, 68, 68, 0.32);
+}
+
+.readinessItem.missing .readinessNumber {
+  background: rgba(239, 68, 68, 0.12);
+  color: #f87171;
+}
+
+.readinessItem.missing p {
+  color: #f87171;
+}
+
 .grid {
   display: grid;
   grid-template-columns: repeat(5, 1fr);
@@ -726,6 +788,10 @@ input[type="checkbox"] {
     gap: 18px;
   }
 
+  .readinessGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .workflowStep::after {
     display: none;
   }
@@ -783,6 +849,10 @@ input[type="checkbox"] {
 
   .grid,
   .workflowPanel {
+    grid-template-columns: 1fr;
+  }
+
+  .readinessGrid {
     grid-template-columns: 1fr;
   }
 

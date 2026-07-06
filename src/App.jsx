@@ -188,6 +188,16 @@ function hasFilledValue(value) {
   return value !== null && value !== undefined && String(value).trim() !== "";
 }
 
+function hasFilledObjectValue(value) {
+  if (!value || typeof value !== "object") return false;
+
+  return Object.values(value).some((item) => {
+    if (Array.isArray(item)) return item.length > 0;
+    if (item && typeof item === "object") return hasFilledObjectValue(item);
+    return hasFilledValue(item);
+  });
+}
+
 function normalizeVehicleStatus(status) {
   if (Object.values(VEHICLE_STATUS).includes(status)) return status;
   return legacyStatusMap[status] || VEHICLE_STATUS.VALUATION;
@@ -430,6 +440,89 @@ function getWorkflow(car) {
     { label: "Nacenění", done: hasValuation },
     { label: "Schválení", done: hasApprovedPrice },
   ];
+}
+
+function getPurchasedVehicleReadiness(car, documents = []) {
+  const checklist = car?.checklist || {};
+  const cebiaHistory = car?.cebiaHistory || car?.cebia_history || {};
+  const damageReport = car?.damageReport || car?.damage_report || {};
+  const postPurchaseCosts = car?.postPurchaseCosts || car?.post_purchase_costs || {};
+  const normalizedStatus = normalizeVehicleStatus(car?.status);
+
+  const readinessItems = [
+    {
+      label: "Doklady",
+      done:
+        Boolean(checklist["Servisní historie"]) ||
+        normalizeArray(car?.technicalCardPhotos || car?.technical_card_photos).length > 0 ||
+        normalizeArray(documents).length > 0,
+    },
+    {
+      label: "CEBIA / historie",
+      done:
+        Boolean(checklist["Kontrola CEBIA / CarVertical"]) ||
+        hasFilledObjectValue(cebiaHistory) ||
+        hasFilledValue(car?.aiCebiaReport ?? car?.ai_cebia_report) ||
+        normalizeArray(car?.cebiaFiles || car?.cebia_files).length > 0,
+    },
+    {
+      label: "Klíče",
+      done:
+        Boolean(checklist["Počet klíčů 2x"]) ||
+        Boolean(checklist["PoÄŤet klĂ­ÄŤĹŻ 2x"]),
+    },
+    {
+      label: "Kupní cena",
+      done:
+        hasFilledValue(car?.purchasePrice ?? car?.purchase_price) ||
+        hasFilledValue(car?.approvedPrice ?? car?.approved_price) ||
+        hasFilledValue(car?.buyEstimate ?? car?.buy_estimate),
+    },
+    {
+      label: "Poškození / kontrola",
+      done:
+        normalizeArray(car?.notes).length > 0 ||
+        hasFilledObjectValue(damageReport),
+    },
+    {
+      label: "Servis / opravy",
+      done:
+        hasFilledValue(postPurchaseCosts.service) ||
+        hasFilledValue(postPurchaseCosts.bodyPaint) ||
+        hasFilledValue(postPurchaseCosts.other) ||
+        hasFilledValue(damageReport.serviceCost) ||
+        hasFilledValue(damageReport.bodyPaintCost) ||
+        hasFilledValue(damageReport.otherCost),
+    },
+    {
+      label: "Fotky",
+      done: normalizeArray(car?.photos).length > 0,
+    },
+    {
+      label: "Inzerát",
+      done:
+        hasFilledValue(car?.advertText) ||
+        hasFilledValue(car?.advertisingText) ||
+        hasFilledValue(car?.listingText),
+    },
+    {
+      label: "Publikace",
+      done: [
+        VEHICLE_STATUS.ADVERTISED,
+        VEHICLE_STATUS.RESERVED,
+        VEHICLE_STATUS.SOLD,
+      ].includes(normalizedStatus),
+    },
+  ];
+
+  const completedCount = readinessItems.filter((item) => item.done).length;
+
+  return {
+    items: readinessItems,
+    completedCount,
+    totalCount: readinessItems.length,
+    percent: Math.round((completedCount / readinessItems.length) * 100),
+  };
 }
 
 export default function App() {
@@ -1437,6 +1530,10 @@ const remainingEquipment = equipmentItems.filter(
 
   const checklistComplete = selectedCar && isChecklistComplete(selectedCar.checklist);
   const valuationComplete = selectedCar && isValuationComplete(selectedCar);
+  const purchasedVehicleReadiness =
+    selectedCar && hasVehicleStatus(selectedCar.status, purchasedStatusGroup)
+      ? getPurchasedVehicleReadiness(selectedCar, vehicleDocuments)
+      : null;
 
   return (
     <div className="app">
@@ -1664,6 +1761,28 @@ const remainingEquipment = equipmentItems.filter(
               onChange={updateVehicleStatus}
             />
           </div>
+
+          {purchasedVehicleReadiness && (
+            <div className="card decision">
+              <h2>Připravenost vozidla</h2>
+              <p>
+                Vozidlo je připraveno z {purchasedVehicleReadiness.percent} %.
+              </p>
+
+              <div className="readinessGrid">
+                {purchasedVehicleReadiness.items.map((item, index) => (
+                  <div
+                    key={item.label}
+                    className={`readinessItem ${item.done ? "done" : "missing"}`}
+                  >
+                    <div className="readinessNumber">{index + 1}</div>
+                    <h4>{item.label}</h4>
+                    <p>{item.done ? "Hotovo" : "Čeká"}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           <div className="workflowPanel">
             {getWorkflow(selectedCar).map((step, index) => (
