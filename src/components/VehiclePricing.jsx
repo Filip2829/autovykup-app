@@ -16,7 +16,6 @@ export default function VehiclePricing({
   setCars,
   supabase,
   prepareCar,
-  calculateStatus,
   toNullableNumber,
   currentUsername,
   moduleContentRef,
@@ -81,15 +80,12 @@ export default function VehiclePricing({
       saleEstimate: saleEstimate ?? "",
       approvedPrice: approvedPrice ?? "",
     };
-    const status = calculateStatus(updatedCar);
-
     const pricingPayload = {
       valuation_date: valuationDate || null,
       customer_expected_price: customerExpectedPrice,
       buy_estimate: buyEstimate,
       sale_estimate: saleEstimate,
       approved_price: approvedPrice,
-      status,
       updated_by: currentUsername,
       updated_at: new Date().toISOString(),
     };

@@ -110,11 +110,47 @@ const emptyDamageReport = {
   recommendation: "",
 };
 
-const STATUS = {
+const LEGACY_STATUS = {
   MISSING_DOCS: "Chybí podklady",
   READY_FOR_VALUATION: "Připraveno k nacenění",
   VALUATED: "Nacenění hotové",
   APPROVED: "Výkupní cena potvrzena",
+};
+
+const VEHICLE_STATUS = {
+  VALUATION: "valuation",
+  APPROVED_FOR_PURCHASE: "approved_for_purchase",
+  PURCHASED: "purchased",
+  PREPARATION: "preparation",
+  READY_FOR_ADVERTISING: "ready_for_advertising",
+  ADVERTISED: "advertised",
+  RESERVED: "reserved",
+  SOLD: "sold",
+  ARCHIVED: "archived",
+};
+
+const vehicleStatusLabels = {
+  [VEHICLE_STATUS.VALUATION]: "Nacenění",
+  [VEHICLE_STATUS.APPROVED_FOR_PURCHASE]: "Schváleno k výkupu",
+  [VEHICLE_STATUS.PURCHASED]: "Vykoupeno",
+  [VEHICLE_STATUS.PREPARATION]: "V přípravě",
+  [VEHICLE_STATUS.READY_FOR_ADVERTISING]: "Připraveno k inzerci",
+  [VEHICLE_STATUS.ADVERTISED]: "Inzerováno",
+  [VEHICLE_STATUS.RESERVED]: "Rezervováno",
+  [VEHICLE_STATUS.SOLD]: "Prodáno",
+  [VEHICLE_STATUS.ARCHIVED]: "Archiv",
+};
+
+const vehicleStatusOptions = Object.values(VEHICLE_STATUS).map((value) => ({
+  value,
+  label: vehicleStatusLabels[value],
+}));
+
+const legacyStatusMap = {
+  [LEGACY_STATUS.MISSING_DOCS]: VEHICLE_STATUS.VALUATION,
+  [LEGACY_STATUS.READY_FOR_VALUATION]: VEHICLE_STATUS.VALUATION,
+  [LEGACY_STATUS.VALUATED]: VEHICLE_STATUS.VALUATION,
+  [LEGACY_STATUS.APPROVED]: VEHICLE_STATUS.APPROVED_FOR_PURCHASE,
 };
 
 function getUsername(user) {
@@ -135,6 +171,51 @@ function normalizeArray(value) {
 
 function hasFilledValue(value) {
   return value !== null && value !== undefined && String(value).trim() !== "";
+}
+
+function normalizeVehicleStatus(status) {
+  if (Object.values(VEHICLE_STATUS).includes(status)) return status;
+  return legacyStatusMap[status] || VEHICLE_STATUS.VALUATION;
+}
+
+function getVehicleStatusLabel(status) {
+  return vehicleStatusLabels[normalizeVehicleStatus(status)];
+}
+
+function getVehicleStatusClassName(status) {
+  const normalizedStatus = normalizeVehicleStatus(status);
+
+  if (
+    normalizedStatus === VEHICLE_STATUS.APPROVED_FOR_PURCHASE ||
+    normalizedStatus === VEHICLE_STATUS.PURCHASED ||
+    normalizedStatus === VEHICLE_STATUS.READY_FOR_ADVERTISING ||
+    normalizedStatus === VEHICLE_STATUS.ADVERTISED ||
+    normalizedStatus === VEHICLE_STATUS.SOLD
+  ) {
+    return "statusSuccess";
+  }
+
+  if (
+    normalizedStatus === VEHICLE_STATUS.RESERVED ||
+    normalizedStatus === VEHICLE_STATUS.ARCHIVED
+  ) {
+    return "statusWarning";
+  }
+
+  return "statusDanger";
+}
+
+function getLifecycleStageForStatus(status) {
+  const normalizedStatus = normalizeVehicleStatus(status);
+
+  if (
+    normalizedStatus === VEHICLE_STATUS.VALUATION ||
+    normalizedStatus === VEHICLE_STATUS.APPROVED_FOR_PURCHASE
+  ) {
+    return "valuation";
+  }
+
+  return "purchased";
 }
 
 function toNullableNumber(value) {
@@ -219,6 +300,7 @@ function getCaseAgeClass(createdAt) {
 function prepareCar(car) {
   return {
     ...car,
+    status: normalizeVehicleStatus(car.status),
     photos: normalizeArray(car.photos),
     technicalCardPhotos: normalizeArray(car.technical_card_photos),
     cebiaFiles: normalizeArray(car.cebia_files),
@@ -311,10 +393,10 @@ function calculateStatus(car) {
   const hasValuation = isValuationComplete(car);
   const hasApprovedPrice = hasFilledValue(car.approvedPrice ?? car.approved_price);
 
-  if (hasApprovedPrice) return STATUS.APPROVED;
-  if (hasValuation) return STATUS.VALUATED;
-  if (hasPhotos && checklistComplete) return STATUS.READY_FOR_VALUATION;
-  return STATUS.MISSING_DOCS;
+  if (hasApprovedPrice) return LEGACY_STATUS.APPROVED;
+  if (hasValuation) return LEGACY_STATUS.VALUATED;
+  if (hasPhotos && checklistComplete) return LEGACY_STATUS.READY_FOR_VALUATION;
+  return LEGACY_STATUS.MISSING_DOCS;
 }
 
 function getWorkflow(car) {
@@ -583,7 +665,7 @@ const remainingEquipment = equipmentItems.filter(
     const updatedWithUser = {
       ...updated,
       lifecycleStage: updated.lifecycleStage || "valuation",
-      status: calculateStatus(updated),
+      status: normalizeVehicleStatus(updated.status),
       updated_by: currentUsername,
     };
 
@@ -652,7 +734,7 @@ const remainingEquipment = equipmentItems.filter(
       km: Number(newCarForm.km) || 0,
       vin: newCarForm.vin.trim(),
       spz: newCarForm.spz.trim(),
-      status: STATUS.MISSING_DOCS,
+      status: VEHICLE_STATUS.VALUATION,
       created_by: currentUsername,
       updated_by: currentUsername,
       checklist: { ...emptyChecklist },
@@ -759,6 +841,17 @@ const remainingEquipment = equipmentItems.filter(
     await updateCar({
       ...selectedCar,
       lifecycleStage: "purchased",
+      status: VEHICLE_STATUS.PURCHASED,
+    });
+  }
+
+  function updateVehicleStatus(nextStatus) {
+    if (!selectedCar) return;
+
+    updateCar({
+      ...selectedCar,
+      status: nextStatus,
+      lifecycleStage: getLifecycleStageForStatus(nextStatus),
     });
   }
 
@@ -1495,7 +1588,7 @@ const remainingEquipment = equipmentItems.filter(
                           <p>Přidáno: {formatDate(car.created_at)}</p>
                           <p>Upraveno: {formatDate(car.updated_at, true)}</p>
                         </div>
-                        <span>{car.status}</span>
+                        <span>{getVehicleStatusLabel(car.status)}</span>
                       </div>
                     </div>
 
@@ -1524,19 +1617,28 @@ const remainingEquipment = equipmentItems.filter(
       {view === "detail" && selectedCar && (
         <section>
           <VehicleHeader
-            selectedCar={selectedCar}
-            statusClassName={
-              selectedCar.status === STATUS.MISSING_DOCS
-                ? "statusDanger"
-                : selectedCar.status === STATUS.APPROVED
-                ? "statusSuccess"
-                : "statusWarning"
-            }
+            selectedCar={{
+              ...selectedCar,
+              status: getVehicleStatusLabel(selectedCar.status),
+            }}
+            statusClassName={getVehicleStatusClassName(selectedCar.status)}
             onBack={() => setView("list")}
             onEdit={() => setEditMode(true)}
             onDelete={deleteCar}
             formatDate={formatDate}
           />
+
+          <div className="card decision">
+            <h2>Stav vozidla</h2>
+            <p>Aktuální stav: {getVehicleStatusLabel(selectedCar.status)}</p>
+
+            <AppSelect
+              ariaLabel="Stav vozidla"
+              value={normalizeVehicleStatus(selectedCar.status)}
+              options={vehicleStatusOptions}
+              onChange={updateVehicleStatus}
+            />
+          </div>
 
           <div className="workflowPanel">
             {getWorkflow(selectedCar).map((step, index) => (
@@ -2097,7 +2199,6 @@ const remainingEquipment = equipmentItems.filter(
               setCars={setCars}
               supabase={supabase}
               prepareCar={prepareCar}
-              calculateStatus={calculateStatus}
               toNullableNumber={toNullableNumber}
               currentUsername={currentUsername}
               moduleContentRef={moduleContentRef}
