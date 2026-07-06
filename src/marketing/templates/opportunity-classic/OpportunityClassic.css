@@ -1,0 +1,398 @@
+:root {
+  --oc-black: #151515;
+  --oc-yellow: #f59e0b;
+  --oc-yellow-soft: #fff7ed;
+  --oc-white: #fffdf8;
+  --oc-gray: #6b7280;
+  --oc-border: #e5e7eb;
+  --oc-radius: 4px;
+  --oc-shadow: 0 24px 70px rgba(0, 0, 0, 0.42);
+  --oc-a4-width: 900px;
+}
+
+.opportunityClassicCard {
+  width: min(100%, var(--oc-a4-width));
+  aspect-ratio: 210 / 297;
+  min-height: 1180px;
+  background: var(--oc-white);
+  color: var(--oc-black);
+  border-radius: var(--oc-radius);
+  padding: 28px;
+  box-shadow: var(--oc-shadow);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  font-family: Inter, Arial, sans-serif;
+}
+
+.oc-brand-header {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 22px;
+  align-items: center;
+  background: var(--oc-black);
+  color: var(--oc-yellow-soft);
+  padding: 18px 20px;
+  border-radius: var(--oc-radius);
+  border-bottom: 7px solid var(--oc-yellow);
+}
+
+.oc-mark {
+  color: #fbbf24;
+  font-size: 30px;
+  font-weight: 950;
+  letter-spacing: 0.02em;
+}
+
+.oc-brand-header p,
+.oc-brand-header span {
+  margin: 4px 0 0;
+  color: #fed7aa;
+  font-weight: 800;
+}
+
+.oc-contact-block {
+  text-align: right;
+}
+
+.oc-contact-block strong,
+.oc-contact-block span {
+  display: block;
+}
+
+.oc-hero {
+  display: grid;
+  grid-template-columns: 1fr 250px;
+  gap: 22px;
+  align-items: stretch;
+}
+
+.oc-eyebrow {
+  margin: 0 0 8px;
+  color: #92400e !important;
+  font-size: 12px;
+  font-weight: 950;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.oc-hero h1 {
+  margin: 0;
+  color: #111827;
+  font-size: 48px;
+  line-height: 1;
+  letter-spacing: 0;
+}
+
+.oc-version {
+  margin: 12px 0 0;
+  color: #374151 !important;
+  font-size: 21px;
+  font-weight: 900;
+}
+
+.oc-price-badge {
+  background: var(--oc-yellow);
+  color: #111827;
+  border-radius: var(--oc-radius);
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  text-align: center;
+  box-shadow: inset 0 -5px 0 rgba(17, 24, 39, 0.18);
+}
+
+.oc-price-badge span {
+  font-size: 12px;
+  font-weight: 950;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.oc-price-badge strong {
+  margin-top: 4px;
+  font-size: 32px;
+  font-weight: 950;
+}
+
+.oc-stats {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.oc-stat-item {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  min-width: 0;
+  border: 1px solid var(--oc-border);
+  background: #ffffff;
+  border-radius: var(--oc-radius);
+  padding: 11px;
+}
+
+.oc-stat-item > span {
+  width: 34px;
+  height: 34px;
+  flex: 0 0 34px;
+  border-radius: 999px;
+  background: #111827;
+  color: #fbbf24;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 950;
+}
+
+.oc-stat-item small {
+  display: block;
+  color: var(--oc-gray);
+  font-size: 10px;
+  font-weight: 950;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.oc-stat-item strong {
+  display: block;
+  margin-top: 3px;
+  color: #111827;
+  font-size: 14px;
+  line-height: 1.15;
+}
+
+.oc-main-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(260px, 0.75fr);
+  gap: 16px;
+  min-height: 0;
+}
+
+.oc-photo-column,
+.oc-side-column {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+}
+
+.oc-photo-block {
+  height: 390px;
+  border-radius: var(--oc-radius);
+  overflow: hidden;
+  background: var(--oc-border);
+}
+
+.oc-photo-block img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.oc-photo-fallback {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #64748b;
+  font-size: 22px;
+  font-weight: 900;
+}
+
+.oc-block {
+  border: 1px solid var(--oc-border);
+  background: #ffffff;
+  border-radius: var(--oc-radius);
+  padding: 14px;
+}
+
+.oc-block h3 {
+  margin: 0 0 11px;
+  color: #111827;
+  font-size: 15px;
+  font-weight: 950;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  border-bottom: 3px solid var(--oc-yellow);
+  padding-bottom: 7px;
+}
+
+.oc-detail-row {
+  display: grid;
+  grid-template-columns: 112px 1fr;
+  gap: 10px;
+  padding: 7px 0;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.oc-detail-row:last-child {
+  border-bottom: 0;
+}
+
+.oc-detail-row span {
+  color: var(--oc-gray);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.oc-detail-row strong {
+  color: #111827;
+  font-size: 13px;
+  text-align: right;
+}
+
+.oc-chip-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.oc-chip-list span {
+  background: var(--oc-yellow-soft);
+  border: 1px solid #fed7aa;
+  border-radius: 999px;
+  color: #111827;
+  padding: 7px 10px;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.oc-highlights .oc-chip-list span,
+.oc-bottom-grid .oc-block:nth-child(2) .oc-chip-list span {
+  background: #111827;
+  border-color: #111827;
+  color: #fbbf24;
+}
+
+.oc-bottom-grid {
+  display: grid;
+  grid-template-columns: 1.1fr 0.9fr;
+  gap: 16px;
+}
+
+.oc-condition-note {
+  background: var(--oc-yellow-soft);
+  border-left: 7px solid var(--oc-yellow);
+  color: #111827;
+  border-radius: var(--oc-radius);
+  padding: 12px 14px;
+  font-weight: 800;
+}
+
+.oc-footer {
+  margin-top: auto;
+  border-top: 6px solid var(--oc-black);
+  padding-top: 14px;
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+  color: #111827;
+}
+
+.oc-footer strong,
+.oc-footer span {
+  display: block;
+}
+
+.oc-footer strong {
+  color: #111827;
+  font-size: 20px;
+  font-weight: 950;
+}
+
+.oc-footer span {
+  color: var(--oc-gray);
+  font-weight: 800;
+}
+
+.oc-empty {
+  margin: 0;
+  color: #64748b !important;
+  font-weight: 800;
+}
+
+@media (max-width: 900px) {
+  .opportunityClassicCard {
+    min-height: auto;
+  }
+
+  .oc-brand-header,
+  .oc-hero,
+  .oc-main-grid,
+  .oc-bottom-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .oc-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 600px) {
+  .opportunityClassicCard {
+    aspect-ratio: auto;
+    padding: 20px;
+  }
+
+  .oc-hero h1 {
+    font-size: 30px;
+  }
+
+  .oc-price-badge strong {
+    font-size: 25px;
+  }
+
+  .oc-photo-block {
+    height: 220px;
+  }
+
+  .oc-stats {
+    grid-template-columns: 1fr;
+  }
+
+  .oc-contact-block {
+    text-align: left;
+  }
+
+  .oc-footer {
+    flex-direction: column;
+  }
+}
+
+@media print {
+  @page {
+    size: A4;
+    margin: 0;
+  }
+
+  body {
+    background: white !important;
+  }
+
+  body * {
+    visibility: hidden !important;
+  }
+
+  .opportunityClassicCard,
+  .opportunityClassicCard * {
+    visibility: visible !important;
+  }
+
+  .opportunityClassicCard {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 210mm !important;
+    min-height: 297mm !important;
+    aspect-ratio: auto !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    padding: 10mm !important;
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+}

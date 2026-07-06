@@ -750,6 +750,519 @@ textarea::placeholder {
   font-size: 14px;
 }
 
+.marketingEnginePanel {
+  overflow-x: auto;
+}
+
+.marketingPreviewShell {
+  display: flex;
+  justify-content: center;
+  padding: 18px;
+  border-radius: 18px;
+  background: rgba(15, 23, 42, 0.64);
+}
+
+.vehicleMarketingCard {
+  width: min(100%, 820px);
+  aspect-ratio: 1 / 1.414;
+  min-height: 980px;
+  background: #ffffff;
+  color: #111827;
+  border-radius: 6px;
+  padding: 34px;
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.42);
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.marketingCardHeader {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 22px;
+  align-items: start;
+  border-bottom: 5px solid #2563eb;
+  padding-bottom: 20px;
+}
+
+.marketingBrand {
+  color: #2563eb !important;
+  font-size: 15px;
+  font-weight: 900;
+  letter-spacing: 0.14em;
+  margin: 0 0 8px;
+  text-transform: uppercase;
+}
+
+.marketingCardHeader h2 {
+  margin: 0;
+  color: #0f172a;
+  font-size: 42px;
+  line-height: 1.04;
+}
+
+.marketingCardHeader p {
+  margin: 10px 0 0;
+  color: #475569;
+  font-size: 18px;
+  font-weight: 800;
+}
+
+.marketingPrice {
+  align-self: stretch;
+  min-width: 220px;
+  border-radius: 8px;
+  background: #2563eb;
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 18px;
+  text-align: center;
+  font-size: 31px;
+  font-weight: 950;
+}
+
+.marketingPhotoBlock {
+  height: 310px;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #e2e8f0;
+}
+
+.marketingPhotoBlock img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.marketingPhotoFallback {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #64748b;
+  font-size: 22px;
+  font-weight: 900;
+}
+
+.marketingInfoGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.marketingInfoItem {
+  border: 1px solid #dbe3ef;
+  border-radius: 8px;
+  padding: 11px;
+  background: #f8fafc;
+}
+
+.marketingInfoItem span {
+  display: block;
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.marketingInfoItem strong {
+  display: block;
+  margin-top: 5px;
+  color: #0f172a;
+  font-size: 15px;
+}
+
+.marketingSection {
+  border-top: 1px solid #e2e8f0;
+  padding-top: 14px;
+}
+
+.marketingSection h3 {
+  margin: 0 0 9px;
+  color: #2563eb;
+  font-size: 17px;
+  text-transform: uppercase;
+}
+
+.marketingSection ul {
+  margin: 0;
+  padding-left: 22px;
+  columns: 2;
+  color: #111827;
+  font-weight: 700;
+}
+
+.marketingSection li {
+  break-inside: avoid;
+  margin-bottom: 7px;
+}
+
+.marketingEmpty {
+  margin: 0;
+  color: #64748b !important;
+  font-weight: 800;
+}
+
+.marketingCondition p {
+  margin: 0;
+  color: #334155 !important;
+  font-weight: 800;
+}
+
+.marketingFooter {
+  margin-top: auto;
+  border-top: 5px solid #0f172a;
+  padding-top: 16px;
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+  color: #0f172a;
+}
+
+.marketingFooter strong,
+.marketingFooter span {
+  display: block;
+}
+
+.marketingFooter strong {
+  font-size: 20px;
+  font-weight: 950;
+}
+
+.marketingFooter span {
+  color: #64748b;
+  font-weight: 800;
+}
+
+.marketingEngineTop {
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+  align-items: flex-start;
+  margin-bottom: 18px;
+}
+
+.marketingEngineTop h2 {
+  margin: 0;
+}
+
+.marketingActions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.marketingActions button {
+  white-space: nowrap;
+}
+
+.marketingReadiness {
+  display: grid;
+  grid-template-columns: 180px 1fr;
+  gap: 18px;
+  align-items: start;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  border-radius: 16px;
+  background: rgba(15, 23, 42, 0.55);
+  padding: 16px;
+  margin-bottom: 18px;
+}
+
+.marketingReadiness strong {
+  color: #fbbf24;
+  font-size: 34px;
+  font-weight: 950;
+}
+
+.marketingReadiness p {
+  margin: 0 0 8px;
+}
+
+.marketingReadiness ul {
+  margin: 0;
+  padding-left: 18px;
+  color: #cbd5e1;
+}
+
+.vehicleMarketingCard {
+  width: min(100%, 900px);
+  aspect-ratio: 210 / 297;
+  min-height: 1180px;
+  background: #fffdf8;
+  color: #151515;
+  border-radius: 4px;
+  padding: 28px;
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.42);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  font-family: Inter, Arial, sans-serif;
+}
+
+.marketingCardBrandHeader {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 22px;
+  align-items: center;
+  background: #151515;
+  color: #fff7ed;
+  padding: 18px 20px;
+  border-radius: 3px;
+  border-bottom: 7px solid #f59e0b;
+}
+
+.marketingOpportunityMark {
+  color: #fbbf24;
+  font-size: 30px;
+  font-weight: 950;
+  letter-spacing: 0.02em;
+}
+
+.marketingCardBrandHeader p,
+.marketingCardBrandHeader span {
+  margin: 4px 0 0;
+  color: #fed7aa;
+  font-weight: 800;
+}
+
+.marketingContactBlock {
+  text-align: right;
+}
+
+.marketingContactBlock strong,
+.marketingContactBlock span {
+  display: block;
+}
+
+.marketingHero {
+  display: grid;
+  grid-template-columns: 1fr 250px;
+  gap: 22px;
+  align-items: stretch;
+}
+
+.marketingEyebrow {
+  margin: 0 0 8px;
+  color: #92400e !important;
+  font-size: 12px;
+  font-weight: 950;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.marketingHero h1 {
+  margin: 0;
+  color: #111827;
+  font-size: 48px;
+  line-height: 1;
+  letter-spacing: 0;
+}
+
+.marketingVersion {
+  margin: 12px 0 0;
+  color: #374151 !important;
+  font-size: 21px;
+  font-weight: 900;
+}
+
+.marketingPriceBadge {
+  background: #f59e0b;
+  color: #111827;
+  border-radius: 4px;
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  text-align: center;
+  box-shadow: inset 0 -5px 0 rgba(17, 24, 39, 0.18);
+}
+
+.marketingPriceBadge span {
+  font-size: 12px;
+  font-weight: 950;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.marketingPriceBadge strong {
+  margin-top: 4px;
+  font-size: 32px;
+  font-weight: 950;
+}
+
+.marketingStats {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.marketingStatItem {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  min-width: 0;
+  border: 1px solid #e5e7eb;
+  background: #ffffff;
+  border-radius: 4px;
+  padding: 11px;
+}
+
+.marketingStatItem > span {
+  width: 34px;
+  height: 34px;
+  flex: 0 0 34px;
+  border-radius: 999px;
+  background: #111827;
+  color: #fbbf24;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 950;
+}
+
+.marketingStatItem small {
+  display: block;
+  color: #6b7280;
+  font-size: 10px;
+  font-weight: 950;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.marketingStatItem strong {
+  display: block;
+  margin-top: 3px;
+  color: #111827;
+  font-size: 14px;
+  line-height: 1.15;
+}
+
+.marketingMainGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(260px, 0.75fr);
+  gap: 16px;
+  min-height: 0;
+}
+
+.marketingPhotoColumn,
+.marketingSideColumn {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+}
+
+.marketingPhotoBlock {
+  height: 390px;
+  border-radius: 4px;
+  overflow: hidden;
+  background: #e5e7eb;
+}
+
+.marketingBlock {
+  border: 1px solid #e5e7eb;
+  background: #ffffff;
+  border-radius: 4px;
+  padding: 14px;
+}
+
+.marketingBlock h3 {
+  margin: 0 0 11px;
+  color: #111827;
+  font-size: 15px;
+  font-weight: 950;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  border-bottom: 3px solid #f59e0b;
+  padding-bottom: 7px;
+}
+
+.marketingDetailRow {
+  display: grid;
+  grid-template-columns: 112px 1fr;
+  gap: 10px;
+  padding: 7px 0;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.marketingDetailRow:last-child {
+  border-bottom: 0;
+}
+
+.marketingDetailRow span {
+  color: #6b7280;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.marketingDetailRow strong {
+  color: #111827;
+  font-size: 13px;
+  text-align: right;
+}
+
+.marketingChipList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.marketingChipList span {
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+  border-radius: 999px;
+  color: #111827;
+  padding: 7px 10px;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.marketingHighlights .marketingChipList span,
+.marketingBottomGrid .marketingBlock:nth-child(2) .marketingChipList span {
+  background: #111827;
+  border-color: #111827;
+  color: #fbbf24;
+}
+
+.marketingBottomGrid {
+  display: grid;
+  grid-template-columns: 1.1fr 0.9fr;
+  gap: 16px;
+}
+
+.marketingConditionNote {
+  background: #fff7ed;
+  border-left: 7px solid #f59e0b;
+  color: #111827;
+  border-radius: 4px;
+  padding: 12px 14px;
+  font-weight: 800;
+}
+
+.marketingFooter {
+  margin-top: auto;
+  border-top: 6px solid #151515;
+  padding-top: 14px;
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+  color: #111827;
+}
+
+.marketingFooter strong {
+  color: #111827;
+}
+
+.marketingFooter span {
+  color: #6b7280;
+}
+
 .grid {
   display: grid;
   grid-template-columns: repeat(5, 1fr);
@@ -907,6 +1420,15 @@ input[type="checkbox"] {
     grid-template-columns: 1fr;
   }
 
+  .vehicleMarketingCard {
+    min-height: auto;
+  }
+
+  .marketingCardHeader,
+  .marketingInfoGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .workflowStep::after {
     display: none;
   }
@@ -975,12 +1497,98 @@ input[type="checkbox"] {
     grid-template-columns: 1fr;
   }
 
+  .marketingPreviewShell {
+    padding: 10px;
+  }
+
+  .marketingEngineTop,
+  .marketingReadiness {
+    grid-template-columns: 1fr;
+  }
+
+  .marketingEngineTop {
+    flex-direction: column;
+  }
+
+  .marketingActions {
+    justify-content: stretch;
+  }
+
+  .marketingActions button {
+    width: 100%;
+  }
+
+  .vehicleMarketingCard {
+    aspect-ratio: auto;
+    padding: 20px;
+  }
+
+  .marketingCardHeader,
+  .marketingInfoGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .marketingCardHeader h2 {
+    font-size: 30px;
+  }
+
+  .marketingPrice {
+    min-width: 0;
+    font-size: 25px;
+  }
+
+  .marketingPhotoBlock {
+    height: 220px;
+  }
+
+  .marketingSection ul {
+    columns: 1;
+  }
+
+  .marketingFooter {
+    flex-direction: column;
+  }
+
   .carHeroTop h2 {
     font-size: 28px;
   }
 
   .photoGrid {
     grid-template-columns: 1fr;
+  }
+}
+
+@media print {
+  @page {
+    size: A4;
+    margin: 0;
+  }
+
+  body {
+    background: white !important;
+  }
+
+  body * {
+    visibility: hidden !important;
+  }
+
+  .vehicleMarketingCard,
+  .vehicleMarketingCard * {
+    visibility: visible !important;
+  }
+
+  .vehicleMarketingCard {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 210mm !important;
+    min-height: 297mm !important;
+    aspect-ratio: auto !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    padding: 10mm !important;
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
   }
 }
 .documentActions {

@@ -22,6 +22,12 @@ import VehicleDamage from "./components/VehicleDamage";
 import VehiclePostPurchaseCosts from "./components/VehiclePostPurchaseCosts.jsx";
 import VehicleAdvertisingPrep from "./components/VehicleAdvertisingPrep.jsx";
 import VehicleSummary from "./components/VehicleSummary.jsx";
+import {
+  buildMarketingVehicle,
+  MarketingActions,
+  MarketingReadinessScore,
+  OpportunityClassic,
+} from "./marketing/index.js";
 import AppSelect from "./components/ui/AppSelect";
 import AppModal from "./components/ui/AppModal";
 
@@ -598,6 +604,7 @@ const remainingEquipment = equipmentItems.filter(
   const [listMode, setListMode] = useState("valuation");
   const [module, setModule] = useState("overview");
   const moduleContentRef = useRef(null);
+  const marketingCardRef = useRef(null);
   const [noteText, setNoteText] = useState("");
   const [problemText, setProblemText] = useState("");
   const [vehicleDocuments, setVehicleDocuments] = useState([]);
@@ -1598,6 +1605,10 @@ const remainingEquipment = equipmentItems.filter(
     selectedCar && hasVehicleStatus(selectedCar.status, purchasedStatusGroup)
       ? getPurchasedVehicleReadiness(selectedCar, vehicleDocuments)
       : null;
+  const marketingVehicle =
+    selectedCar && hasVehicleStatus(selectedCar.status, purchasedStatusGroup)
+      ? buildMarketingVehicle(selectedCar)
+      : null;
 
   return (
     <div className="app">
@@ -2000,6 +2011,16 @@ const remainingEquipment = equipmentItems.filter(
                 <ClipboardList />
                 <h3>Příprava pro inzerci</h3>
                 <button onClick={() => openModule("advertisingPrep")}>
+                  Otevřít
+                </button>
+              </div>
+            )}
+
+            {hasVehicleStatus(selectedCar.status, purchasedStatusGroup) && (
+              <div className="module">
+                <Star />
+                <h3>Marketing Engine</h3>
+                <button onClick={() => openModule("marketingEngine")}>
                   Otevřít
                 </button>
               </div>
@@ -2451,6 +2472,30 @@ const remainingEquipment = equipmentItems.filter(
               updateCar={updateCar}
               moduleContentRef={moduleContentRef}
             />
+          )}
+
+          {module === "marketingEngine" && marketingVehicle && (
+            <div className="card decision marketingEnginePanel" ref={moduleContentRef}>
+              <div className="marketingEngineTop">
+                <div>
+                  <p className="label">Marketing Engine</p>
+                  <h2>A4 karta za okno vozu</h2>
+                </div>
+                <MarketingActions
+                  cardRef={marketingCardRef}
+                  fileName={marketingVehicle.title}
+                />
+              </div>
+
+              <MarketingReadinessScore readiness={marketingVehicle.readiness} />
+
+              <div className="marketingPreviewShell">
+                <OpportunityClassic
+                  vehicle={marketingVehicle}
+                  cardRef={marketingCardRef}
+                />
+              </div>
+            </div>
           )}
 
         </section>

@@ -1,0 +1,289 @@
+import {
+  formatVehicleCurrency,
+  getVehicleEconomy,
+} from "../../utils/vehicleEconomy.js";
+
+const fallbackText = "Neuvedeno";
+
+const priorityEquipment = [
+  "Automatická klimatizace",
+  "Navigace",
+  "Apple CarPlay",
+  "Android Auto",
+  "Couvací kamera",
+  "Parkovací senzory přední",
+  "Parkovací senzory zadní",
+  "Adaptivní tempomat",
+  "LED světlomety",
+  "Matrix LED",
+  "Vyhřívaná sedadla",
+  "Vyhřívaný volant",
+  "Kožené sedačky",
+  "Tažné zařízení",
+  "Bluetooth",
+  "Digitální kokpit",
+];
+
+function hasValue(value) {
+  return value !== null && value !== undefined && String(value).trim() !== "";
+}
+
+function getValue(...values) {
+  const value = values.find(hasValue);
+  return hasValue(value) ? String(value).trim() : fallbackText;
+}
+
+function getOptionalValue(...values) {
+  const value = values.find(hasValue);
+  return hasValue(value) ? String(value).trim() : "";
+}
+
+function getLines(value, limit) {
+  return String(value || "")
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .slice(0, limit);
+}
+
+function formatMileage(value) {
+  const numberValue = Number(value);
+  if (!Number.isFinite(numberValue) || numberValue <= 0) return fallbackText;
+  return `${numberValue.toLocaleString("cs-CZ")} km`;
+}
+
+function maskVin(vin) {
+  if (!hasValue(vin)) return fallbackText;
+  const normalizedVin = String(vin).trim();
+  if (normalizedVin.length <= 8) return normalizedVin;
+  return `${normalizedVin.slice(0, 6)}....${normalizedVin.slice(-4)}`;
+}
+
+function getSelectedEquipment(equipment = {}, limit = 10) {
+  const selected = Object.entries(equipment)
+    .filter(([, enabled]) => Boolean(enabled))
+    .map(([label]) => label);
+
+  const prioritySelected = priorityEquipment.filter((item) =>
+    selected.includes(item)
+  );
+  const remainingSelected = selected
+    .filter((item) => !prioritySelected.includes(item))
+    .sort((a, b) => a.localeCompare(b, "cs"));
+
+  return [...prioritySelected, ...remainingSelected].slice(0, limit);
+}
+
+function hasKnownDamage(car) {
+  const damageReport = car.damageReport || {};
+  const cebiaHistory = car.cebiaHistory || {};
+
+  return [
+    damageReport.overallCondition,
+    damageReport.exterior,
+    damageReport.interior,
+    damageReport.technical,
+    damageReport.tiresBrakes,
+    damageReport.otherDamage,
+    damageReport.note,
+    cebiaHistory.damageHistory,
+  ].some(hasValue);
+}
+
+function getTruthfulGuarantees(car) {
+  const highlightsText = String(car.advertisingData?.highlights || "").toLowerCase();
+  const knownDamage = hasKnownDamage(car);
+  const guarantees = [];
+
+  if (
+    car.checklist?.["Servisní historie"] ||
+    highlightsText.includes("servis")
+  ) {
+    guarantees.push("Pravidelný servis");
+  }
+
+  if (
+    !knownDamage &&
+    (highlightsText.includes("nehavarováno") ||
+      highlightsText.includes("bez nehod"))
+  ) {
+    guarantees.push("Bez nehod");
+  } else if (knownDamage) {
+    guarantees.push("Známé vady uvedeny transparentně");
+  } else {
+    guarantees.push("Ověřená historie vozu");
+  }
+
+  if (
+    car.checklist?.["Kontrola CEBIA / CarVertical"] ||
+    hasValue(car.aiCebiaReport)
+  ) {
+    guarantees.push("CEBIA / ověřená historie");
+  }
+
+  if (
+    car.checklist?.["Mechanická prohlídka + diagnostika"] ||
+    hasValue(car.damageReport?.overallCondition)
+  ) {
+    guarantees.push("Stav vozu prověřen");
+  }
+
+  return [...new Set(guarantees)].slice(0, 4);
+}
+
+function getHighlights(car) {
+  const explicitHighlights = getLines(car.advertisingData?.highlights, 5);
+  if (explicitHighlights.length > 0) return explicitHighlights;
+
+  const technicalParams = car.technicalParams || {};
+  const highlights = [];
+
+  if (Number(car.km) > 0 && Number(car.km) <= 120000) {
+    highlights.push("Nízký nájezd");
+  }
+
+  if (
+    String(car.cebiaHistory?.countryOfOrigin || "")
+      .toLowerCase()
+      .includes("čr")
+  ) {
+    highlights.push("České auto");
+  }
+
+  if (car.checklist?.["Servisní historie"]) {
+    highlights.push("Pravidelný servis");
+  }
+
+  if (
+    String(technicalParams.fuel || "").toLowerCase().includes("diesel") ||
+    String(technicalParams.engine || "").toLowerCase().includes("tsi") ||
+    String(technicalParams.engine || "").toLowerCase().includes("tdi")
+  ) {
+    highlights.push("Úsporný motor");
+  }
+
+  if (getSelectedEquipment(car.equipment, 4).length >= 4) {
+    highlights.push("Bohatá výbava");
+  }
+
+  return highlights.slice(0, 5);
+}
+
+function getServiceHistory(car) {
+  if (car.checklist?.["Servisní historie"]) return "Doložená";
+  if (car.advertisingData?.highlights?.toLowerCase().includes("servis")) {
+    return "Uvedena";
+  }
+  return fallbackText;
+}
+
+function getFirstOwner(car) {
+  const highlights = String(car.advertisingData?.highlights || "").toLowerCase();
+  return highlights.includes("první majitel") ? "Ano" : fallbackText;
+}
+
+function buildReadiness(vehicle) {
+  const checks = [
+    { key: "heroImage", label: "Hlavní fotografie", done: hasValue(vehicle.heroImage) },
+    { key: "price", label: "Cena", done: vehicle.price !== fallbackText },
+    { key: "mileage", label: "Nájezd", done: vehicle.specs.mileage !== fallbackText },
+    { key: "year", label: "Rok výroby", done: vehicle.specs.year !== fallbackText },
+    {
+      key: "drivetrain",
+      label: "Motor / palivo / převodovka",
+      done:
+        vehicle.specs.fuel !== fallbackText &&
+        vehicle.specs.transmission !== fallbackText &&
+        vehicle.technical.engine !== fallbackText,
+    },
+    { key: "equipment", label: "Výbava", done: vehicle.equipment.length > 0 },
+    { key: "guarantees", label: "Hlavní argumenty", done: vehicle.guarantees.length > 0 },
+    { key: "condition", label: "Stav / poškození", done: vehicle.condition !== fallbackText },
+    {
+      key: "serviceHistory",
+      label: "Servisní historie",
+      done: vehicle.specs.serviceHistory !== fallbackText,
+    },
+    { key: "origin", label: "Původ vozu", done: vehicle.specs.origin !== fallbackText },
+  ];
+  const completed = checks.filter((check) => check.done).length;
+
+  return {
+    percent: Math.round((completed / checks.length) * 100),
+    missing: checks.filter((check) => !check.done).map((check) => check.label),
+    checks,
+  };
+}
+
+export function buildMarketingVehicle(selectedCar) {
+  const car = selectedCar || {};
+  const technicalParams = car.technicalParams || {};
+  const advertisingData = car.advertisingData || {};
+  const damageReport = car.damageReport || {};
+  const cebiaHistory = car.cebiaHistory || {};
+  const economy = getVehicleEconomy(car);
+  const expectedSalePrice =
+    economy.expectedSalePrice > 0
+      ? formatVehicleCurrency(economy.expectedSalePrice)
+      : fallbackText;
+
+  const vehicle = {
+    title: getValue(car.name),
+    subtitle: getValue(
+      technicalParams.version,
+      technicalParams.equipmentLevel,
+      technicalParams.engine
+    ),
+    price: expectedSalePrice,
+    heroImage: car.photos?.[0] || "",
+    vin: maskVin(car.vin),
+    specs: {
+      year: getValue(car.year, technicalParams.productionYear),
+      mileage: formatMileage(car.km),
+      fuel: getValue(technicalParams.fuel),
+      transmission: getValue(technicalParams.transmission),
+      power: hasValue(technicalParams.powerKw)
+        ? `${technicalParams.powerKw} kW`
+        : fallbackText,
+      origin: getValue(cebiaHistory.countryOfOrigin, technicalParams.origin),
+      firstOwner: getFirstOwner(car),
+      serviceHistory: getServiceHistory(car),
+      warranty: getValue(
+        technicalParams.warranty,
+        cebiaHistory.warranty,
+        advertisingData.warranty
+      ),
+    },
+    technical: {
+      engine: getValue(technicalParams.engine),
+      power: hasValue(technicalParams.powerKw)
+        ? `${technicalParams.powerKw} kW`
+        : fallbackText,
+      drive: getValue(technicalParams.drive),
+      consumption: getValue(technicalParams.consumption),
+      emissions: getValue(technicalParams.emissions),
+      color: getValue(technicalParams.color),
+      bodyType: getValue(technicalParams.bodyType),
+      stk: getValue(technicalParams.stkValidUntil),
+    },
+    equipment: getSelectedEquipment(car.equipment),
+    highlights: getHighlights(car),
+    guarantees: getTruthfulGuarantees(car),
+    condition: getValue(
+      damageReport.overallCondition,
+      advertisingData.defects,
+      advertisingData.listingNote
+    ),
+    contact: {
+      brand: "Opportunity",
+      claim: "Prověřené vozy s transparentní historií",
+      phone: getOptionalValue(car.companyPhone, car.contactPhone),
+      email: getOptionalValue(car.companyEmail, car.contactEmail),
+      website: "opportunity-auto.cz",
+    },
+    readiness: null,
+  };
+
+  vehicle.readiness = buildReadiness(vehicle);
+  return vehicle;
+}
