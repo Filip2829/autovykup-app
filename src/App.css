@@ -639,6 +639,28 @@ textarea::placeholder {
   color: #f87171;
 }
 
+.quickChoiceGrid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: -4px 0 16px;
+}
+
+.quickChoice {
+  border: 1px solid rgba(59, 130, 246, 0.35);
+  border-radius: 999px;
+  padding: 8px 10px;
+  background: rgba(37, 99, 235, 0.08);
+  color: #93c5fd;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.quickChoice:hover {
+  background: rgba(37, 99, 235, 0.16);
+  color: #bfdbfe;
+}
+
 .grid {
   display: grid;
   grid-template-columns: repeat(5, 1fr);

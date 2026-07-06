@@ -94,12 +94,14 @@ const emptyVehicleDocumentForm = {
 };
 
 const emptyDamageReport = {
+  overallCondition: "",
   exterior: "",
   interior: "",
   technical: "",
   tiresBrakes: "",
   glassLights: "",
   otherDamage: "",
+  repairCostEstimate: null,
   serviceCost: null,
   bodyPaintCost: null,
   cleaningCost: null,
@@ -267,12 +269,14 @@ function normalizePostPurchaseCosts(costs = {}) {
 
 function normalizeDamageReport(report = {}) {
   return {
+    overallCondition: report.overallCondition || "",
     exterior: report.exterior || "",
     interior: report.interior || "",
     technical: report.technical || "",
     tiresBrakes: report.tiresBrakes || "",
     glassLights: report.glassLights || "",
     otherDamage: report.otherDamage || "",
+    repairCostEstimate: toNullableNumber(report.repairCostEstimate),
     serviceCost: toNullableNumber(report.serviceCost),
     bodyPaintCost: toNullableNumber(report.bodyPaintCost),
     cleaningCost: toNullableNumber(report.cleaningCost),
@@ -448,6 +452,23 @@ function getPurchasedVehicleReadiness(car, documents = []) {
   const damageReport = car?.damageReport || car?.damage_report || {};
   const postPurchaseCosts = car?.postPurchaseCosts || car?.post_purchase_costs || {};
   const normalizedStatus = normalizeVehicleStatus(car?.status);
+  const hasDamageInspection =
+    hasFilledValue(damageReport.overallCondition) ||
+    hasFilledValue(damageReport.exterior) ||
+    hasFilledValue(damageReport.interior) ||
+    hasFilledValue(damageReport.technical) ||
+    hasFilledValue(damageReport.tiresBrakes) ||
+    hasFilledValue(damageReport.otherDamage) ||
+    hasFilledValue(damageReport.note);
+  const hasRepairPlan =
+    hasFilledValue(damageReport.repairCostEstimate) ||
+    hasFilledValue(damageReport.serviceCost) ||
+    hasFilledValue(damageReport.bodyPaintCost) ||
+    hasFilledValue(damageReport.otherCost) ||
+    hasFilledValue(postPurchaseCosts.service) ||
+    hasFilledValue(postPurchaseCosts.bodyPaint) ||
+    hasFilledValue(postPurchaseCosts.other) ||
+    hasFilledValue(damageReport.technical);
 
   const readinessItems = [
     {
@@ -482,17 +503,11 @@ function getPurchasedVehicleReadiness(car, documents = []) {
       label: "Poškození / kontrola",
       done:
         normalizeArray(car?.notes).length > 0 ||
-        hasFilledObjectValue(damageReport),
+        hasDamageInspection,
     },
     {
       label: "Servis / opravy",
-      done:
-        hasFilledValue(postPurchaseCosts.service) ||
-        hasFilledValue(postPurchaseCosts.bodyPaint) ||
-        hasFilledValue(postPurchaseCosts.other) ||
-        hasFilledValue(damageReport.serviceCost) ||
-        hasFilledValue(damageReport.bodyPaintCost) ||
-        hasFilledValue(damageReport.otherCost),
+      done: hasRepairPlan,
     },
     {
       label: "Fotky",

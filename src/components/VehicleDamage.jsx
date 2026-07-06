@@ -1,28 +1,64 @@
 import AppSelect from "./ui/AppSelect";
 
-const damageTextFields = [
-  { key: "exterior", label: "Exteriér" },
-  { key: "interior", label: "Interiér" },
-  { key: "technical", label: "Technika" },
-  { key: "tiresBrakes", label: "Pneumatiky / brzdy" },
-  { key: "glassLights", label: "Skla / světla" },
-  { key: "otherDamage", label: "Ostatní poškození" },
-];
-
-const damageCostFields = [
-  { key: "serviceCost", label: "Servis" },
-  { key: "bodyPaintCost", label: "Lak / karoserie" },
-  { key: "cleaningCost", label: "Čištění" },
-  { key: "tiresCost", label: "Pneumatiky" },
-  { key: "stkRegistrationCost", label: "STK / evidenčka / přepis" },
-  { key: "otherCost", label: "Ostatní" },
-];
-
-const recommendationOptions = [
+const overallConditionOptions = [
   { value: "", label: "Nevybráno" },
-  { value: "vykoupit", label: "vykoupit" },
-  { value: "opatrně", label: "opatrně" },
-  { value: "nevykupovat", label: "nevykupovat" },
+  { value: "Bez poškození", label: "Bez poškození" },
+  { value: "Běžné opotřebení", label: "Běžné opotřebení" },
+  { value: "Drobné kosmetické vady", label: "Drobné kosmetické vady" },
+  { value: "Viditelné poškození", label: "Viditelné poškození" },
+  { value: "Vyžaduje opravu", label: "Vyžaduje opravu" },
+  { value: "Větší poškození", label: "Větší poškození" },
+];
+
+const damageFields = [
+  {
+    key: "exterior",
+    label: "Karoserie / lak",
+    quickChoices: [
+      "drobné oděrky",
+      "škrábance na nárazníku",
+      "promáčklina",
+      "lakování dílu",
+      "koroze",
+      "bez zjevných vad",
+    ],
+  },
+  {
+    key: "interior",
+    label: "Interiér",
+    quickChoices: [
+      "běžné opotřebení",
+      "znečištění",
+      "poškozené čalounění",
+      "poškozené plasty",
+      "zápach v interiéru",
+      "bez zjevných vad",
+    ],
+  },
+  {
+    key: "technical",
+    label: "Mechanika / technický stav",
+    quickChoices: [
+      "bez zjevných závad",
+      "nutná diagnostika",
+      "únik provozních kapalin",
+      "hluk od podvozku",
+      "závada brzd",
+      "závada motoru",
+      "závada převodovky",
+    ],
+  },
+  {
+    key: "tiresBrakes",
+    label: "Pneumatiky / kola",
+    quickChoices: [
+      "pneu v pořádku",
+      "sjeté pneumatiky",
+      "poškozený disk",
+      "chybí sada kol",
+      "nutná výměna pneu",
+    ],
+  },
 ];
 
 function toNumber(value) {
@@ -35,16 +71,19 @@ function formatCurrency(value) {
   return `${Math.round(value).toLocaleString("cs-CZ")} Kč`;
 }
 
+function appendChoice(currentValue, choice) {
+  const trimmedCurrentValue = String(currentValue || "").trim();
+  if (!trimmedCurrentValue) return choice;
+  return `${trimmedCurrentValue}\n${choice}`;
+}
+
 export default function VehicleDamage({
   selectedCar,
   updateCar,
   moduleContentRef,
 }) {
   const damageReport = selectedCar.damageReport || {};
-  const totalCosts = damageCostFields.reduce(
-    (sum, field) => sum + toNumber(damageReport[field.key]),
-    0
-  );
+  const repairCostEstimate = toNumber(damageReport.repairCostEstimate);
 
   function updateDamageField(key, value) {
     updateCar({
@@ -56,13 +95,47 @@ export default function VehicleDamage({
     });
   }
 
+  function addQuickChoice(key, choice) {
+    updateDamageField(key, appendChoice(damageReport[key], choice));
+  }
+
   return (
     <div className="card decision" ref={moduleContentRef}>
-      <h2>Poškození a náklady na opravu</h2>
+      <h2>Poškození / kontrola vozu</h2>
 
-      <h3>Poškození vozu</h3>
       <div className="formGrid">
-        {damageTextFields.map((field) => (
+        <div>
+          <p className="label">Celkový stav vozu</p>
+          <AppSelect
+            ariaLabel="Celkový stav vozu"
+            value={damageReport.overallCondition || ""}
+            options={overallConditionOptions}
+            onChange={(value) => updateDamageField("overallCondition", value)}
+          />
+        </div>
+
+        <div>
+          <p className="label">Odhad nákladů na opravu</p>
+          <input
+            type="number"
+            min="0"
+            step="1"
+            placeholder="Odhad nákladů v Kč"
+            value={damageReport.repairCostEstimate ?? ""}
+            onChange={(event) =>
+              updateDamageField("repairCostEstimate", event.target.value)
+            }
+          />
+        </div>
+      </div>
+
+      <div className="aiReport">
+        <h3>Souhrn nákladů</h3>
+        <p>Odhad opravy: {formatCurrency(repairCostEstimate)}</p>
+      </div>
+
+      <div className="formGrid">
+        {damageFields.map((field) => (
           <div key={field.key}>
             <p className="label">{field.label}</p>
             <textarea
@@ -72,48 +145,29 @@ export default function VehicleDamage({
                 updateDamageField(field.key, event.target.value)
               }
             />
+
+            <div className="quickChoiceGrid">
+              {field.quickChoices.map((choice) => (
+                <button
+                  key={choice}
+                  type="button"
+                  className="quickChoice"
+                  onClick={() => addQuickChoice(field.key, choice)}
+                >
+                  {choice}
+                </button>
+              ))}
+            </div>
           </div>
         ))}
       </div>
-
-      <h3>Odhad nákladů</h3>
-      <div className="formGrid">
-        {damageCostFields.map((field) => (
-          <div key={field.key}>
-            <p className="label">{field.label}</p>
-            <input
-              type="number"
-              min="0"
-              step="1"
-              placeholder={field.label}
-              value={damageReport[field.key] ?? ""}
-              onChange={(event) =>
-                updateDamageField(field.key, event.target.value)
-              }
-            />
-          </div>
-        ))}
-      </div>
-
-      <h3>Souhrn</h3>
-      <div className="aiReport">
-        <h3>Celkové odhadované náklady</h3>
-        <p>{formatCurrency(totalCosts)}</p>
-      </div>
-
-      <textarea
-        placeholder="Poznámka"
-        value={damageReport.note || ""}
-        onChange={(event) => updateDamageField("note", event.target.value)}
-      />
 
       <div>
-        <p className="label">Doporučení</p>
-        <AppSelect
-          ariaLabel="Doporučení"
-          value={damageReport.recommendation || ""}
-          options={recommendationOptions}
-          onChange={(value) => updateDamageField("recommendation", value)}
+        <p className="label">Interní poznámka</p>
+        <textarea
+          placeholder="Interní poznámka ke kontrole vozu"
+          value={damageReport.note || ""}
+          onChange={(event) => updateDamageField("note", event.target.value)}
         />
       </div>
     </div>
