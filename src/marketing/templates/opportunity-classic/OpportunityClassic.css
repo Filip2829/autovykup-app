@@ -1,365 +1,655 @@
 :root {
-  --oc-black: #151515;
-  --oc-yellow: #f59e0b;
-  --oc-yellow-soft: #fff7ed;
-  --oc-white: #fffdf8;
-  --oc-gray: #6b7280;
-  --oc-border: #e5e7eb;
-  --oc-radius: 4px;
-  --oc-shadow: 0 24px 70px rgba(0, 0, 0, 0.42);
+  --oc-black: #050505;
+  --oc-white: #ffffff;
+  --oc-paper: #ffffff;
+  --oc-orange: #f28a00;
+  --oc-text: #111111;
+  --oc-muted: #5d5d5d;
+  --oc-line: #cfcfcf;
+  --oc-soft-line: #dedede;
+  --oc-soft-bg: #f4f4f4;
+  --oc-shadow: 0 24px 70px rgba(0, 0, 0, 0.35);
   --oc-a4-width: 900px;
 }
 
 .opportunityClassicCard {
   width: min(100%, var(--oc-a4-width));
   aspect-ratio: 210 / 297;
-  min-height: 1180px;
-  background: var(--oc-white);
-  color: var(--oc-black);
-  border-radius: var(--oc-radius);
-  padding: 28px;
+  min-height: 1273px;
+  background: var(--oc-paper);
+  color: var(--oc-text);
   box-shadow: var(--oc-shadow);
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
+  display: grid;
+  grid-template-rows: 96px 190px 78px auto minmax(280px, 1fr) 44px 91px;
   font-family: Inter, Arial, sans-serif;
+  overflow: hidden;
 }
 
-.oc-brand-header {
+.ocHeader {
   display: grid;
-  grid-template-columns: 1fr auto;
-  gap: 22px;
+  grid-template-columns: 1.18fr 0.82fr;
   align-items: center;
   background: var(--oc-black);
-  color: var(--oc-yellow-soft);
-  padding: 18px 20px;
-  border-radius: var(--oc-radius);
-  border-bottom: 7px solid var(--oc-yellow);
+  color: var(--oc-white);
 }
 
-.oc-mark {
-  color: #fbbf24;
-  font-size: 30px;
+.ocLogoBlock {
+  height: 100%;
+  padding: 20px 48px 18px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.ocLogo {
+  color: var(--oc-white);
+  font-size: 39px;
   font-weight: 950;
+  line-height: 0.95;
+  letter-spacing: -0.035em;
+}
+
+.ocLogo span,
+.ocFooterBrand span {
+  color: var(--oc-white);
+}
+
+.ocLogoBlock p {
+  margin: 10px 0 0;
+  color: var(--oc-white) !important;
+  font-size: 18px;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+}
+
+.ocHeaderQuality {
+  height: 58%;
+  padding: 0 34px 0 38px;
+  border-left: 1px solid rgba(255, 255, 255, 0.55);
+  display: grid;
+  grid-template-columns: 44px 1fr;
+  gap: 15px;
+  align-items: center;
+}
+
+.ocShield {
+  width: 36px;
+  height: 36px;
+  border: 2px solid var(--oc-white);
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--oc-white);
+  font-size: 18px;
+  font-weight: 950;
+}
+
+.ocHeaderQuality strong {
+  display: block;
+  color: var(--oc-white);
+  font-size: 17px;
+  font-weight: 950;
+  line-height: 1.05;
+  text-transform: uppercase;
+}
+
+.ocHeaderQuality p {
+  margin: 7px 0 0;
+  color: var(--oc-white) !important;
+  font-size: 13px;
+  font-weight: 500;
   letter-spacing: 0.02em;
 }
 
-.oc-brand-header p,
-.oc-brand-header span {
-  margin: 4px 0 0;
-  color: #fed7aa;
-  font-weight: 800;
-}
-
-.oc-contact-block {
-  text-align: right;
-}
-
-.oc-contact-block strong,
-.oc-contact-block span {
-  display: block;
-}
-
-.oc-hero {
+.ocHero {
   display: grid;
-  grid-template-columns: 1fr 250px;
-  gap: 22px;
-  align-items: stretch;
+  grid-template-columns: minmax(0, 1fr) minmax(260px, 360px);
+  gap: 20px;
+  align-items: center;
+  padding: 28px 48px 18px;
+  background: var(--oc-white);
 }
 
-.oc-eyebrow {
-  margin: 0 0 8px;
-  color: #92400e !important;
-  font-size: 12px;
-  font-weight: 950;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-}
-
-.oc-hero h1 {
-  margin: 0;
-  color: #111827;
-  font-size: 48px;
-  line-height: 1;
-  letter-spacing: 0;
-}
-
-.oc-version {
-  margin: 12px 0 0;
-  color: #374151 !important;
-  font-size: 21px;
-  font-weight: 900;
-}
-
-.oc-price-badge {
-  background: var(--oc-yellow);
-  color: #111827;
-  border-radius: var(--oc-radius);
-  padding: 18px;
+.ocHeroIntro {
+  min-width: 0;
   display: flex;
   flex-direction: column;
   justify-content: center;
-  text-align: center;
-  box-shadow: inset 0 -5px 0 rgba(17, 24, 39, 0.18);
+  text-align: left;
 }
 
-.oc-price-badge span {
-  font-size: 12px;
+.ocHeroIntro h1 {
+  margin: 0;
+  color: var(--oc-black);
+  font-size: 46px;
   font-weight: 950;
-  letter-spacing: 0.14em;
+  line-height: 0.98;
+  letter-spacing: -0.035em;
+  text-transform: uppercase;
+  overflow-wrap: break-word;
+  word-break: normal;
+}
+
+.ocHeroPrice {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  justify-content: center;
+  text-align: right;
+  overflow: hidden;
+}
+
+.ocPriceBox {
+  width: max-content;
+  min-width: 260px;
+  max-width: 360px;
+  height: auto;
+  min-height: 95px;
+  padding: 16px 20px;
+  border: 1px solid var(--oc-line);
+  border-radius: 10px;
+  background: var(--oc-white);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  justify-content: center;
+  text-align: right;
+  overflow: hidden;
+}
+
+.ocPriceBox span {
+  display: block;
+  color: var(--oc-black);
+  font-size: clamp(1rem, 1.6vw, 1.35rem);
+  font-weight: 950;
+  line-height: 1;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.ocPriceBox strong {
+  display: block;
+  margin: 10px 0 8px;
+  color: var(--oc-orange);
+  font-size: clamp(28px, 4.5vw, 46px);
+  font-weight: 900;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  white-space: nowrap;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: clip;
+}
+
+.ocPriceBox small {
+  display: block;
+  color: var(--oc-black);
+  font-size: clamp(1rem, 1.8vw, 1.25rem);
+  font-weight: 950;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.ocMetricsBar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0;
+  margin: 0 48px;
+  padding: 10px 0;
+  background: var(--oc-white);
+  border-top: 1px solid var(--oc-line);
+  border-bottom: 1px solid var(--oc-line);
+}
+
+.ocMetric {
+  flex: 1 1 128px;
+  min-width: 128px;
+  max-width: 100%;
+  min-height: 52px;
+  padding: 8px 18px;
+  border-right: 1px solid var(--oc-soft-line);
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+.ocMetric:first-child {
+  padding-left: 16px;
+}
+
+.ocMetric:last-child {
+  border-right: 0;
+}
+
+.ocMetric small {
+  display: block;
+  color: var(--oc-black);
+  font-size: 11px;
+  font-weight: 950;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.ocMetric strong {
+  display: block;
+  margin-top: 0;
+  color: var(--oc-black);
+  font-size: 14px;
+  font-weight: 950;
+  line-height: 1.1;
+  white-space: normal;
+  overflow-wrap: break-word;
+  word-break: normal;
+}
+
+.ocInfoPanel {
+  min-height: 0;
+  padding: 20px 104px 6px;
+  background: var(--oc-white);
+  overflow: hidden;
+}
+
+.ocInfoPanel h2 {
+  margin: 0 0 18px;
+  display: grid;
+  grid-template-columns: 26px auto 26px;
+  gap: 12px;
+  align-items: center;
+  justify-content: center;
+  color: var(--oc-black);
+  font-size: 26px;
+  font-weight: 950;
+  line-height: 1;
+  text-align: center;
   text-transform: uppercase;
 }
 
-.oc-price-badge strong {
-  margin-top: 4px;
-  font-size: 32px;
+.ocInfoPanel h2 span {
+  height: 1px;
+  background: var(--oc-line);
+}
+
+.ocDataTable {
+  display: table;
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: collapse;
+}
+
+.ocDataRow {
+  display: table-row;
+  border-bottom: 1px solid var(--oc-soft-line);
+}
+
+.ocDataRow span {
+  display: table-cell;
+  width: 38%;
+  padding: 8px 22px 8px 0;
+  color: var(--oc-black);
+  font-size: 14px;
+  font-weight: 900;
+  text-transform: uppercase;
+  min-width: 0;
+  white-space: nowrap;
+  vertical-align: top;
+}
+
+.ocDataRow strong {
+  display: table-cell;
+  padding: 8px 0;
+  color: var(--oc-black);
+  font-size: 15px;
+  font-weight: 700;
+  text-align: left;
+  text-transform: uppercase;
+  min-width: 0;
+  overflow-wrap: break-word;
+  word-break: normal;
+  vertical-align: top;
+}
+
+.ocDataTableLarge .ocDataRow span {
+  width: 36%;
+  padding-top: 7px;
+  padding-bottom: 7px;
+}
+
+.ocDataTableLarge .ocDataRow span,
+.ocDataTableLarge .ocDataRow strong {
+  font-size: 15px;
+}
+
+.ocThreeColumns {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+  gap: 18px;
+  align-items: stretch;
+  padding: 18px 48px 22px;
+  border-top: 1px solid var(--oc-line);
+  background: var(--oc-white);
+}
+
+.ocPanel {
+  min-width: 0;
+  padding: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.ocPanel + .ocPanel {
+  padding-left: 18px;
+  border-left: 1px solid var(--oc-line);
+}
+
+.ocSalesPanel {
+  padding-left: 22px;
+}
+
+.ocSectionTitle {
+  margin: 0 0 22px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  color: var(--oc-black);
+  font-size: 16px;
+  font-weight: 950;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.ocSectionTitle span {
+  width: 25px;
+  height: 25px;
+  border: 1.5px solid var(--oc-black);
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.ocBulletList,
+.ocCheckList {
+  margin: 0;
+  padding: 0 0 0 18px;
+  columns: 1;
+  gap: 10px;
+  color: var(--oc-black);
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.42;
+  overflow: hidden;
+}
+
+.ocBulletList li,
+.ocCheckList li {
+  margin-bottom: 8px;
+  break-inside: avoid;
+  overflow-wrap: break-word;
+  word-break: normal;
+  min-width: 0;
+}
+
+.ocThreeColumns > .ocPanel:first-child .ocBulletList {
+  columns: 2;
+  column-gap: 36px;
+}
+
+.ocCheckList {
+  padding-left: 0;
+  list-style: none;
+  align-content: start;
+}
+
+.ocCheckList li {
+  position: relative;
+  padding-left: 22px;
+}
+
+.ocCheckList li::before {
+  content: "✓";
+  position: absolute;
+  left: 0;
+  top: 0;
+  color: var(--oc-black);
+  font-size: 14px;
   font-weight: 950;
 }
 
-.oc-stats {
+.ocSalesPanel .ocSectionTitle {
+  font-weight: 950;
+}
+
+.ocSalesPanel .ocSectionTitle span {
+  border-color: var(--oc-orange);
+  color: var(--oc-orange);
+}
+
+.ocSalesPanel .ocCheckList {
+  gap: 12px;
+}
+
+.ocSalesPanel .ocCheckList li::before {
+  color: var(--oc-orange);
+}
+
+.ocBenefitStrip {
+  margin: 0 48px;
+  background: var(--oc-soft-bg);
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 10px;
-}
-
-.oc-stat-item {
-  display: flex;
-  gap: 10px;
+  grid-template-columns: repeat(3, 1fr);
   align-items: center;
-  min-width: 0;
-  border: 1px solid var(--oc-border);
-  background: #ffffff;
-  border-radius: var(--oc-radius);
-  padding: 11px;
 }
 
-.oc-stat-item > span {
-  width: 34px;
-  height: 34px;
-  flex: 0 0 34px;
+.ocBenefitStrip > div {
+  min-height: 44px;
+  display: grid;
+  grid-template-columns: 52px 1fr;
+  column-gap: 15px;
+  align-items: center;
+  padding: 5px 18px;
+}
+
+.ocBenefitStrip span {
+  grid-row: span 2;
+  width: 26px;
+  height: 26px;
+  border: 1.5px solid var(--oc-black);
   border-radius: 999px;
-  background: #111827;
-  color: #fbbf24;
   display: flex;
   align-items: center;
   justify-content: center;
+  color: var(--oc-black);
   font-size: 11px;
   font-weight: 950;
 }
 
-.oc-stat-item small {
-  display: block;
-  color: var(--oc-gray);
-  font-size: 10px;
+.ocBenefitStrip strong {
+  color: var(--oc-black);
+  font-size: 11px;
   font-weight: 950;
-  letter-spacing: 0.08em;
+  line-height: 1.2;
   text-transform: uppercase;
 }
 
-.oc-stat-item strong {
+.ocBenefitStrip p {
+  margin: 2px 0 0;
+  color: var(--oc-black) !important;
+  font-size: 10px;
+  font-weight: 400;
+}
+
+.ocFooter {
+  padding: 18px 48px;
+  background: var(--oc-black);
+  color: var(--oc-white);
+  display: grid;
+  grid-template-columns: 1.2fr 1.2fr 0.8fr;
+  gap: 30px;
+  align-items: center;
+}
+
+.ocFooter strong {
   display: block;
-  margin-top: 3px;
-  color: #111827;
-  font-size: 14px;
+  color: var(--oc-white);
+  font-size: 16px;
+  font-weight: 900;
   line-height: 1.15;
 }
 
-.oc-main-grid {
-  display: grid;
-  grid-template-columns: minmax(0, 1.4fr) minmax(260px, 0.75fr);
-  gap: 16px;
-  min-height: 0;
-}
-
-.oc-photo-column,
-.oc-side-column {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-  min-width: 0;
-}
-
-.oc-photo-block {
-  height: 390px;
-  border-radius: var(--oc-radius);
-  overflow: hidden;
-  background: var(--oc-border);
-}
-
-.oc-photo-block img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
-}
-
-.oc-photo-fallback {
-  height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #64748b;
-  font-size: 22px;
-  font-weight: 900;
-}
-
-.oc-block {
-  border: 1px solid var(--oc-border);
-  background: #ffffff;
-  border-radius: var(--oc-radius);
-  padding: 14px;
-}
-
-.oc-block h3 {
-  margin: 0 0 11px;
-  color: #111827;
-  font-size: 15px;
-  font-weight: 950;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  border-bottom: 3px solid var(--oc-yellow);
-  padding-bottom: 7px;
-}
-
-.oc-detail-row {
-  display: grid;
-  grid-template-columns: 112px 1fr;
-  gap: 10px;
-  padding: 7px 0;
-  border-bottom: 1px solid #f1f5f9;
-}
-
-.oc-detail-row:last-child {
-  border-bottom: 0;
-}
-
-.oc-detail-row span {
-  color: var(--oc-gray);
+.ocFooter p {
+  margin: 7px 0 0;
+  color: var(--oc-white) !important;
   font-size: 12px;
-  font-weight: 900;
+  font-weight: 400;
+  line-height: 1.25;
 }
 
-.oc-detail-row strong {
-  color: #111827;
-  font-size: 13px;
+.ocFooterBrand strong {
+  font-size: 23px;
+  font-weight: 950;
+  letter-spacing: -0.04em;
+}
+
+.ocFooterContact {
   text-align: right;
 }
 
-.oc-chip-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.oc-chip-list span {
-  background: var(--oc-yellow-soft);
-  border: 1px solid #fed7aa;
-  border-radius: 999px;
-  color: #111827;
-  padding: 7px 10px;
-  font-size: 12px;
-  font-weight: 900;
-}
-
-.oc-highlights .oc-chip-list span,
-.oc-bottom-grid .oc-block:nth-child(2) .oc-chip-list span {
-  background: #111827;
-  border-color: #111827;
-  color: #fbbf24;
-}
-
-.oc-bottom-grid {
-  display: grid;
-  grid-template-columns: 1.1fr 0.9fr;
-  gap: 16px;
-}
-
-.oc-condition-note {
-  background: var(--oc-yellow-soft);
-  border-left: 7px solid var(--oc-yellow);
-  color: #111827;
-  border-radius: var(--oc-radius);
-  padding: 12px 14px;
-  font-weight: 800;
-}
-
-.oc-footer {
-  margin-top: auto;
-  border-top: 6px solid var(--oc-black);
-  padding-top: 14px;
-  display: flex;
-  justify-content: space-between;
-  gap: 18px;
-  color: #111827;
-}
-
-.oc-footer strong,
-.oc-footer span {
-  display: block;
-}
-
-.oc-footer strong {
-  color: #111827;
-  font-size: 20px;
-  font-weight: 950;
-}
-
-.oc-footer span {
-  color: var(--oc-gray);
-  font-weight: 800;
-}
-
-.oc-empty {
+.ocEmpty {
   margin: 0;
-  color: #64748b !important;
-  font-weight: 800;
+  color: var(--oc-muted) !important;
+  font-size: 13px;
+  font-weight: 750;
 }
 
 @media (max-width: 900px) {
   .opportunityClassicCard {
     min-height: auto;
+    grid-template-rows: auto;
   }
 
-  .oc-brand-header,
-  .oc-hero,
-  .oc-main-grid,
-  .oc-bottom-grid {
+  .ocHeader,
+  .ocHero,
+  .ocThreeColumns,
+  .ocFooter {
     grid-template-columns: 1fr;
   }
 
-  .oc-stats {
+  .ocHeaderQuality {
+    height: auto;
+    padding: 22px 48px;
+    border-left: 0;
+    border-top: 1px solid rgba(255, 255, 255, 0.45);
+  }
+
+  .ocHeroPrice {
+    margin-top: 22px;
+    margin-left: 0;
+    align-items: flex-start;
+  }
+
+  .ocPriceBox {
+    width: min(100%, 420px);
+    min-width: 0;
+    align-items: flex-start;
+    text-align: left;
+  }
+
+  .ocBenefitStrip {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .ocMetricsBar {
+    align-items: stretch;
+  }
+
+  .ocMetric {
+    flex-basis: 180px;
+  }
+
+  .ocInfoPanel {
+    padding-left: 48px;
+    padding-right: 48px;
+  }
+
+  .ocPanel + .ocPanel {
+    padding: 24px 0 0;
+    border-left: 0;
+    border-top: 1px solid var(--oc-line);
+  }
+
+  .ocThreeColumns > .ocPanel:first-child .ocBulletList {
+    columns: 1;
+  }
+
+  .ocFooterContact {
+    text-align: left;
   }
 }
 
 @media (max-width: 600px) {
   .opportunityClassicCard {
     aspect-ratio: auto;
-    padding: 20px;
   }
 
-  .oc-hero h1 {
-    font-size: 30px;
+  .ocLogoBlock,
+  .ocHeaderQuality,
+  .ocHero,
+  .ocInfoPanel,
+  .ocThreeColumns,
+  .ocFooter {
+    padding-left: 22px;
+    padding-right: 22px;
   }
 
-  .oc-price-badge strong {
-    font-size: 25px;
+  .ocHeroIntro h1 {
+    font-size: 36px;
   }
 
-  .oc-photo-block {
-    height: 220px;
+  .ocPriceBox strong {
+    font-size: clamp(2rem, 10vw, 2.75rem);
+    white-space: nowrap;
   }
 
-  .oc-stats {
+  .ocBenefitStrip {
     grid-template-columns: 1fr;
+    margin-left: 22px;
+    margin-right: 22px;
   }
 
-  .oc-contact-block {
-    text-align: left;
+  .ocMetricsBar {
+    margin-left: 22px;
+    margin-right: 22px;
   }
 
-  .oc-footer {
-    flex-direction: column;
+  .ocMetric {
+    flex-basis: 100%;
+    border-right: 0;
+    border-bottom: 1px solid var(--oc-soft-line);
+  }
+
+  .ocDataTable,
+  .ocDataRow,
+  .ocDataRow span,
+  .ocDataRow strong {
+    display: block;
+    width: 100%;
+  }
+
+  .ocDataRow span {
+    padding-bottom: 2px;
+  }
+
+  .ocDataRow strong {
+    padding-top: 0;
   }
 }
 
@@ -387,11 +677,11 @@
     left: 0;
     top: 0;
     width: 210mm !important;
+    height: 297mm !important;
     min-height: 297mm !important;
     aspect-ratio: auto !important;
-    border-radius: 0 !important;
     box-shadow: none !important;
-    padding: 10mm !important;
+    padding: 0 !important;
     print-color-adjust: exact;
     -webkit-print-color-adjust: exact;
   }

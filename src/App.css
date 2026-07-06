@@ -1573,7 +1573,9 @@ input[type="checkbox"] {
   }
 
   .vehicleMarketingCard,
-  .vehicleMarketingCard * {
+  .vehicleMarketingCard *,
+  .opportunityClassicCard,
+  .opportunityClassicCard * {
     visibility: visible !important;
   }
 
@@ -1587,6 +1589,21 @@ input[type="checkbox"] {
     border-radius: 0 !important;
     box-shadow: none !important;
     padding: 10mm !important;
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+
+  .opportunityClassicCard {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 210mm !important;
+    height: 297mm !important;
+    min-height: 297mm !important;
+    aspect-ratio: auto !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    padding: 0 !important;
     print-color-adjust: exact;
     -webkit-print-color-adjust: exact;
   }
