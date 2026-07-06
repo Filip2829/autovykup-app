@@ -18,8 +18,8 @@ import VehicleChecklist from "./components/VehicleChecklist";
 import VehiclePhotos from "./components/VehiclePhotos";
 import VehicleNotes from "./components/VehicleNotes";
 import VehicleHeader from "./components/VehicleHeader";
-import VehiclePurchase from "./components/VehiclePurchase";
 import VehicleDamage from "./components/VehicleDamage";
+import VehiclePostPurchaseCosts from "./components/VehiclePostPurchaseCosts";
 import AppSelect from "./components/ui/AppSelect";
 import AppModal from "./components/ui/AppModal";
 
@@ -259,8 +259,11 @@ function toNullableNumber(value) {
 function normalizePostPurchaseCosts(costs = {}) {
   return {
     service: toNullableNumber(costs.service),
-    cleaning: toNullableNumber(costs.cleaning),
     bodyPaint: toNullableNumber(costs.bodyPaint),
+    tires: toNullableNumber(costs.tires),
+    cleaning: toNullableNumber(costs.cleaning),
+    stkEmission: toNullableNumber(costs.stkEmission),
+    transfer: toNullableNumber(costs.transfer ?? costs.registration),
     registration: toNullableNumber(costs.registration),
     other: toNullableNumber(costs.other),
     note: costs.note || "",
@@ -467,6 +470,11 @@ function getPurchasedVehicleReadiness(car, documents = []) {
     hasFilledValue(damageReport.otherCost) ||
     hasFilledValue(postPurchaseCosts.service) ||
     hasFilledValue(postPurchaseCosts.bodyPaint) ||
+    hasFilledValue(postPurchaseCosts.tires) ||
+    hasFilledValue(postPurchaseCosts.cleaning) ||
+    hasFilledValue(postPurchaseCosts.stkEmission) ||
+    hasFilledValue(postPurchaseCosts.transfer) ||
+    hasFilledValue(postPurchaseCosts.registration) ||
     hasFilledValue(postPurchaseCosts.other) ||
     hasFilledValue(damageReport.technical);
 
@@ -1928,6 +1936,16 @@ const remainingEquipment = equipmentItems.filter(
               <button onClick={() => openModule("damage")}>Otevřít</button>
             </div>
 
+            {hasVehicleStatus(selectedCar.status, purchasedStatusGroup) && (
+              <div className="module">
+                <ShieldCheck />
+                <h3>Náklady po výkupu</h3>
+                <button onClick={() => openModule("postPurchaseCosts")}>
+                  Otevřít
+                </button>
+              </div>
+            )}
+
             <div className="module">
               <MessageCircle />
               <h3>Poznámky + AI</h3>
@@ -1943,18 +1961,6 @@ const remainingEquipment = equipmentItems.filter(
               <button onClick={() => openModule("valuation")}>Otevřít</button>
             </div>
 
-            {hasVehicleStatus(selectedCar.status, valuationStatusGroup) && (
-              <div className="module">
-                <ShieldCheck />
-                <h3>Výkup vozidla</h3>
-                <p className={selectedCar.purchaseDate || selectedCar.purchasePrice ? "okText" : ""}>
-                  {selectedCar.purchaseDate || selectedCar.purchasePrice
-                    ? "Zahájeno"
-                    : "Zatím nevyplněno"}
-                </p>
-                <button onClick={() => openModule("purchase")}>Otevřít</button>
-              </div>
-            )}
           </div>
 
           {module === "technical" && (
@@ -2372,13 +2378,14 @@ const remainingEquipment = equipmentItems.filter(
             />
           )}
 
-          {module === "purchase" && (
-            <VehiclePurchase
+          {module === "postPurchaseCosts" && (
+            <VehiclePostPurchaseCosts
               selectedCar={selectedCar}
               updateCar={updateCar}
               moduleContentRef={moduleContentRef}
             />
           )}
+
         </section>
       )}
       {fullscreenPhoto && (
