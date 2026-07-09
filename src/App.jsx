@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Camera,
-  CheckCircle,
   ClipboardList,
   MessageCircle,
   Plus,
@@ -184,10 +183,6 @@ const STOCK_STATUSES = [
   VEHICLE_STATUS.RESERVED,
 ];
 
-const SOLD_STATUSES = [VEHICLE_STATUS.SOLD];
-
-const ARCHIVED_STATUSES = [VEHICLE_STATUS.ARCHIVED];
-
 const POST_PURCHASE_STATUSES = [
   ...STOCK_STATUSES,
   VEHICLE_STATUS.SOLD,
@@ -196,8 +191,6 @@ const POST_PURCHASE_STATUSES = [
 
 const valuationStatusGroup = VALUATION_STATUSES;
 const stockStatusGroup = STOCK_STATUSES;
-const soldStatusGroup = SOLD_STATUSES;
-const archivedStatusGroup = ARCHIVED_STATUSES;
 const postPurchaseStatusGroup = POST_PURCHASE_STATUSES;
 
 function getUsername(user) {
@@ -790,7 +783,7 @@ const remainingEquipment = equipmentItems.filter(
   const valuationCars = useMemo(
     () =>
       filteredCars.filter((car) =>
-        hasVehicleStatus(car.status, valuationStatusGroup)
+        !hasVehicleStatus(car.status, stockStatusGroup)
       ),
     [filteredCars]
   );
@@ -799,22 +792,6 @@ const remainingEquipment = equipmentItems.filter(
     () =>
       filteredCars.filter((car) =>
         hasVehicleStatus(car.status, stockStatusGroup)
-      ),
-    [filteredCars]
-  );
-
-  const soldCars = useMemo(
-    () =>
-      filteredCars.filter((car) =>
-        hasVehicleStatus(car.status, soldStatusGroup)
-      ),
-    [filteredCars]
-  );
-
-  const archivedCars = useMemo(
-    () =>
-      filteredCars.filter((car) =>
-        hasVehicleStatus(car.status, archivedStatusGroup)
       ),
     [filteredCars]
   );
@@ -829,16 +806,6 @@ const remainingEquipment = equipmentItems.filter(
       cars: purchasedCars,
       title: "Vykoupená auta",
       emptyText: "Žádná vykoupená auta.",
-    },
-    sold: {
-      cars: soldCars,
-      title: "Prodané vozy",
-      emptyText: "Žádné prodané vozy.",
-    },
-    archived: {
-      cars: archivedCars,
-      title: "Archiv",
-      emptyText: "Archiv je prázdný.",
     },
   };
 
@@ -1719,23 +1686,6 @@ const remainingEquipment = equipmentItems.filter(
                 </button>
               </div>
 
-              <div className="module">
-                <CheckCircle />
-                <h3>Prodané vozy</h3>
-                <p>{soldCars.length} záznamů</p>
-                <button onClick={() => openVehicleList("sold")}>
-                  Otevřít
-                </button>
-              </div>
-
-              <div className="module">
-                <ShieldCheck />
-                <h3>Archiv</h3>
-                <p>{archivedCars.length} záznamů</p>
-                <button onClick={() => openVehicleList("archived")}>
-                  Otevřít
-                </button>
-              </div>
             </div>
           </div>
         </section>
