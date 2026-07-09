@@ -171,20 +171,34 @@ const legacyStatusMap = {
   [LEGACY_STATUS.APPROVED]: VEHICLE_STATUS.APPROVED_FOR_PURCHASE,
 };
 
-const valuationStatusGroup = [
+const VALUATION_STATUSES = [
   VEHICLE_STATUS.VALUATION,
   VEHICLE_STATUS.APPROVED_FOR_PURCHASE,
 ];
 
-const purchasedStatusGroup = [
+const STOCK_STATUSES = [
   VEHICLE_STATUS.PURCHASED,
   VEHICLE_STATUS.PREPARATION,
   VEHICLE_STATUS.READY_FOR_ADVERTISING,
   VEHICLE_STATUS.ADVERTISED,
   VEHICLE_STATUS.RESERVED,
+];
+
+const SOLD_STATUSES = [VEHICLE_STATUS.SOLD];
+
+const ARCHIVED_STATUSES = [VEHICLE_STATUS.ARCHIVED];
+
+const POST_PURCHASE_STATUSES = [
+  ...STOCK_STATUSES,
   VEHICLE_STATUS.SOLD,
   VEHICLE_STATUS.ARCHIVED,
 ];
+
+const valuationStatusGroup = VALUATION_STATUSES;
+const stockStatusGroup = STOCK_STATUSES;
+const soldStatusGroup = SOLD_STATUSES;
+const archivedStatusGroup = ARCHIVED_STATUSES;
+const postPurchaseStatusGroup = POST_PURCHASE_STATUSES;
 
 function getUsername(user) {
   return user?.email ? user.email.replace("@autovykup.local", "") : "";
@@ -784,18 +798,54 @@ const remainingEquipment = equipmentItems.filter(
   const purchasedCars = useMemo(
     () =>
       filteredCars.filter((car) =>
-        hasVehicleStatus(car.status, purchasedStatusGroup)
+        hasVehicleStatus(car.status, stockStatusGroup)
       ),
     [filteredCars]
   );
 
-  const visibleCars = listMode === "purchased" ? purchasedCars : valuationCars;
-  const visibleListTitle =
-    listMode === "purchased" ? "Vykoupená auta" : "Aktuální nacenění";
-  const visibleEmptyText =
-    listMode === "purchased"
-      ? "Žádná vykoupená auta."
-      : "Žádná aktuální nacenění.";
+  const soldCars = useMemo(
+    () =>
+      filteredCars.filter((car) =>
+        hasVehicleStatus(car.status, soldStatusGroup)
+      ),
+    [filteredCars]
+  );
+
+  const archivedCars = useMemo(
+    () =>
+      filteredCars.filter((car) =>
+        hasVehicleStatus(car.status, archivedStatusGroup)
+      ),
+    [filteredCars]
+  );
+
+  const listModeConfig = {
+    valuation: {
+      cars: valuationCars,
+      title: "Aktuální nacenění",
+      emptyText: "Žádná aktuální nacenění.",
+    },
+    purchased: {
+      cars: purchasedCars,
+      title: "Vykoupená auta",
+      emptyText: "Žádná vykoupená auta.",
+    },
+    sold: {
+      cars: soldCars,
+      title: "Prodané vozy",
+      emptyText: "Žádné prodané vozy.",
+    },
+    archived: {
+      cars: archivedCars,
+      title: "Archiv",
+      emptyText: "Archiv je prázdný.",
+    },
+  };
+
+  const currentListMode = listModeConfig[listMode] || listModeConfig.valuation;
+  const visibleCars = currentListMode.cars;
+  const visibleListTitle = currentListMode.title;
+  const visibleEmptyText = currentListMode.emptyText;
 
   function openVehicleList(nextListMode) {
     setListMode(nextListMode);
@@ -1602,11 +1652,11 @@ const remainingEquipment = equipmentItems.filter(
   const checklistComplete = selectedCar && isChecklistComplete(selectedCar.checklist);
   const valuationComplete = selectedCar && isValuationComplete(selectedCar);
   const purchasedVehicleReadiness =
-    selectedCar && hasVehicleStatus(selectedCar.status, purchasedStatusGroup)
+    selectedCar && hasVehicleStatus(selectedCar.status, postPurchaseStatusGroup)
       ? getPurchasedVehicleReadiness(selectedCar, vehicleDocuments)
       : null;
   const marketingVehicle =
-    selectedCar && hasVehicleStatus(selectedCar.status, purchasedStatusGroup)
+    selectedCar && hasVehicleStatus(selectedCar.status, postPurchaseStatusGroup)
       ? buildMarketingVehicle(selectedCar)
       : null;
 
@@ -1672,8 +1722,17 @@ const remainingEquipment = equipmentItems.filter(
               <div className="module">
                 <CheckCircle />
                 <h3>Prodané vozy</h3>
-                <p>Zatím připravujeme</p>
-                <button onClick={() => alert("Přehled prodaných vozů doprogramujeme v další fázi.")}>
+                <p>{soldCars.length} záznamů</p>
+                <button onClick={() => openVehicleList("sold")}>
+                  Otevřít
+                </button>
+              </div>
+
+              <div className="module">
+                <ShieldCheck />
+                <h3>Archiv</h3>
+                <p>{archivedCars.length} záznamů</p>
+                <button onClick={() => openVehicleList("archived")}>
                   Otevřít
                 </button>
               </div>
@@ -1996,7 +2055,7 @@ const remainingEquipment = equipmentItems.filter(
               <button onClick={() => openModule("damage")}>Otevřít</button>
             </div>
 
-            {hasVehicleStatus(selectedCar.status, purchasedStatusGroup) && (
+            {hasVehicleStatus(selectedCar.status, postPurchaseStatusGroup) && (
               <div className="module">
                 <ShieldCheck />
                 <h3>Náklady po výkupu</h3>
@@ -2006,7 +2065,7 @@ const remainingEquipment = equipmentItems.filter(
               </div>
             )}
 
-            {hasVehicleStatus(selectedCar.status, purchasedStatusGroup) && (
+            {hasVehicleStatus(selectedCar.status, postPurchaseStatusGroup) && (
               <div className="module">
                 <ClipboardList />
                 <h3>Příprava pro inzerci</h3>
@@ -2016,7 +2075,7 @@ const remainingEquipment = equipmentItems.filter(
               </div>
             )}
 
-            {hasVehicleStatus(selectedCar.status, purchasedStatusGroup) && (
+            {hasVehicleStatus(selectedCar.status, postPurchaseStatusGroup) && (
               <div className="module">
                 <Star />
                 <h3>Marketing Engine</h3>
