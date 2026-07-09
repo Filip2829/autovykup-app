@@ -138,6 +138,7 @@ const VEHICLE_STATUS = {
   VALUATION: "valuation",
   APPROVED_FOR_PURCHASE: "approved_for_purchase",
   PURCHASED: "purchased",
+  COMMISSION: "commission",
   PREPARATION: "preparation",
   READY_FOR_ADVERTISING: "ready_for_advertising",
   ADVERTISED: "advertised",
@@ -150,6 +151,7 @@ const vehicleStatusLabels = {
   [VEHICLE_STATUS.VALUATION]: "Nacenění",
   [VEHICLE_STATUS.APPROVED_FOR_PURCHASE]: "Schváleno k výkupu",
   [VEHICLE_STATUS.PURCHASED]: "Vykoupeno",
+  [VEHICLE_STATUS.COMMISSION]: "Příjem do komisního prodeje",
   [VEHICLE_STATUS.PREPARATION]: "V přípravě",
   [VEHICLE_STATUS.READY_FOR_ADVERTISING]: "Připraveno k inzerci",
   [VEHICLE_STATUS.ADVERTISED]: "Inzerováno",
@@ -177,6 +179,7 @@ const VALUATION_STATUSES = [
 
 const STOCK_STATUSES = [
   VEHICLE_STATUS.PURCHASED,
+  VEHICLE_STATUS.COMMISSION,
   VEHICLE_STATUS.PREPARATION,
   VEHICLE_STATUS.READY_FOR_ADVERTISING,
   VEHICLE_STATUS.ADVERTISED,
@@ -242,6 +245,7 @@ function getVehicleStatusClassName(status) {
   if (
     normalizedStatus === VEHICLE_STATUS.APPROVED_FOR_PURCHASE ||
     normalizedStatus === VEHICLE_STATUS.PURCHASED ||
+    normalizedStatus === VEHICLE_STATUS.COMMISSION ||
     normalizedStatus === VEHICLE_STATUS.READY_FOR_ADVERTISING ||
     normalizedStatus === VEHICLE_STATUS.ADVERTISED ||
     normalizedStatus === VEHICLE_STATUS.SOLD
@@ -804,8 +808,8 @@ const remainingEquipment = equipmentItems.filter(
     },
     purchased: {
       cars: purchasedCars,
-      title: "Vykoupená auta",
-      emptyText: "Žádná vykoupená auta.",
+      title: "Vozy skladem",
+      emptyText: "Žádné vozy skladem.",
     },
   };
 
@@ -1039,7 +1043,7 @@ const remainingEquipment = equipmentItems.filter(
     if (!selectedCar) return;
 
     const confirmMove = window.confirm(
-      `Přesunout ${selectedCar.name} do vykoupených vozů?`
+      `Přesunout ${selectedCar.name} do vozů skladem?`
     );
 
     if (!confirmMove) return;
@@ -1679,7 +1683,7 @@ const remainingEquipment = equipmentItems.filter(
 
               <div className="module">
                 <ShieldCheck />
-                <h3>Vykoupená vozidla</h3>
+                <h3>Vozy skladem</h3>
                 <p>{purchasedCars.length} záznamů</p>
                 <button onClick={() => openVehicleList("purchased")}>
                   Otevřít
@@ -1891,14 +1895,14 @@ const remainingEquipment = equipmentItems.filter(
 
           {hasVehicleStatus(selectedCar.status, valuationStatusGroup) && (
             <div className="card decision">
-              <h2>Přesun do vykoupených vozů</h2>
+              <h2>Přesun do vozů skladem</h2>
               <p>
                 Auto zůstane ve stejném záznamu a přesune se ze sekce
-                aktuálních nacenění do vykoupených aut.
+                aktuálních nacenění do vozů skladem.
               </p>
 
               <button className="success" onClick={moveSelectedCarToPurchased}>
-                Přesunout do vykoupených vozů
+                Přesunout do vozů skladem
               </button>
             </div>
           )}
