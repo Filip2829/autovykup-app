@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Camera,
+  CheckCircle,
   ClipboardList,
   MessageCircle,
   Plus,
@@ -175,6 +176,7 @@ const legacyStatusMap = {
 const VALUATION_STATUSES = [
   VEHICLE_STATUS.VALUATION,
   VEHICLE_STATUS.APPROVED_FOR_PURCHASE,
+  VEHICLE_STATUS.ARCHIVED,
 ];
 
 const STOCK_STATUSES = [
@@ -186,6 +188,8 @@ const STOCK_STATUSES = [
   VEHICLE_STATUS.RESERVED,
 ];
 
+const SOLD_STATUSES = [VEHICLE_STATUS.SOLD];
+
 const POST_PURCHASE_STATUSES = [
   ...STOCK_STATUSES,
   VEHICLE_STATUS.SOLD,
@@ -194,6 +198,7 @@ const POST_PURCHASE_STATUSES = [
 
 const valuationStatusGroup = VALUATION_STATUSES;
 const stockStatusGroup = STOCK_STATUSES;
+const soldStatusGroup = SOLD_STATUSES;
 const postPurchaseStatusGroup = POST_PURCHASE_STATUSES;
 
 function getUsername(user) {
@@ -787,7 +792,7 @@ const remainingEquipment = equipmentItems.filter(
   const valuationCars = useMemo(
     () =>
       filteredCars.filter((car) =>
-        !hasVehicleStatus(car.status, stockStatusGroup)
+        hasVehicleStatus(car.status, valuationStatusGroup)
       ),
     [filteredCars]
   );
@@ -796,6 +801,14 @@ const remainingEquipment = equipmentItems.filter(
     () =>
       filteredCars.filter((car) =>
         hasVehicleStatus(car.status, stockStatusGroup)
+      ),
+    [filteredCars]
+  );
+
+  const soldCars = useMemo(
+    () =>
+      filteredCars.filter((car) =>
+        hasVehicleStatus(car.status, soldStatusGroup)
       ),
     [filteredCars]
   );
@@ -810,6 +823,11 @@ const remainingEquipment = equipmentItems.filter(
       cars: purchasedCars,
       title: "Vozy skladem",
       emptyText: "Žádné vozy skladem.",
+    },
+    sold: {
+      cars: soldCars,
+      title: "Prodané vozy",
+      emptyText: "Žádné prodané vozy.",
     },
   };
 
@@ -1686,6 +1704,15 @@ const remainingEquipment = equipmentItems.filter(
                 <h3>Vozy skladem</h3>
                 <p>{purchasedCars.length} záznamů</p>
                 <button onClick={() => openVehicleList("purchased")}>
+                  Otevřít
+                </button>
+              </div>
+
+              <div className="module">
+                <CheckCircle />
+                <h3>Prodané vozy</h3>
+                <p>{soldCars.length} záznamů</p>
+                <button onClick={() => openVehicleList("sold")}>
                   Otevřít
                 </button>
               </div>
