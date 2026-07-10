@@ -175,8 +175,10 @@ const legacyStatusMap = {
 
 const VALUATION_STATUSES = [
   VEHICLE_STATUS.VALUATION,
+];
+
+const APPROVED_PURCHASE_STATUSES = [
   VEHICLE_STATUS.APPROVED_FOR_PURCHASE,
-  VEHICLE_STATUS.ARCHIVED,
 ];
 
 const STOCK_STATUSES = [
@@ -190,16 +192,26 @@ const STOCK_STATUSES = [
 
 const SOLD_STATUSES = [VEHICLE_STATUS.SOLD];
 
+const ARCHIVED_STATUSES = [VEHICLE_STATUS.ARCHIVED];
+
 const POST_PURCHASE_STATUSES = [
   ...STOCK_STATUSES,
   VEHICLE_STATUS.SOLD,
   VEHICLE_STATUS.ARCHIVED,
 ];
 
+const PURCHASE_MOVE_STATUSES = [
+  VEHICLE_STATUS.VALUATION,
+  VEHICLE_STATUS.APPROVED_FOR_PURCHASE,
+];
+
 const valuationStatusGroup = VALUATION_STATUSES;
+const approvedPurchaseStatusGroup = APPROVED_PURCHASE_STATUSES;
 const stockStatusGroup = STOCK_STATUSES;
 const soldStatusGroup = SOLD_STATUSES;
+const archivedStatusGroup = ARCHIVED_STATUSES;
 const postPurchaseStatusGroup = POST_PURCHASE_STATUSES;
+const purchaseMoveStatusGroup = PURCHASE_MOVE_STATUSES;
 
 function getUsername(user) {
   return user?.email ? user.email.replace("@autovykup.local", "") : "";
@@ -797,7 +809,15 @@ const remainingEquipment = equipmentItems.filter(
     [filteredCars]
   );
 
-  const purchasedCars = useMemo(
+  const approvedPurchaseCars = useMemo(
+    () =>
+      filteredCars.filter((car) =>
+        hasVehicleStatus(car.status, approvedPurchaseStatusGroup)
+      ),
+    [filteredCars]
+  );
+
+  const stockCars = useMemo(
     () =>
       filteredCars.filter((car) =>
         hasVehicleStatus(car.status, stockStatusGroup)
@@ -813,14 +833,27 @@ const remainingEquipment = equipmentItems.filter(
     [filteredCars]
   );
 
+  const archivedCars = useMemo(
+    () =>
+      filteredCars.filter((car) =>
+        hasVehicleStatus(car.status, archivedStatusGroup)
+      ),
+    [filteredCars]
+  );
+
   const listModeConfig = {
     valuation: {
       cars: valuationCars,
       title: "Aktuální nacenění",
       emptyText: "Žádná aktuální nacenění.",
     },
-    purchased: {
-      cars: purchasedCars,
+    approved_purchase: {
+      cars: approvedPurchaseCars,
+      title: "Schváleno k výkupu",
+      emptyText: "Žádná vozidla schválená k výkupu.",
+    },
+    stock: {
+      cars: stockCars,
       title: "Vozy skladem",
       emptyText: "Žádné vozy skladem.",
     },
@@ -828,6 +861,11 @@ const remainingEquipment = equipmentItems.filter(
       cars: soldCars,
       title: "Prodané vozy",
       emptyText: "Žádné prodané vozy.",
+    },
+    archived: {
+      cars: archivedCars,
+      title: "Archiv vozidel",
+      emptyText: "Archiv neobsahuje žádná vozidla.",
     },
   };
 
@@ -1691,6 +1729,15 @@ const remainingEquipment = equipmentItems.filter(
               </div>
 
               <div className="module">
+                <CheckCircle />
+                <h3>Schváleno k výkupu</h3>
+                <p>{approvedPurchaseCars.length} záznamů</p>
+                <button onClick={() => openVehicleList("approved_purchase")}>
+                  Otevřít
+                </button>
+              </div>
+
+              <div className="module">
                 <MessageCircle />
                 <h3>Seznam zákazníků</h3>
                 <p>Zatím připravujeme</p>
@@ -1702,8 +1749,8 @@ const remainingEquipment = equipmentItems.filter(
               <div className="module">
                 <ShieldCheck />
                 <h3>Vozy skladem</h3>
-                <p>{purchasedCars.length} záznamů</p>
-                <button onClick={() => openVehicleList("purchased")}>
+                <p>{stockCars.length} záznamů</p>
+                <button onClick={() => openVehicleList("stock")}>
                   Otevřít
                 </button>
               </div>
@@ -1713,6 +1760,15 @@ const remainingEquipment = equipmentItems.filter(
                 <h3>Prodané vozy</h3>
                 <p>{soldCars.length} záznamů</p>
                 <button onClick={() => openVehicleList("sold")}>
+                  Otevřít
+                </button>
+              </div>
+
+              <div className="module">
+                <ShieldCheck />
+                <h3>Archiv</h3>
+                <p>{archivedCars.length} záznamů</p>
+                <button onClick={() => openVehicleList("archived")}>
                   Otevřít
                 </button>
               </div>
@@ -1920,7 +1976,7 @@ const remainingEquipment = equipmentItems.filter(
             ))}
           </div>
 
-          {hasVehicleStatus(selectedCar.status, valuationStatusGroup) && (
+          {hasVehicleStatus(selectedCar.status, purchaseMoveStatusGroup) && (
             <div className="card decision">
               <h2>Přesun do vozů skladem</h2>
               <p>
