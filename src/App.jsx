@@ -21,7 +21,6 @@ import VehicleHeader from "./components/VehicleHeader";
 import VehicleDamage from "./components/VehicleDamage";
 import VehiclePostPurchaseCosts from "./components/VehiclePostPurchaseCosts.jsx";
 import VehicleAdvertisingPrep from "./components/VehicleAdvertisingPrep.jsx";
-import VehicleSummary from "./components/VehicleSummary.jsx";
 import {
   buildMarketingVehicle,
   MarketingActions,
@@ -1678,10 +1677,6 @@ const remainingEquipment = equipmentItems.filter(
 
   const checklistComplete = selectedCar && isChecklistComplete(selectedCar.checklist);
   const valuationComplete = selectedCar && isValuationComplete(selectedCar);
-  const purchasedVehicleReadiness =
-    selectedCar && hasVehicleStatus(selectedCar.status, postPurchaseStatusGroup)
-      ? getPurchasedVehicleReadiness(selectedCar, vehicleDocuments)
-      : null;
   const marketingVehicle =
     selectedCar && hasVehicleStatus(selectedCar.status, postPurchaseStatusGroup)
       ? buildMarketingVehicle(selectedCar)
@@ -1921,14 +1916,6 @@ const remainingEquipment = equipmentItems.filter(
             formatDate={formatDate}
           />
 
-          {purchasedVehicleReadiness && (
-            <VehicleSummary
-              selectedCar={selectedCar}
-              readiness={purchasedVehicleReadiness}
-              getVehicleStatusLabel={getVehicleStatusLabel}
-            />
-          )}
-
           <div className="card decision">
             <h2>Stav vozidla</h2>
             <p>Aktuální stav: {getVehicleStatusLabel(selectedCar.status)}</p>
@@ -1939,41 +1926,6 @@ const remainingEquipment = equipmentItems.filter(
               options={vehicleStatusOptions}
               onChange={updateVehicleStatus}
             />
-          </div>
-
-          {purchasedVehicleReadiness && (
-            <div className="card decision">
-              <h2>Připravenost vozidla</h2>
-              <p>
-                Vozidlo je připraveno z {purchasedVehicleReadiness.percent} %.
-              </p>
-
-              <div className="readinessGrid">
-                {purchasedVehicleReadiness.items.map((item, index) => (
-                  <div
-                    key={item.label}
-                    className={`readinessItem ${item.done ? "done" : "missing"}`}
-                  >
-                    <div className="readinessNumber">{index + 1}</div>
-                    <h4>{item.label}</h4>
-                    <p>{item.done ? "Hotovo" : "Čeká"}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          <div className="workflowPanel">
-            {getWorkflow(selectedCar).map((step, index) => (
-              <div
-                key={step.label}
-                className={`workflowStep ${step.done ? "done" : "missing"}`}
-              >
-                <div className="workflowCircle">{index + 1}</div>
-                <h4>{step.label}</h4>
-                <p>{step.done ? "Hotovo" : index < 2 ? "Chybí" : "Čeká se"}</p>
-              </div>
-            ))}
           </div>
 
           {hasVehicleStatus(selectedCar.status, purchaseMoveStatusGroup) && (
