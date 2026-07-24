@@ -92,6 +92,7 @@ const vehicleDocumentCategories = [
   "Servisní zakázka",
   "Diagnostika",
   "STK",
+  "Technický průkaz",
   "CEBIA",
   "Kupní smlouva",
   "Jiný dokument",
@@ -485,6 +486,29 @@ function prepareVehicleDocument(document) {
     aiSummary: document.ai_summary || "",
     aiProcessed: Boolean(document.ai_processed),
     isVisibleToCustomer: Boolean(document.is_visible_to_customer),
+  };
+}
+
+function prepareLegacyTechnicalCard(url, index) {
+  let fileName = `technicky-prukaz-${index + 1}`;
+
+  try {
+    const pathName = new URL(url).pathname;
+    fileName = decodeURIComponent(pathName.split("/").pop()) || fileName;
+  } catch {
+    // Keep the safe fallback name for historical or malformed URLs.
+  }
+
+  return {
+    id: `legacy-technical-card-${index}`,
+    title: `Technický průkaz ${index + 1}`,
+    category: "Technický průkaz",
+    description: "Historicky uložený TP doklad",
+    fileName,
+    fileSize: null,
+    legacyUrl: url,
+    legacyTechnicalCardIndex: index,
+    isLegacyTechnicalCard: true,
   };
 }
 
@@ -1278,6 +1302,11 @@ const remainingEquipment = equipmentItems.filter(
   }
 
   async function openVehicleDocument(document) {
+    if (document.isLegacyTechnicalCard) {
+      window.open(document.legacyUrl, "_blank", "noopener,noreferrer");
+      return;
+    }
+
     const { data, error } = await supabase.storage
       .from("vehicle-documents")
       .createSignedUrl(document.filePath, 60);
@@ -1291,16 +1320,32 @@ const remainingEquipment = equipmentItems.filter(
   }
 
   async function downloadVehicleDocument(document) {
-    const { data, error } = await supabase.storage
-      .from("vehicle-documents")
-      .download(document.filePath);
+    let documentBlob;
 
-    if (error) {
-      alert(error.message);
-      return;
+    if (document.isLegacyTechnicalCard) {
+      try {
+        const response = await fetch(document.legacyUrl);
+        if (!response.ok) throw new Error("Historický TP doklad se nepodařilo stáhnout.");
+        documentBlob = await response.blob();
+      } catch (error) {
+        console.error(error);
+        window.open(document.legacyUrl, "_blank", "noopener,noreferrer");
+        return;
+      }
+    } else {
+      const { data, error } = await supabase.storage
+        .from("vehicle-documents")
+        .download(document.filePath);
+
+      if (error) {
+        alert(error.message);
+        return;
+      }
+
+      documentBlob = data;
     }
 
-    const objectUrl = window.URL.createObjectURL(data);
+    const objectUrl = window.URL.createObjectURL(documentBlob);
     const link = window.document.createElement("a");
     link.href = objectUrl;
     link.download = document.fileName || document.title || "dokument";
@@ -1311,6 +1356,11 @@ const remainingEquipment = equipmentItems.filter(
   }
 
   async function deleteVehicleDocument(document) {
+    if (document.isLegacyTechnicalCard) {
+      await deleteTechnicalCard(document.legacyTechnicalCardIndex);
+      return;
+    }
+
     const confirmDelete = window.confirm(
       `Opravdu chceš smazat dokument ${document.title || document.fileName}?`
     );
@@ -1428,20 +1478,6 @@ const remainingEquipment = equipmentItems.filter(
     event.target.value = "";
   }
 
-  async function addTechnicalCardPhoto(event) {
-    const file = event.target.files?.[0];
-    const url = await uploadFile(file, "technical-card");
-
-    if (url) {
-      await updateCar({
-        ...selectedCar,
-        technicalCardPhotos: [...selectedCar.technicalCardPhotos, url],
-      });
-    }
-
-    event.target.value = "";
-  }
-
   async function addCebiaFile(event) {
     const file = event.target.files?.[0];
     const url = await uploadFile(file, "cebia");
@@ -1458,18 +1494,6 @@ const remainingEquipment = equipmentItems.filter(
     }
 
     event.target.value = "";
-  }
-
-  function toggleChecklist(item) {
-    if (!selectedCar) return;
-
-    updateCar({
-      ...selectedCar,
-      checklist: {
-        ...selectedCar.checklist,
-        [item]: !selectedCar.checklist[item],
-      },
-    });
   }
 
   function toggleEquipment(item) {
@@ -1708,8 +1732,11 @@ const remainingEquipment = equipmentItems.filter(
     );
   }
 
-  const checklistComplete = selectedCar && isChecklistComplete(selectedCar.checklist);
   const valuationComplete = selectedCar && isValuationComplete(selectedCar);
+  const administrationDocuments = [
+    ...(selectedCar?.technicalCardPhotos || []).map(prepareLegacyTechnicalCard),
+    ...vehicleDocuments,
+  ];
   const marketingVehicle =
     selectedCar && hasVehicleStatus(selectedCar.status, postPurchaseStatusGroup)
       ? buildMarketingVehicle(selectedCar)
@@ -2050,9 +2077,6 @@ const remainingEquipment = equipmentItems.filter(
             <div className="module">
               <ClipboardList />
               <h3>Administrativa</h3>
-              <p className={checklistComplete ? "okText" : "badText"}>
-                {checklistComplete ? "Hotovo" : "Není hotovo"}
-              </p>
               <button onClick={() => openModule("checklist")}>Otevřít</button>
             </div>
 
@@ -2153,12 +2177,8 @@ const remainingEquipment = equipmentItems.filter(
           {module === "checklist" && (
             <VehicleChecklist
               selectedCar={selectedCar}
-              checklistItems={Object.keys(emptyChecklist)}
-              toggleChecklist={toggleChecklist}
-              addTechnicalCardPhoto={addTechnicalCardPhoto}
-              deleteTechnicalCard={deleteTechnicalCard}
               deleteCebiaFile={deleteCebiaFile}
-              vehicleDocuments={vehicleDocuments}
+              vehicleDocuments={administrationDocuments}
               vehicleDocumentsLoading={vehicleDocumentsLoading}
               openVehicleDocumentModal={openVehicleDocumentModal}
               openVehicleDocument={openVehicleDocument}

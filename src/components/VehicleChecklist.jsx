@@ -1,14 +1,5 @@
-function getChecklistLabel(item) {
-  if (item === "Kontrola CEBIA / CarVertical") return "Kontrola CEBIA";
-  return item;
-}
-
 export default function VehicleChecklist({
   selectedCar,
-  checklistItems,
-  toggleChecklist,
-  addTechnicalCardPhoto,
-  deleteTechnicalCard,
   deleteCebiaFile,
   vehicleDocuments,
   vehicleDocumentsLoading,
@@ -23,40 +14,7 @@ export default function VehicleChecklist({
     <div className="card decision" ref={moduleContentRef}>
       <h2>Administrativa</h2>
 
-      {checklistItems.map((item) => (
-        <label key={item} className="checkItem">
-          <input
-            type="checkbox"
-            checked={Boolean(selectedCar.checklist[item])}
-            onChange={() => toggleChecklist(item)}
-          />
-          {getChecklistLabel(item)}
-        </label>
-      ))}
-
-      <h3>TP / doklad</h3>
-      <input
-        type="file"
-        accept="image/*,.pdf"
-        onChange={addTechnicalCardPhoto}
-      />
-
       <div className="fileList">
-        {selectedCar.technicalCardPhotos.map((url, index) => (
-          <div key={`tp-${index}`} className="fileRow">
-            <a href={url} target="_blank" rel="noreferrer">
-              TP {index + 1}
-            </a>
-
-            <button
-              className="danger outlineDanger"
-              onClick={() => deleteTechnicalCard(index)}
-            >
-              Smazat
-            </button>
-          </div>
-        ))}
-
         {selectedCar.cebiaFiles.map((url, index) => (
           <div key={`cebia-${index}`} className="fileRow">
             <a href={url} target="_blank" rel="noreferrer">
@@ -94,9 +52,14 @@ export default function VehicleChecklist({
               <strong>{document.title}</strong>
               <p className="label">{document.category}</p>
               {document.description && <p>{document.description}</p>}
-              <p className="label">
-                {document.fileName} · {formatFileSize(document.fileSize)}
-              </p>
+              {document.fileName && (
+                <p className="label">
+                  {document.fileName}
+                  {document.fileSize
+                    ? ` · ${formatFileSize(document.fileSize)}`
+                    : ""}
+                </p>
+              )}
             </div>
 
             <div className="photoActions">
