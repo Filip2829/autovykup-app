@@ -8,6 +8,7 @@ import {
   Search,
   ShieldCheck,
   Star,
+  UserRound,
 } from "lucide-react";
 
 import "./App.css";
@@ -36,6 +37,14 @@ const emptyChecklist = {
   "Počet klíčů 2x": false,
   "Kontrola CEBIA / CarVertical": false,
   "Mechanická prohlídka + diagnostika": false,
+};
+
+const emptyCustomerInfo = {
+  firstName: "",
+  lastName: "",
+  phone: "",
+  email: "",
+  notes: "",
 };
 
 const equipmentItems = [
@@ -406,6 +415,15 @@ function prepareCar(car) {
       car.technical_params && typeof car.technical_params === "object"
         ? clone(car.technical_params, {})
         : {},
+    customerInfo:
+      car.customer_info &&
+      typeof car.customer_info === "object" &&
+      !Array.isArray(car.customer_info)
+        ? clone(
+            { ...emptyCustomerInfo, ...car.customer_info },
+            { ...emptyCustomerInfo }
+          )
+        : { ...emptyCustomerInfo },
     aiRiskFlags: normalizeArray(car.ai_risk_flags),
     cebiaHistory:
       car.cebia_history && typeof car.cebia_history === "object"
@@ -951,6 +969,7 @@ const remainingEquipment = equipmentItems.filter(
         notes: updatedWithUser.notes || [],
         photos: updatedWithUser.photos || [],
         technical_params: updatedWithUser.technicalParams || {},
+        customer_info: updatedWithUser.customerInfo || { ...emptyCustomerInfo },
         technical_card_photos: updatedWithUser.technicalCardPhotos || [],
         cebia_files: updatedWithUser.cebiaFiles || [],
         valuation_date: updatedWithUser.valuationDate || null,
@@ -1007,6 +1026,7 @@ const remainingEquipment = equipmentItems.filter(
       notes: [],
       photos: [],
       technical_params: {},
+      customer_info: { ...emptyCustomerInfo },
       technical_card_photos: [],
       cebia_files: [],
       valuation_date: null,
@@ -1460,6 +1480,19 @@ const remainingEquipment = equipmentItems.filter(
       equipment: {
         ...selectedCar.equipment,
         [item]: !selectedCar.equipment?.[item],
+      },
+    });
+  }
+
+  function updateCustomerField(key, value) {
+    if (!selectedCar) return;
+
+    updateCar({
+      ...selectedCar,
+      customerInfo: {
+        ...emptyCustomerInfo,
+        ...selectedCar.customerInfo,
+        [key]: value,
       },
     });
   }
@@ -2081,6 +2114,12 @@ const remainingEquipment = equipmentItems.filter(
             </div>
 
             <div className="module">
+              <UserRound />
+              <h3>Zákazník</h3>
+              <button onClick={() => openModule("customer")}>Otevřít</button>
+            </div>
+
+            <div className="module">
               <ShieldCheck />
               <h3>Nacenění</h3>
               <p className={valuationComplete ? "okText" : ""}>
@@ -2482,6 +2521,73 @@ const remainingEquipment = equipmentItems.filter(
                 analyzeTechnicalProblem={analyzeTechnicalProblem}
                 aiLoading={aiLoading}
               />
+            </div>
+          )}
+
+          {module === "customer" && (
+            <div className="card decision" ref={moduleContentRef}>
+              <h2>Zákazník</h2>
+
+              <div className="formGrid customerFormGrid">
+                <div>
+                  <p className="label">Jméno</p>
+                  <input
+                    type="text"
+                    placeholder="Jméno"
+                    value={selectedCar.customerInfo?.firstName || ""}
+                    onChange={(event) =>
+                      updateCustomerField("firstName", event.target.value)
+                    }
+                  />
+                </div>
+
+                <div>
+                  <p className="label">Příjmení</p>
+                  <input
+                    type="text"
+                    placeholder="Příjmení"
+                    value={selectedCar.customerInfo?.lastName || ""}
+                    onChange={(event) =>
+                      updateCustomerField("lastName", event.target.value)
+                    }
+                  />
+                </div>
+
+                <div>
+                  <p className="label">Telefon</p>
+                  <input
+                    type="tel"
+                    placeholder="Telefon"
+                    value={selectedCar.customerInfo?.phone || ""}
+                    onChange={(event) =>
+                      updateCustomerField("phone", event.target.value)
+                    }
+                  />
+                </div>
+
+                <div>
+                  <p className="label">E-mail</p>
+                  <input
+                    type="email"
+                    placeholder="E-mail"
+                    value={selectedCar.customerInfo?.email || ""}
+                    onChange={(event) =>
+                      updateCustomerField("email", event.target.value)
+                    }
+                  />
+                </div>
+              </div>
+
+              <div className="customerNotesField">
+                <p className="label">Poznámky k zákazníkovi</p>
+                <textarea
+                  placeholder="Poznámky k zákazníkovi"
+                  value={selectedCar.customerInfo?.notes || ""}
+                  onChange={(event) =>
+                    updateCustomerField("notes", event.target.value)
+                  }
+                />
+              </div>
             </div>
           )}
 

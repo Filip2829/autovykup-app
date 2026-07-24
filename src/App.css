@@ -406,6 +406,19 @@ textarea {
   margin-bottom: 12px;
 }
 
+.customerNotesField {
+  margin-top: 18px;
+}
+
+.customerFormGrid input {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.customerNotesField textarea {
+  min-height: 160px;
+}
+
 .formGrid input::placeholder,
 textarea::placeholder {
   color: #64748b;
