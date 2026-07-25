@@ -1,7 +1,4 @@
-import {
-  formatVehicleCurrency,
-  getVehicleEconomy,
-} from "../../utils/vehicleEconomy.js";
+import { formatVehicleCurrency } from "../../utils/vehicleEconomy.js";
 import { buildVehicleProfile } from "../../utils/buildVehicleProfile.js";
 
 const fallbackText = "Neuvedeno";
@@ -37,6 +34,20 @@ function getValue(...values) {
 function getOptionalValue(...values) {
   const value = values.find(hasValue);
   return hasValue(value) ? String(value).trim() : "";
+}
+
+function getMarketingSalePrice(pricing = {}) {
+  const firstFilledPrice = [
+    pricing.expectedSalePrice,
+    pricing.saleEstimate,
+  ].find(
+    (value) => value !== "" && value !== null && value !== undefined
+  );
+  const numberValue = Number(firstFilledPrice);
+
+  return !Number.isNaN(numberValue) && numberValue > 0
+    ? formatVehicleCurrency(numberValue)
+    : fallbackText;
 }
 
 function getLines(value, limit) {
@@ -231,11 +242,7 @@ export function buildMarketingVehicle(selectedCar) {
     hasMarketingTechnicalParams || hasValue(car.year)
       ? vehicleProfile.technical.year
       : "";
-  const economy = getVehicleEconomy(car);
-  const expectedSalePrice =
-    economy.expectedSalePrice > 0
-      ? formatVehicleCurrency(economy.expectedSalePrice)
-      : fallbackText;
+  const expectedSalePrice = getMarketingSalePrice(vehicleProfile.pricing);
 
   const vehicle = {
     title: getValue(vehicleProfile.identity.name),

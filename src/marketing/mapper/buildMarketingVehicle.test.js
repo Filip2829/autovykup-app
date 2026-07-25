@@ -224,6 +224,95 @@ describe("buildMarketingVehicle – title, subtitle a cena", () => {
 
     assert.equal(vehicle.price, "390 000 Kč");
   });
+
+  test("null expectedSalePrice pokračuje na saleEstimate", () => {
+    const vehicle = buildMarketingVehicle({
+      expectedSalePrice: null,
+      saleEstimate: 390000,
+    });
+
+    assert.equal(vehicle.price, "390 000 Kč");
+  });
+
+  test("undefined expectedSalePrice pokračuje na saleEstimate", () => {
+    const vehicle = buildMarketingVehicle({
+      expectedSalePrice: undefined,
+      saleEstimate: 390000,
+    });
+
+    assert.equal(vehicle.price, "390 000 Kč");
+  });
+
+  test("řetězec nula zastaví fallback na saleEstimate", () => {
+    const vehicle = buildMarketingVehicle({
+      expectedSalePrice: "0",
+      saleEstimate: 390000,
+    });
+
+    assert.equal(vehicle.price, fallbackText);
+  });
+
+  test("záporná expectedSalePrice zastaví fallback na saleEstimate", () => {
+    const vehicle = buildMarketingVehicle({
+      expectedSalePrice: -1,
+      saleEstimate: 390000,
+    });
+
+    assert.equal(vehicle.price, fallbackText);
+  });
+
+  test("camelCase cena má přednost před snake_case cenou", () => {
+    const vehicle = buildMarketingVehicle({
+      expectedSalePrice: 450000,
+      expected_sale_price: 440000,
+      saleEstimate: 390000,
+      sale_estimate: 380000,
+    });
+
+    assert.equal(vehicle.price, "450 000 Kč");
+  });
+
+  test("neplatná camelCase cena zastaví validní snake_case fallback", () => {
+    const vehicle = buildMarketingVehicle({
+      expectedSalePrice: "neplatná cena",
+      expected_sale_price: 440000,
+      saleEstimate: 390000,
+    });
+
+    assert.equal(vehicle.price, fallbackText);
+  });
+
+  test("cenová readiness zachovává současné výsledky hraničních cen", () => {
+    const scenarios = [
+      { expectedSalePrice: null, saleEstimate: 390000, done: true },
+      { expectedSalePrice: undefined, saleEstimate: 390000, done: true },
+      { expectedSalePrice: "0", saleEstimate: 390000, done: false },
+      { expectedSalePrice: -1, saleEstimate: 390000, done: false },
+      {
+        expectedSalePrice: "neplatná cena",
+        saleEstimate: 390000,
+        done: false,
+      },
+      {
+        expectedSalePrice: 450000,
+        expected_sale_price: 440000,
+        done: true,
+      },
+      {
+        expectedSalePrice: "neplatná cena",
+        expected_sale_price: 440000,
+        done: false,
+      },
+    ];
+
+    scenarios.forEach(({ done, ...car }) => {
+      const readiness = buildMarketingVehicle(car).readiness;
+      const priceCheck = readiness.checks.find((check) => check.key === "price");
+
+      assert.equal(priceCheck.done, done);
+      assert.equal(readiness.missing.includes("Cena"), !done);
+    });
+  });
 });
 
 describe("buildMarketingVehicle – výbava a fotografie", () => {
