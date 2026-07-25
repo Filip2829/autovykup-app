@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { buildVehicleProfile } from "../utils/buildVehicleProfile.js";
 
 const stockStatuses = new Set([
   "purchased",
@@ -8,25 +9,6 @@ const stockStatuses = new Set([
   "advertised",
   "reserved",
 ]);
-
-const equipmentPriority = [
-  "Adaptivní tempomat",
-  "Automatická klimatizace",
-  "Navigace",
-  "Apple CarPlay",
-  "Android Auto",
-  "Couvací kamera",
-  "Parkovací senzory přední",
-  "Parkovací senzory zadní",
-  "Matrix LED světlomety",
-  "LED světlomety",
-  "Vyhřívaná sedadla",
-  "Vyhřívaný volant",
-  "Kožené sedačky",
-  "Digitální kokpit",
-  "Tažné zařízení",
-  "Bluetooth",
-];
 
 function hasValue(value) {
   return value !== null && value !== undefined && String(value).trim() !== "";
@@ -113,20 +95,11 @@ function formatCurrency(value) {
     : "";
 }
 
-function getSellingPrice(car = {}) {
-  return [
-    car.expectedSalePrice,
-    car.expected_sale_price,
-    car.saleEstimate,
-    car.sale_estimate,
-  ].find((value) => Number.isFinite(Number(value)) && Number(value) > 0);
-}
-
-function buildVehicleName(car, technicalParams) {
+function buildVehicleName(profile) {
   const structuredName = [
-    technicalParams.brand,
-    technicalParams.model,
-    technicalParams.version,
+    profile.identity.brand,
+    profile.identity.model,
+    profile.technical.version,
   ]
     .filter(hasValue)
     .map((value) => String(value).trim())
@@ -140,57 +113,22 @@ function buildVehicleName(car, technicalParams) {
     )
     .join(" ");
 
-  return structuredName || firstValue(car.name);
+  return structuredName || firstValue(profile.identity.name);
 }
 
-function getSelectedEquipment(equipment = {}) {
-  const priority = new Map(
-    equipmentPriority.map((label, index) => [
-      label.toLocaleLowerCase("cs-CZ"),
-      index,
-    ])
-  );
-
-  return Object.entries(equipment)
-    .filter(([label, enabled]) => enabled === true && hasValue(label))
-    .map(([label]) => String(label).trim())
-    .filter(
-      (label, index, labels) =>
-        labels.findIndex(
-          (candidate) =>
-            candidate.toLocaleLowerCase("cs-CZ") ===
-            label.toLocaleLowerCase("cs-CZ")
-        ) === index
-    )
-    .sort((left, right) => {
-      const leftPriority =
-        priority.get(left.toLocaleLowerCase("cs-CZ")) ?? Number.MAX_SAFE_INTEGER;
-      const rightPriority =
-        priority.get(right.toLocaleLowerCase("cs-CZ")) ??
-        Number.MAX_SAFE_INTEGER;
-
-      return (
-        leftPriority - rightPriority ||
-        left.localeCompare(right, "cs-CZ")
-      );
-    })
-    .slice(0, 12);
-}
-
-function hasCebiaHistory(cebiaHistory = {}) {
-  return Object.values(cebiaHistory).some(hasValue);
-}
-
-function buildTechnicalLines(car, technicalParams) {
+function buildTechnicalLines(profile) {
   const lines = [];
-  const productionYear = firstValue(technicalParams.productionYear, car.year);
-  const firstRegistration = formatDate(technicalParams.firstRegistration);
-  const mileage = formatMileage(car.km);
-  const engine = firstValue(technicalParams.engine);
-  const power = formatPower(technicalParams.powerKw);
-  const fuel = firstValue(technicalParams.fuel);
-  const transmission = formatTransmission(technicalParams.transmission);
-  const bodyType = firstValue(technicalParams.bodyType);
+  const productionYear = firstValue(
+    profile.technical.productionYear,
+    profile.technical.year
+  );
+  const firstRegistration = formatDate(profile.technical.firstRegistration);
+  const mileage = formatMileage(profile.technical.mileage);
+  const engine = firstValue(profile.technical.engine);
+  const power = formatPower(profile.technical.powerKw);
+  const fuel = firstValue(profile.technical.fuel);
+  const transmission = formatTransmission(profile.technical.transmission);
+  const bodyType = firstValue(profile.technical.bodyType);
 
   if (productionYear) lines.push(`Rok výroby: ${productionYear}`);
   if (firstRegistration) lines.push(`První registrace: ${firstRegistration}`);
@@ -205,51 +143,52 @@ function buildTechnicalLines(car, technicalParams) {
   return lines;
 }
 
-function buildHistoryLines(car, technicalParams, cebiaHistory) {
+function buildHistoryLines(profile) {
   const lines = [];
-  const origin = firstValue(
-    cebiaHistory.countryOfOrigin,
-    technicalParams.origin
-  );
-  const owners = firstValue(cebiaHistory.owners);
-  const stkValidUntil = formatDate(technicalParams.stkValidUntil);
+  const origin = firstValue(profile.history.origin);
+  const owners = firstValue(profile.history.ownersCount);
+  const stkValidUntil = formatDate(profile.history.stk);
   const warranty = firstValue(
-    technicalParams.warranty,
-    cebiaHistory.warranty
+    profile.technical.warranty,
+    profile.history.cebiaWarranty
   );
 
   if (origin) lines.push(`Původ vozidla: ${origin}`);
   if (owners) lines.push(`Počet majitelů nebo provozovatelů: ${owners}`);
-  if (car.checklist?.["Servisní historie"] === true) {
+  if (profile.history.serviceHistoryConfirmed) {
     lines.push("Servisní historie je evidována");
   }
   if (stkValidUntil) lines.push(`STK platná do: ${stkValidUntil}`);
   if (warranty) lines.push(`Záruka: ${toInlineText(warranty)}`);
 
-  if (Array.isArray(car.cebiaFiles) && car.cebiaFiles.length > 0) {
+  if (profile.history.cebiaDocumentsAvailable) {
     lines.push("Podklady CEBIA jsou k dispozici");
-  } else if (hasValue(car.aiCebiaReport) || hasCebiaHistory(cebiaHistory)) {
+  } else if (
+    profile.history.cebiaReportAvailable ||
+    profile.history.cebiaHistoryAvailable
+  ) {
     lines.push("U vozidla jsou evidované údaje z CEBIA");
   }
 
   return lines;
 }
 
-function buildConditionLines(advertisingData, damageReport, cebiaHistory) {
+function buildConditionLines(profile) {
   const lines = [];
-  const repairs = toInlineText(advertisingData.repairs);
-  const explicitDefects = toInlineText(advertisingData.defects);
+  const repairs = toInlineText(profile.condition.completedRepairs);
+  const explicitDefects = toInlineText(profile.condition.publicDefects);
+  const publicDamage = profile.condition.publicDamage;
   const publicDamageFields = [
-    ["Celkový stav", damageReport.overallCondition],
-    ["Karoserie a lak", damageReport.exterior],
-    ["Interiér", damageReport.interior],
-    ["Technický stav", damageReport.technical],
-    ["Pneumatiky a kola", damageReport.tiresBrakes],
-    ["Skla a světla", damageReport.glassLights],
-    ["Další poškození", damageReport.otherDamage],
-    ["Historie poškození", cebiaHistory.damageHistory],
-    ["Informace ke stavu kilometrů", cebiaHistory.mileageSuspicion],
-    ["Upozornění z CEBIA", cebiaHistory.riskNotes],
+    ["Celkový stav", publicDamage.overallCondition],
+    ["Karoserie a lak", publicDamage.exterior],
+    ["Interiér", publicDamage.interior],
+    ["Technický stav", publicDamage.technical],
+    ["Pneumatiky a kola", publicDamage.tiresBrakes],
+    ["Skla a světla", publicDamage.glassLights],
+    ["Další poškození", publicDamage.otherDamage],
+    ["Historie poškození", publicDamage.cebiaDamageHistory],
+    ["Informace ke stavu kilometrů", publicDamage.mileageSuspicion],
+    ["Upozornění z CEBIA", publicDamage.cebiaRiskNotes],
   ];
 
   if (repairs) lines.push(`Provedené opravy nebo servis: ${repairs}`);
@@ -268,20 +207,17 @@ function formatSection(title, lines) {
   return `${title}:\n${lines.map((line) => `• ${line}`).join("\n")}`;
 }
 
-function buildOnlineListingText(selectedCar = {}) {
-  const technicalParams = selectedCar.technicalParams || {};
-  const advertisingData = selectedCar.advertisingData || {};
-  const damageReport = selectedCar.damageReport || {};
-  const cebiaHistory = selectedCar.cebiaHistory || {};
-  const vehicleName = buildVehicleName(selectedCar, technicalParams);
-  const equipment = getSelectedEquipment(selectedCar.equipment);
-  const sellingPrice = formatCurrency(getSellingPrice(selectedCar));
+export function buildOnlineListingText(selectedCar = {}) {
+  const profile = buildVehicleProfile(selectedCar);
+  const vehicleName = buildVehicleName(profile);
+  const equipment = profile.equipment.highlightedItems;
+  const sellingPrice = formatCurrency(profile.pricing.effectiveSalePrice);
   const intro = vehicleName
-    ? stockStatuses.has(selectedCar.status)
+    ? stockStatuses.has(profile.identity.status)
       ? `Nabízíme k prodeji vůz ${vehicleName}.`
       : `Informace k vozu ${vehicleName}.`
     : "Informace k nabízenému vozu.";
-  const conclusion = stockStatuses.has(selectedCar.status)
+  const conclusion = stockStatuses.has(profile.identity.status)
     ? "Vůz je k vidění na pobočce Opportunity, Sedláčkova 10, Brno-Líšeň."
     : "Více informací poskytne pobočka Opportunity, Sedláčkova 10, Brno-Líšeň.";
 
@@ -290,16 +226,13 @@ function buildOnlineListingText(selectedCar = {}) {
     intro,
     formatSection(
       "Hlavní informace",
-      buildTechnicalLines(selectedCar, technicalParams)
+      buildTechnicalLines(profile)
     ),
     formatSection("Výbava", equipment),
-    formatSection(
-      "Historie a servis",
-      buildHistoryLines(selectedCar, technicalParams, cebiaHistory)
-    ),
+    formatSection("Historie a servis", buildHistoryLines(profile)),
     formatSection(
       "Stav vozidla",
-      buildConditionLines(advertisingData, damageReport, cebiaHistory)
+      buildConditionLines(profile)
     ),
     sellingPrice ? `Cena:\n${sellingPrice}` : "",
     conclusion,
@@ -329,8 +262,9 @@ async function copyTextToClipboard(text) {
 
 export default function OnlineListingText({ selectedCar, updateCar }) {
   const [copyStatus, setCopyStatus] = useState("");
+  const profile = buildVehicleProfile(selectedCar);
   const advertisingData = selectedCar.advertisingData || {};
-  const onlineListingText = advertisingData.onlineListingText || "";
+  const onlineListingText = profile.advertising.onlineListingText || "";
 
   function updateOnlineListingText(value) {
     setCopyStatus("");

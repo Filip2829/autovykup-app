@@ -243,6 +243,7 @@ export function buildVehicleProfile(
     technical: {
       year: firstValue(car.year, technicalParams.productionYear),
       productionYear: firstValue(technicalParams.productionYear),
+      version: firstValue(technicalParams.version),
       firstRegistration: firstValue(technicalParams.firstRegistration),
       mileage: firstValue(car.km),
       engine: firstValue(technicalParams.engine),
@@ -272,6 +273,7 @@ export function buildVehicleProfile(
       ownersCount: firstValue(cebiaHistory.owners),
       previousUse: firstValue(cebiaHistory.taxiOrRental),
       serviceHistory: Boolean(checklist["Servisní historie"]),
+      serviceHistoryConfirmed: checklist["Servisní historie"] === true,
       stk: firstValue(technicalParams.stkValidUntil),
       cebiaWarranty: firstValue(cebiaHistory.warranty),
       warranty: firstValue(
