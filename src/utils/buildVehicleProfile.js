@@ -182,6 +182,12 @@ export function buildVehicleProfile(
     car.saleEstimate,
     car.sale_estimate
   );
+  const cebiaDocumentsAvailable =
+    asArray(car.cebiaFiles ?? car.cebia_files).length > 0;
+  const cebiaReportAvailable = hasValue(
+    car.aiCebiaReport ?? car.ai_cebia_report
+  );
+  const cebiaHistoryAvailable = hasCebiaData(cebiaHistory);
   const technicalReadinessGroups = [
     hasValue(car.year) ||
       hasValue(technicalParams.productionYear) ||
@@ -228,6 +234,7 @@ export function buildVehicleProfile(
       ),
       vin: firstValue(car.vin),
       registrationPlate: firstValue(car.spz),
+      status: firstValue(car.status),
       hasSufficientIdentification:
         (hasValue(car.name) && String(car.name).trim().length >= 3) ||
         hasValue(technicalParams.brand) ||
@@ -235,6 +242,7 @@ export function buildVehicleProfile(
     },
     technical: {
       year: firstValue(car.year, technicalParams.productionYear),
+      productionYear: firstValue(technicalParams.productionYear),
       firstRegistration: firstValue(technicalParams.firstRegistration),
       mileage: firstValue(car.km),
       engine: firstValue(technicalParams.engine),
@@ -246,6 +254,7 @@ export function buildVehicleProfile(
       color: firstValue(technicalParams.color),
       consumption: firstValue(technicalParams.consumption),
       emissions: firstValue(technicalParams.emissions),
+      warranty: firstValue(technicalParams.warranty),
       readinessCoverageCount: technicalReadinessGroups.filter(Boolean).length,
       readinessCoverageTotal: technicalReadinessGroups.length,
     },
@@ -262,17 +271,21 @@ export function buildVehicleProfile(
       imported: firstValue(cebiaHistory.importInfo),
       ownersCount: firstValue(cebiaHistory.owners),
       previousUse: firstValue(cebiaHistory.taxiOrRental),
-      serviceHistory: checklist["Servisní historie"] === true,
+      serviceHistory: Boolean(checklist["Servisní historie"]),
       stk: firstValue(technicalParams.stkValidUntil),
+      cebiaWarranty: firstValue(cebiaHistory.warranty),
       warranty: firstValue(
         technicalParams.warranty,
         cebiaHistory.warranty,
         advertisingData.warranty
       ),
+      cebiaDocumentsAvailable,
+      cebiaReportAvailable,
+      cebiaHistoryAvailable,
       cebiaAvailable:
-        asArray(car.cebiaFiles ?? car.cebia_files).length > 0 ||
-        hasValue(car.aiCebiaReport ?? car.ai_cebia_report) ||
-        hasCebiaData(cebiaHistory),
+        cebiaDocumentsAvailable ||
+        cebiaReportAvailable ||
+        cebiaHistoryAvailable,
     },
     media: {
       photosCount: photos.length,
