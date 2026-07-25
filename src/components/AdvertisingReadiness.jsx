@@ -1,3 +1,5 @@
+import { buildVehicleProfile } from "../utils/buildVehicleProfile.js";
+
 const readinessStatus = {
   DONE: "done",
   MISSING: "missing",
@@ -19,84 +21,24 @@ function hasPositiveNumber(value) {
   return Number.isFinite(numberValue) && numberValue > 0;
 }
 
-function getSellingPrice(car = {}) {
-  return [
-    car.expectedSalePrice,
-    car.expected_sale_price,
-    car.saleEstimate,
-    car.sale_estimate,
-  ].find(hasPositiveNumber);
-}
-
-function countSelectedEquipment(equipment = {}) {
-  return Object.values(equipment).filter(Boolean).length;
-}
-
-function countFilledDamageFields(damageReport = {}) {
-  return [
-    damageReport.overallCondition,
-    damageReport.exterior,
-    damageReport.interior,
-    damageReport.technical,
-    damageReport.tiresBrakes,
-    damageReport.glassLights,
-    damageReport.otherDamage,
-  ].filter(hasValue).length;
-}
-
-function getTechnicalCoverage(car, technicalParams) {
-  const checks = [
-    hasValue(car.year) ||
-      hasValue(technicalParams.productionYear) ||
-      hasValue(technicalParams.firstRegistration),
-    hasPositiveNumber(car.km),
-    hasValue(technicalParams.fuel),
-    hasValue(technicalParams.transmission),
-    hasValue(technicalParams.engine) || hasValue(technicalParams.powerKw),
-  ];
-
-  return checks.filter(Boolean).length;
-}
-
-function getOnlineListingText(advertisingData) {
-  return advertisingData.onlineListingText;
-}
-
-function hasOnlineListingPreparation(advertisingData) {
-  return [
-    advertisingData.highlights,
-    advertisingData.defects,
-    advertisingData.repairs,
-    advertisingData.listingNote,
-  ].some(hasValue);
-}
-
 function evaluateAdvertisingReadiness(
   car,
   { documents = [], documentsLoading = false } = {}
 ) {
-  const technicalParams = car?.technicalParams || {};
-  const advertisingData = car?.advertisingData || {};
-  const damageReport = car?.damageReport || {};
-  const photoCount = Array.isArray(car?.photos) ? car.photos.length : 0;
-  const equipmentCount = countSelectedEquipment(car?.equipment);
-  const damageFieldCount = countFilledDamageFields(damageReport);
-  const standardDocumentCount = Array.isArray(documents)
-    ? documents.length
-    : 0;
-  const legacyCebiaCount = Array.isArray(car?.cebiaFiles)
-    ? car.cebiaFiles.length
-    : 0;
-  const documentCount = standardDocumentCount + legacyCebiaCount;
-  const technicalCoverage = getTechnicalCoverage(car || {}, technicalParams);
-  const sellingPrice = getSellingPrice(car);
-  const hasIdentification =
-    (hasValue(car?.name) && String(car.name).trim().length >= 3) ||
-    hasValue(technicalParams.brand) ||
-    hasValue(technicalParams.model);
-  const onlineListingText = getOnlineListingText(advertisingData);
+  const profile = buildVehicleProfile(car, {
+    documents,
+    documentsLoading,
+  });
+  const photoCount = profile.media.photosCount;
+  const equipmentCount = profile.equipment.count;
+  const damageFieldCount = profile.condition.structuredFieldCount;
+  const documentCount = profile.documents.totalCount;
+  const technicalCoverage = profile.technical.readinessCoverageCount;
+  const sellingPrice = profile.pricing.effectiveSalePrice;
+  const hasIdentification = profile.identity.hasSufficientIdentification;
+  const onlineListingText = profile.advertising.onlineListingText;
   const onlineListingPreparation =
-    hasOnlineListingPreparation(advertisingData);
+    profile.advertising.hasPreparationData;
 
   const items = [
     {
@@ -160,12 +102,12 @@ function evaluateAdvertisingReadiness(
     {
       key: "documents",
       label: "Dokumentace",
-      status: documentsLoading
+      status: profile.documents.isLoading
         ? readinessStatus.REVIEW
         : documentCount > 0
           ? readinessStatus.DONE
           : readinessStatus.MISSING,
-      detail: documentsLoading
+      detail: profile.documents.isLoading
         ? "Dokumenty se právě načítají."
         : documentCount > 0
           ? `Počet dostupných dokumentů: ${documentCount}.`
@@ -174,10 +116,10 @@ function evaluateAdvertisingReadiness(
     {
       key: "customerText",
       label: "Text pro zákazníka",
-      status: hasValue(advertisingData.customerEmailText)
+      status: hasValue(profile.advertising.customerEmailText)
         ? readinessStatus.DONE
         : readinessStatus.MISSING,
-      detail: hasValue(advertisingData.customerEmailText)
+      detail: hasValue(profile.advertising.customerEmailText)
         ? "Text pro zákazníka je uložený."
         : "Text pro zákazníka zatím není uložený.",
     },
