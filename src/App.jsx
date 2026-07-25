@@ -33,6 +33,14 @@ import {
 } from "./marketing/index.js";
 import AppSelect from "./components/ui/AppSelect";
 import AppModal from "./components/ui/AppModal";
+import CustomerList from "./components/customers/CustomerList.jsx";
+import CustomerForm from "./components/customers/CustomerForm.jsx";
+import CustomerDetail from "./components/customers/CustomerDetail.jsx";
+import {
+  createCustomer as createCrmCustomer,
+  loadCustomers as loadCrmCustomers,
+  updateCustomer as updateCrmCustomer,
+} from "./services/customers.js";
 
 const emptyChecklist = {
   "Servisní historie": false,
@@ -677,6 +685,10 @@ const remainingEquipment = equipmentItems.filter(
   (item) => !selectedCar?.equipment?.[item]
 );
   const [view, setView] = useState("home");
+  const [customers, setCustomers] = useState([]);
+  const [selectedCustomer, setSelectedCustomer] = useState(null);
+  const [customersLoading, setCustomersLoading] = useState(false);
+  const [customersError, setCustomersError] = useState("");
   const [listMode, setListMode] = useState("valuation");
   const [module, setModule] = useState("overview");
   const moduleContentRef = useRef(null);
@@ -815,6 +827,9 @@ const remainingEquipment = equipmentItems.filter(
     setUser(null);
     setCars([]);
     setSelectedCar(null);
+    setCustomers([]);
+    setSelectedCustomer(null);
+    setCustomersError("");
     setView("home");
   }
 
@@ -835,6 +850,57 @@ const remainingEquipment = equipmentItems.filter(
       if (!currentSelected) return loadedCars[0] || null;
       return loadedCars.find((car) => car.id === currentSelected.id) || loadedCars[0] || null;
     });
+  }
+
+  async function refreshCustomers() {
+    setCustomersLoading(true);
+    setCustomersError("");
+
+    try {
+      const loadedCustomers = await loadCrmCustomers();
+      setCustomers(loadedCustomers);
+      return loadedCustomers;
+    } catch (error) {
+      setCustomersError(error.message || "Zákazníky se nepodařilo načíst.");
+      return null;
+    } finally {
+      setCustomersLoading(false);
+    }
+  }
+
+  async function openCustomerList() {
+    setSelectedCustomer(null);
+    setView("customers");
+    await refreshCustomers();
+  }
+
+  function openNewCustomer() {
+    setSelectedCustomer(null);
+    setView("customerForm");
+  }
+
+  function openCustomerDetail(customer) {
+    setSelectedCustomer(customer);
+    setView("customerDetail");
+  }
+
+  function openCustomerEdit() {
+    setView("customerForm");
+  }
+
+  async function saveCustomer(form) {
+    const savedCustomer = selectedCustomer?.id
+      ? await updateCrmCustomer(selectedCustomer.id, form)
+      : await createCrmCustomer(form);
+
+    setCustomers((current) => {
+      const remainingCustomers = current.filter(
+        (customer) => customer.id !== savedCustomer.id
+      );
+      return [savedCustomer, ...remainingCustomers];
+    });
+    setSelectedCustomer(savedCustomer);
+    setView("customerDetail");
   }
 
   const currentUsername = getUsername(user) || username;
@@ -1762,8 +1828,8 @@ const remainingEquipment = equipmentItems.filter(
               <div className="module">
                 <MessageCircle />
                 <h3>Seznam zákazníků</h3>
-                <p>Zatím připravujeme</p>
-                <button onClick={() => alert("Seznam zákazníků doprogramujeme v další fázi.")}>
+                <p>Evidence kontaktů</p>
+                <button onClick={openCustomerList}>
                   Otevřít
                 </button>
               </div>
@@ -1798,6 +1864,36 @@ const remainingEquipment = equipmentItems.filter(
             </div>
           </div>
         </section>
+      )}
+
+      {view === "customers" && (
+        <CustomerList
+          customers={customers}
+          loading={customersLoading}
+          error={customersError}
+          onRetry={refreshCustomers}
+          onBack={() => setView("home")}
+          onNew={openNewCustomer}
+          onSelect={openCustomerDetail}
+        />
+      )}
+
+      {view === "customerForm" && (
+        <CustomerForm
+          customer={selectedCustomer}
+          onSave={saveCustomer}
+          onCancel={() =>
+            setView(selectedCustomer ? "customerDetail" : "customers")
+          }
+        />
+      )}
+
+      {view === "customerDetail" && selectedCustomer && (
+        <CustomerDetail
+          customer={selectedCustomer}
+          onBack={() => setView("customers")}
+          onEdit={openCustomerEdit}
+        />
       )}
 
       {view === "new" && (

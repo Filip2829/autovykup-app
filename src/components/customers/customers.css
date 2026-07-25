@@ -1,0 +1,369 @@
+.crmPage {
+  width: min(1180px, calc(100% - 32px));
+  margin: 0 auto 48px;
+}
+
+.crmPageHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 24px;
+}
+
+.crmPageHeader h1 {
+  margin: 10px 0 6px;
+}
+
+.crmPageHeader p {
+  margin: 0;
+  color: #94a3b8;
+}
+
+.primaryButton,
+.secondaryButton,
+.backButton {
+  border-radius: 14px;
+  padding: 11px 16px;
+  font-weight: 800;
+}
+
+.primaryButton {
+  border: 1px solid rgba(59, 130, 246, 0.45);
+  background: linear-gradient(135deg, #2563eb, #1d4ed8);
+  color: #fff;
+}
+
+.secondaryButton {
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  background: rgba(15, 23, 42, 0.86);
+  color: #e2e8f0;
+}
+
+.backButton {
+  padding-left: 0;
+  border: 0;
+  background: transparent;
+  color: #94a3b8;
+}
+
+.primaryButton:hover,
+.secondaryButton:hover {
+  transform: translateY(-1px);
+}
+
+.crmFilters,
+.crmForm,
+.crmOverview {
+  padding: 24px;
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  border-radius: 18px;
+  background: linear-gradient(
+    180deg,
+    rgba(15, 23, 42, 0.96),
+    rgba(2, 6, 23, 0.96)
+  );
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.28);
+}
+
+.crmFilters {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(180px, 1fr);
+  gap: 16px;
+}
+
+.crmFilters label,
+.crmForm label {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  color: #cbd5e1;
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.crmFilters input,
+.crmFilters select,
+.crmForm input,
+.crmForm select,
+.crmForm textarea {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  border-radius: 10px;
+  background: rgba(15, 23, 42, 0.9);
+  color: #f8fafc;
+  font: inherit;
+}
+
+.crmFilters input,
+.crmFilters select,
+.crmForm input,
+.crmForm select {
+  min-height: 44px;
+  padding: 10px 12px;
+}
+
+.crmForm textarea {
+  padding: 12px;
+  resize: vertical;
+}
+
+.crmListSummary {
+  margin: 18px 2px 10px;
+  color: #94a3b8;
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.crmCustomerList {
+  display: grid;
+  gap: 10px;
+}
+
+.crmCustomerCard {
+  display: grid;
+  grid-template-columns: minmax(220px, 1.2fr) auto minmax(380px, 1.5fr);
+  align-items: center;
+  gap: 18px;
+  width: 100%;
+  padding: 18px 20px;
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  border-radius: 14px;
+  background: linear-gradient(
+    180deg,
+    rgba(15, 23, 42, 0.96),
+    rgba(2, 6, 23, 0.96)
+  );
+  color: #f8fafc;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.crmCustomerCard:hover,
+.crmCustomerCard:focus-visible {
+  border-color: rgba(96, 165, 250, 0.6);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35);
+  transform: translateY(-1px);
+}
+
+.crmCustomerIdentity,
+.crmCustomerDates,
+.crmCustomerDates > span,
+.crmOverviewGrid > div,
+.crmNotesPanel {
+  display: flex;
+  flex-direction: column;
+}
+
+.crmCustomerIdentity {
+  gap: 3px;
+}
+
+.crmCustomerIdentity strong {
+  font-size: 1rem;
+}
+
+.crmCustomerIdentity span {
+  color: #94a3b8;
+  font-size: 0.88rem;
+}
+
+.crmCustomerDates {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  color: #cbd5e1;
+  font-size: 0.85rem;
+}
+
+.crmCustomerDates small,
+.crmOverviewGrid small,
+.crmNotesPanel small {
+  margin-bottom: 3px;
+  color: #94a3b8;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.crmStatusBadge {
+  display: inline-flex;
+  align-items: center;
+  width: max-content;
+  padding: 5px 10px;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.crmStatusBadge-active {
+  background: rgba(22, 163, 74, 0.2);
+  color: #86efac;
+}
+
+.crmStatusBadge-inactive {
+  background: rgba(100, 116, 139, 0.22);
+  color: #cbd5e1;
+}
+
+.crmStatusBadge-archived {
+  background: rgba(217, 119, 6, 0.18);
+  color: #fcd34d;
+}
+
+.crmStateMessage {
+  padding: 36px 24px;
+  border: 1px dashed rgba(148, 163, 184, 0.28);
+  border-radius: 14px;
+  background: rgba(15, 23, 42, 0.62);
+  color: #94a3b8;
+  text-align: center;
+}
+
+.crmStateMessage p {
+  margin: 0 0 16px;
+}
+
+.crmStateMessageError,
+.crmFormError {
+  color: #fca5a5;
+}
+
+.crmFormPage {
+  max-width: 900px;
+}
+
+.crmForm {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+
+.crmFormGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.crmNotesField {
+  min-height: 170px;
+}
+
+.crmFormError {
+  padding: 12px 14px;
+  border: 1px solid rgba(248, 113, 113, 0.35);
+  border-radius: 10px;
+  background: rgba(127, 29, 29, 0.2);
+}
+
+.crmFormActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+.crmTabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 18px;
+}
+
+.crmTabs button {
+  flex: 0 0 auto;
+  padding: 10px 15px;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.9);
+  color: #cbd5e1;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.crmTabs button.active {
+  border-color: rgba(59, 130, 246, 0.55);
+  background: linear-gradient(135deg, #2563eb, #1d4ed8);
+  color: #fff;
+}
+
+.crmOverviewGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+}
+
+.crmOverviewGrid > div {
+  min-width: 0;
+}
+
+.crmOverviewGrid strong,
+.crmOverviewGrid a {
+  overflow-wrap: anywhere;
+  color: #f8fafc;
+}
+
+.crmNotesPanel {
+  margin-top: 24px;
+  padding-top: 22px;
+  border-top: 1px solid rgba(148, 163, 184, 0.16);
+}
+
+.crmNotesPanel p {
+  margin: 5px 0 0;
+  white-space: pre-wrap;
+}
+
+@media (max-width: 900px) {
+  .crmCustomerCard {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .crmCustomerDates {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 640px) {
+  .crmPage {
+    width: min(100% - 20px, 1180px);
+  }
+
+  .crmPageHeader {
+    flex-direction: column;
+  }
+
+  .crmPageHeader > .primaryButton {
+    width: 100%;
+  }
+
+  .crmFilters,
+  .crmForm {
+    padding: 18px;
+  }
+
+  .crmFilters,
+  .crmFormGrid,
+  .crmOverviewGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .crmCustomerCard {
+    grid-template-columns: 1fr;
+  }
+
+  .crmCustomerDates {
+    grid-column: auto;
+    grid-template-columns: 1fr;
+  }
+
+  .crmFormActions {
+    flex-direction: column-reverse;
+  }
+
+  .crmFormActions button {
+    width: 100%;
+  }
+}
