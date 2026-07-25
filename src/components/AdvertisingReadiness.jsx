@@ -58,15 +58,8 @@ function getTechnicalCoverage(car, technicalParams) {
   return checks.filter(Boolean).length;
 }
 
-function getOnlineListingText(car, advertisingData) {
-  return [
-    advertisingData.onlineListingText,
-    advertisingData.listingText,
-    advertisingData.advertisingText,
-    car.advertText,
-    car.advertisingText,
-    car.listingText,
-  ].find(hasValue);
+function getOnlineListingText(advertisingData) {
+  return advertisingData.onlineListingText;
 }
 
 function hasOnlineListingPreparation(advertisingData) {
@@ -101,7 +94,7 @@ function evaluateAdvertisingReadiness(
     (hasValue(car?.name) && String(car.name).trim().length >= 3) ||
     hasValue(technicalParams.brand) ||
     hasValue(technicalParams.model);
-  const onlineListingText = getOnlineListingText(car || {}, advertisingData);
+  const onlineListingText = getOnlineListingText(advertisingData);
   const onlineListingPreparation =
     hasOnlineListingPreparation(advertisingData);
 
