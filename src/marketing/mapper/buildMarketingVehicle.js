@@ -2,6 +2,7 @@ import {
   formatVehicleCurrency,
   getVehicleEconomy,
 } from "../../utils/vehicleEconomy.js";
+import { buildVehicleProfile } from "../../utils/buildVehicleProfile.js";
 
 const fallbackText = "Neuvedeno";
 
@@ -217,10 +218,19 @@ function buildReadiness(vehicle) {
 
 export function buildMarketingVehicle(selectedCar) {
   const car = selectedCar || {};
+  const vehicleProfile = buildVehicleProfile(selectedCar);
   const technicalParams = car.technicalParams || {};
   const advertisingData = car.advertisingData || {};
   const damageReport = car.damageReport || {};
   const cebiaHistory = car.cebiaHistory || {};
+  const hasMarketingTechnicalParams = Boolean(car.technicalParams);
+  const profileTechnical = hasMarketingTechnicalParams
+    ? vehicleProfile.technical
+    : null;
+  const profileYear =
+    hasMarketingTechnicalParams || hasValue(car.year)
+      ? vehicleProfile.technical.year
+      : "";
   const economy = getVehicleEconomy(car);
   const expectedSalePrice =
     economy.expectedSalePrice > 0
@@ -228,22 +238,22 @@ export function buildMarketingVehicle(selectedCar) {
       : fallbackText;
 
   const vehicle = {
-    title: getValue(car.name),
+    title: getValue(vehicleProfile.identity.name),
     subtitle: getValue(
-      technicalParams.version,
-      technicalParams.equipmentLevel,
-      technicalParams.engine
+      profileTechnical?.version,
+      hasMarketingTechnicalParams ? vehicleProfile.identity.version : "",
+      profileTechnical?.engine
     ),
     price: expectedSalePrice,
     heroImage: car.photos?.[0] || "",
-    vin: maskVin(car.vin),
+    vin: maskVin(vehicleProfile.identity.vin),
     specs: {
-      year: getValue(car.year, technicalParams.productionYear),
-      mileage: formatMileage(car.km),
-      fuel: getValue(technicalParams.fuel),
-      transmission: getValue(technicalParams.transmission),
-      power: hasValue(technicalParams.powerKw)
-        ? `${technicalParams.powerKw} kW`
+      year: getValue(profileYear),
+      mileage: formatMileage(vehicleProfile.technical.mileage),
+      fuel: getValue(profileTechnical?.fuel),
+      transmission: getValue(profileTechnical?.transmission),
+      power: hasValue(profileTechnical?.powerKw)
+        ? `${profileTechnical.powerKw} kW`
         : fallbackText,
       origin: getValue(cebiaHistory.countryOfOrigin, technicalParams.origin),
       firstOwner: getFirstOwner(car),
@@ -255,16 +265,18 @@ export function buildMarketingVehicle(selectedCar) {
       ),
     },
     technical: {
-      engine: getValue(technicalParams.engine),
-      power: hasValue(technicalParams.powerKw)
-        ? `${technicalParams.powerKw} kW`
+      engine: getValue(profileTechnical?.engine),
+      power: hasValue(profileTechnical?.powerKw)
+        ? `${profileTechnical.powerKw} kW`
         : fallbackText,
-      drive: getValue(technicalParams.drive),
-      consumption: getValue(technicalParams.consumption),
-      emissions: getValue(technicalParams.emissions),
-      color: getValue(technicalParams.color),
-      bodyType: getValue(technicalParams.bodyType),
-      stk: getValue(technicalParams.stkValidUntil),
+      drive: getValue(profileTechnical?.drive),
+      consumption: getValue(profileTechnical?.consumption),
+      emissions: getValue(profileTechnical?.emissions),
+      color: getValue(profileTechnical?.color),
+      bodyType: getValue(profileTechnical?.bodyType),
+      stk: getValue(
+        hasMarketingTechnicalParams ? vehicleProfile.history.stk : ""
+      ),
     },
     equipment: getSelectedEquipment(car.equipment),
     highlights: getHighlights(car),
