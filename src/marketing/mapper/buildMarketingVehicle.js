@@ -245,7 +245,7 @@ export function buildMarketingVehicle(selectedCar) {
       profileTechnical?.engine
     ),
     price: expectedSalePrice,
-    heroImage: car.photos?.[0] || "",
+    heroImage: vehicleProfile.media.heroPhoto,
     vin: maskVin(vehicleProfile.identity.vin),
     specs: {
       year: getValue(profileYear),
