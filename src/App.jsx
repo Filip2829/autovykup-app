@@ -23,6 +23,7 @@ import VehicleDamage from "./components/VehicleDamage";
 import VehiclePostPurchaseCosts from "./components/VehiclePostPurchaseCosts.jsx";
 import VehicleAdvertisingPrep from "./components/VehicleAdvertisingPrep.jsx";
 import CustomerEmailText from "./components/CustomerEmailText.jsx";
+import AdvertisingReadiness from "./components/AdvertisingReadiness.jsx";
 import {
   buildMarketingVehicle,
   MarketingActions,
@@ -2541,6 +2542,12 @@ const remainingEquipment = equipmentItems.filter(
               className="vehicleAdvertisingWorkspace"
               ref={moduleContentRef}
             >
+              <AdvertisingReadiness
+                selectedCar={selectedCar}
+                documents={administrationDocuments}
+                documentsLoading={vehicleDocumentsLoading}
+              />
+
               <VehicleAdvertisingPrep
                 selectedCar={selectedCar}
                 updateCar={updateCar}
