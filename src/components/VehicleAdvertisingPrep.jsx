@@ -66,7 +66,6 @@ function appendChoice(currentValue, choice) {
 export default function VehicleAdvertisingPrep({
   selectedCar,
   updateCar,
-  moduleContentRef,
 }) {
   const advertisingData = selectedCar.advertisingData || {};
 
@@ -85,8 +84,8 @@ export default function VehicleAdvertisingPrep({
   }
 
   return (
-    <div className="card decision" ref={moduleContentRef}>
-      <h2>Příprava pro inzerci</h2>
+    <div className="card decision">
+      <h2>Příprava inzerce</h2>
 
       <div className="formGrid">
         {advertisingFields.map((field) => (

@@ -675,7 +675,6 @@ const remainingEquipment = equipmentItems.filter(
   const moduleContentRef = useRef(null);
   const marketingCardRef = useRef(null);
   const [noteText, setNoteText] = useState("");
-  const [problemText, setProblemText] = useState("");
   const [vehicleDocuments, setVehicleDocuments] = useState([]);
   const [vehicleDocumentsLoading, setVehicleDocumentsLoading] = useState(false);
   const [vehicleDocumentForm, setVehicleDocumentForm] = useState({
@@ -684,7 +683,6 @@ const remainingEquipment = equipmentItems.filter(
   const [vehicleDocumentFile, setVehicleDocumentFile] = useState(null);
   const [isVehicleDocumentModalOpen, setIsVehicleDocumentModalOpen] =
     useState(false);
-  const [aiLoading, setAiLoading] = useState(false);
   const [documentAiLoading, setDocumentAiLoading] = useState(false);
   const [technicalAiLoading, setTechnicalAiLoading] = useState(false);
   const [editMode, setEditMode] = useState(false);
@@ -926,7 +924,6 @@ const remainingEquipment = equipmentItems.filter(
     setModule("overview");
     setEditMode(false);
     setNoteText("");
-    setProblemText("");
     setVehicleDocumentForm({ ...emptyVehicleDocumentForm });
     setVehicleDocumentFile(null);
     setIsVehicleDocumentModalOpen(false);
@@ -1664,43 +1661,6 @@ const remainingEquipment = equipmentItems.filter(
     setNoteText("");
   }
 
-  async function analyzeTechnicalProblem() {
-    if (!problemText.trim() || !selectedCar) {
-      alert("Popiš závadu.");
-      return;
-    }
-
-    setAiLoading(true);
-
-    try {
-      const { data, error } = await supabase.functions.invoke(
-        "analyze-technical-problem",
-        {
-          body: {
-            car: selectedCar,
-            problem: problemText,
-          },
-        }
-      );
-
-      if (error) {
-        console.error(error);
-        alert("AI analýza selhala.");
-        return;
-      }
-
-      updateCar({
-        ...selectedCar,
-        aiTechnicalReport: data?.report || "AI nevrátila žádný výsledek.",
-      });
-    } catch (err) {
-      console.error(err);
-      alert("Chyba AI.");
-    } finally {
-      setAiLoading(false);
-    }
-  }
-
   if (!user) {
     return (
       <div className="app">
@@ -2081,15 +2041,6 @@ const remainingEquipment = equipmentItems.filter(
             </div>
 
             <div className="module">
-              <ShieldCheck />
-              <h3>Historie CEBIA</h3>
-              <p className={selectedCar.aiCebiaReport ? "okText" : ""}>
-                {selectedCar.aiCebiaReport ? "Vyhodnoceno" : "Zatím nevyhodnoceno"}
-              </p>
-              <button onClick={() => openModule("cebiaHistory")}>Otevřít</button>
-            </div>
-
-            <div className="module">
               <Star />
               <h3>Výbava</h3>
               <button onClick={() => openModule("equipment")}>Otevřít</button>
@@ -2114,18 +2065,8 @@ const remainingEquipment = equipmentItems.filter(
             {hasVehicleStatus(selectedCar.status, postPurchaseStatusGroup) && (
               <div className="module">
                 <ClipboardList />
-                <h3>Příprava pro inzerci</h3>
-                <button onClick={() => openModule("advertisingPrep")}>
-                  Otevřít
-                </button>
-              </div>
-            )}
-
-            {hasVehicleStatus(selectedCar.status, postPurchaseStatusGroup) && (
-              <div className="module">
-                <Star />
-                <h3>Marketing Engine</h3>
-                <button onClick={() => openModule("marketingEngine")}>
+                <h3>Inzerce vozu</h3>
+                <button onClick={() => openModule("advertising")}>
                   Otevřít
                 </button>
               </div>
@@ -2133,7 +2074,7 @@ const remainingEquipment = equipmentItems.filter(
 
             <div className="module">
               <MessageCircle />
-              <h3>Poznámky + AI</h3>
+              <h3>Poznámky</h3>
               <button onClick={() => openModule("notes")}>Otevřít</button>
             </div>
 
@@ -2177,6 +2118,8 @@ const remainingEquipment = equipmentItems.filter(
           {module === "checklist" && (
             <VehicleChecklist
               selectedCar={selectedCar}
+              updateCar={updateCar}
+              dealTypeOptions={dealTypeOptions}
               deleteCebiaFile={deleteCebiaFile}
               vehicleDocuments={administrationDocuments}
               vehicleDocumentsLoading={vehicleDocumentsLoading}
@@ -2485,61 +2428,11 @@ const remainingEquipment = equipmentItems.filter(
 
           {module === "notes" && (
             <div className="card decision" ref={moduleContentRef}>
-              <h2>Obchodní informace</h2>
-
-              <div className="formGrid">
-                <div>
-                  <p className="label">Typ obchodu</p>
-                  <AppSelect
-                    ariaLabel="Typ obchodu"
-                    value={selectedCar.dealType || "buyout"}
-                    options={dealTypeOptions}
-                    onChange={(value) =>
-                      updateCar({ ...selectedCar, dealType: value })
-                    }
-                  />
-                </div>
-
-                <div>
-                  <p className="label">Prodejce protiúčtu</p>
-                  <input
-                    placeholder="Prodejce protiúčtu"
-                    value={selectedCar.tradeInSource || ""}
-                    onChange={(event) =>
-                      updateCar({
-                        ...selectedCar,
-                        tradeInSource: event.target.value,
-                      })
-                    }
-                  />
-                </div>
-
-                {selectedCar.dealType === "commission" && (
-                  <div>
-                    <p className="label">Poznámky ke komisi</p>
-                    <textarea
-                      placeholder="Poznámky ke komisi"
-                      value={selectedCar.commissionNotes || ""}
-                      onChange={(event) =>
-                        updateCar({
-                          ...selectedCar,
-                          commissionNotes: event.target.value,
-                        })
-                      }
-                    />
-                  </div>
-                )}
-              </div>
-
               <VehicleNotes
                 selectedCar={selectedCar}
                 noteText={noteText}
                 setNoteText={setNoteText}
                 addNote={addNote}
-                problemText={problemText}
-                setProblemText={setProblemText}
-                analyzeTechnicalProblem={analyzeTechnicalProblem}
-                aiLoading={aiLoading}
               />
             </div>
           )}
@@ -2640,35 +2533,41 @@ const remainingEquipment = equipmentItems.filter(
             />
           )}
 
-          {module === "advertisingPrep" && (
-            <VehicleAdvertisingPrep
-              selectedCar={selectedCar}
-              updateCar={updateCar}
-              moduleContentRef={moduleContentRef}
-            />
-          )}
+          {module === "advertising" && (
+            <div
+              className="vehicleAdvertisingWorkspace"
+              ref={moduleContentRef}
+            >
+              <VehicleAdvertisingPrep
+                selectedCar={selectedCar}
+                updateCar={updateCar}
+              />
 
-          {module === "marketingEngine" && marketingVehicle && (
-            <div className="card decision marketingEnginePanel" ref={moduleContentRef}>
-              <div className="marketingEngineTop">
-                <div>
-                  <p className="label">Marketing Engine</p>
-                  <h2>A4 karta za okno vozu</h2>
+              {marketingVehicle && (
+                <div className="card decision marketingEnginePanel">
+                  <div className="marketingEngineTop">
+                    <div>
+                      <h2>Marketingové výstupy</h2>
+                      <p className="label">A4 karta za okno vozu</p>
+                    </div>
+                    <MarketingActions
+                      cardRef={marketingCardRef}
+                      fileName={marketingVehicle.title}
+                    />
+                  </div>
+
+                  <MarketingReadinessScore
+                    readiness={marketingVehicle.readiness}
+                  />
+
+                  <div className="marketingPreviewShell">
+                    <OpportunityClassic
+                      vehicle={marketingVehicle}
+                      cardRef={marketingCardRef}
+                    />
+                  </div>
                 </div>
-                <MarketingActions
-                  cardRef={marketingCardRef}
-                  fileName={marketingVehicle.title}
-                />
-              </div>
-
-              <MarketingReadinessScore readiness={marketingVehicle.readiness} />
-
-              <div className="marketingPreviewShell">
-                <OpportunityClassic
-                  vehicle={marketingVehicle}
-                  cardRef={marketingCardRef}
-                />
-              </div>
+              )}
             </div>
           )}
 
