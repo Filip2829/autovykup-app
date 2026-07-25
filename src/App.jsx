@@ -22,6 +22,7 @@ import VehicleHeader from "./components/VehicleHeader";
 import VehicleDamage from "./components/VehicleDamage";
 import VehiclePostPurchaseCosts from "./components/VehiclePostPurchaseCosts.jsx";
 import VehicleAdvertisingPrep from "./components/VehicleAdvertisingPrep.jsx";
+import CustomerEmailText from "./components/CustomerEmailText.jsx";
 import {
   buildMarketingVehicle,
   MarketingActions,
@@ -135,6 +136,7 @@ const emptyAdvertisingData = {
   repairs: "",
   listingNote: "",
   internalSaleNote: "",
+  customerEmailText: "",
 };
 
 const LEGACY_STATUS = {
@@ -351,6 +353,7 @@ function normalizeAdvertisingData(data = {}) {
     repairs: data.repairs || "",
     listingNote: data.listingNote || "",
     internalSaleNote: data.internalSaleNote || "",
+    customerEmailText: data.customerEmailText || "",
   };
 }
 
@@ -2539,6 +2542,11 @@ const remainingEquipment = equipmentItems.filter(
               ref={moduleContentRef}
             >
               <VehicleAdvertisingPrep
+                selectedCar={selectedCar}
+                updateCar={updateCar}
+              />
+
+              <CustomerEmailText
                 selectedCar={selectedCar}
                 updateCar={updateCar}
               />

@@ -777,6 +777,32 @@ textarea::placeholder {
   min-width: 0;
 }
 
+.customerEmailDescription {
+  max-width: 850px;
+  color: #cbd5e1;
+  line-height: 1.6;
+}
+
+.customerEmailTextarea {
+  min-height: 420px;
+  resize: vertical;
+}
+
+.customerEmailActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.customerEmailStatus {
+  min-height: 24px;
+  margin-top: 10px;
+}
+
+.customerEmailStatus p {
+  margin: 0;
+}
+
 .marketingPreviewShell {
   display: flex;
   justify-content: center;
@@ -1539,6 +1565,18 @@ input[type="checkbox"] {
 
   .marketingActions button {
     width: 100%;
+  }
+
+  .customerEmailActions {
+    flex-direction: column;
+  }
+
+  .customerEmailActions button {
+    width: 100%;
+  }
+
+  .customerEmailTextarea {
+    min-height: 360px;
   }
 
   .vehicleMarketingCard {
