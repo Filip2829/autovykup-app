@@ -1,4 +1,5 @@
 import { useState } from "react"
+import CustomerDemandList from "./CustomerDemandList.jsx"
 
 const statusLabels = {
   active: "Aktivní",
@@ -22,6 +23,17 @@ function formatDate(value) {
   return new Intl.DateTimeFormat("cs-CZ", {
     dateStyle: "long",
     timeStyle: "short",
+  }).format(date)
+}
+
+function formatContactDate(value) {
+  if (!value) return "Neuvedeno"
+
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return "Neuvedeno"
+
+  return new Intl.DateTimeFormat("cs-CZ", {
+    dateStyle: "long",
   }).format(date)
 }
 
@@ -95,11 +107,11 @@ export default function CustomerDetail({ customer, onBack, onEdit }) {
             </div>
             <div>
               <small>Poslední kontakt</small>
-              <strong>{formatDate(customer.lastContactAt)}</strong>
+              <strong>{formatContactDate(customer.lastContactAt)}</strong>
             </div>
             <div>
-              <small>Další kontakt</small>
-              <strong>{formatDate(customer.nextContactAt)}</strong>
+              <small>Kontaktovat znovu</small>
+              <strong>{formatContactDate(customer.nextContactAt)}</strong>
             </div>
             <div>
               <small>Vytvořeno</small>
@@ -116,9 +128,10 @@ export default function CustomerDetail({ customer, onBack, onEdit }) {
             <p>{customer.notes || "Bez poznámek."}</p>
           </div>
         </div>
+      ) : activeTab === "demands" ? (
+        <CustomerDemandList customerId={customer.id} />
       ) : (
         <div className="crmStateMessage">
-          {activeTab === "demands" && "Poptávky budou doplněny v další fázi CRM."}
           {activeTab === "recommended"
             && "Doporučené vozy budou doplněny v další fázi CRM."}
           {activeTab === "history"

@@ -20,6 +20,17 @@ function formatDate(value) {
   }).format(date)
 }
 
+function formatContactDate(value) {
+  if (!value) return "Neuvedeno"
+
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return "Neuvedeno"
+
+  return new Intl.DateTimeFormat("cs-CZ", {
+    dateStyle: "medium",
+  }).format(date)
+}
+
 function getCustomerName(customer) {
   const name = [customer.firstName, customer.lastName].filter(Boolean).join(" ").trim()
   return name || "Bez jména"
@@ -124,11 +135,11 @@ export default function CustomerList({
               <span className="crmCustomerDates">
                 <span>
                   <small>Poslední kontakt</small>
-                  {formatDate(customer.lastContactAt)}
+                  {formatContactDate(customer.lastContactAt)}
                 </span>
                 <span>
-                  <small>Další kontakt</small>
-                  {formatDate(customer.nextContactAt)}
+                  <small>Kontaktovat znovu</small>
+                  {formatContactDate(customer.nextContactAt)}
                 </span>
                 <span>
                   <small>Vytvořeno</small>

@@ -12,14 +12,14 @@ const emptyForm = {
   nextContactAt: "",
 }
 
-function toLocalDateTime(value) {
+function toLocalDate(value) {
   if (!value) return ""
 
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return ""
 
   const localDate = new Date(date.getTime() - date.getTimezoneOffset() * 60_000)
-  return localDate.toISOString().slice(0, 16)
+  return localDate.toISOString().slice(0, 10)
 }
 
 function getInitialForm(customer) {
@@ -32,8 +32,8 @@ function getInitialForm(customer) {
     email: customer.email || "",
     notes: customer.notes || "",
     status: customer.status || "active",
-    lastContactAt: toLocalDateTime(customer.lastContactAt),
-    nextContactAt: toLocalDateTime(customer.nextContactAt),
+    lastContactAt: toLocalDate(customer.lastContactAt),
+    nextContactAt: toLocalDate(customer.nextContactAt),
   }
 }
 
@@ -137,16 +137,16 @@ export default function CustomerForm({ customer, onSave, onCancel }) {
           <label>
             Poslední kontakt
             <input
-              type="datetime-local"
+              type="date"
               value={form.lastContactAt}
               onChange={(event) => updateField("lastContactAt", event.target.value)}
             />
           </label>
 
           <label>
-            Další kontakt
+            Kontaktovat znovu
             <input
-              type="datetime-local"
+              type="date"
               value={form.nextContactAt}
               onChange={(event) => updateField("nextContactAt", event.target.value)}
             />
