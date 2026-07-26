@@ -1,4 +1,5 @@
 import { supabase } from "../supabase.js";
+import { mapCustomerRow } from "./customers.js";
 
 export const customerDemandStatuses = [
   { value: "active", label: "Aktivní" },
@@ -135,6 +136,17 @@ export function mapCustomerDemandRow(row = {}) {
   };
 }
 
+export function mapCustomerDemandWithCustomer(row = {}) {
+  const relatedCustomer = Array.isArray(row.customer)
+    ? row.customer[0]
+    : row.customer;
+
+  return {
+    ...mapCustomerDemandRow(row),
+    customer: relatedCustomer ? mapCustomerRow(relatedCustomer) : null,
+  };
+}
+
 export function mapCustomerDemandChangesToPayload(changes = {}) {
   const payload = {};
 
@@ -256,6 +268,38 @@ export function createCustomerDemandsService(client = supabase) {
       return (data || []).map(mapCustomerDemandRow);
     },
 
+    async loadActiveCustomerDemandsWithCustomers() {
+      const { data, error } = await client
+        .from("customer_demands")
+        .select(`
+          *,
+          customer:customers (
+            id,
+            first_name,
+            last_name,
+            phone,
+            email,
+            notes,
+            status,
+            last_contact_at,
+            next_contact_at,
+            created_at,
+            updated_at
+          )
+        `)
+        .eq("status", "active")
+        .order("created_at", { ascending: true });
+
+      if (error) {
+        throw customerDemandServiceError(
+          "Načtení aktivních poptávek",
+          error
+        );
+      }
+
+      return (data || []).map(mapCustomerDemandWithCustomer);
+    },
+
     async createCustomerDemand(demand) {
       const validation = validateCustomerDemand(demand);
       if (!validation.valid) throw new Error(validation.error);
@@ -328,6 +372,10 @@ export function loadCustomerDemands(customerId) {
 
 export function createCustomerDemand(demand) {
   return customerDemandsService.createCustomerDemand(demand);
+}
+
+export function loadActiveCustomerDemandsWithCustomers() {
+  return customerDemandsService.loadActiveCustomerDemandsWithCustomers();
 }
 
 export function updateCustomerDemand(demandId, customerId, changes) {

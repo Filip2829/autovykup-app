@@ -5,6 +5,7 @@ import {
   createCustomerDemandsService,
   mapCustomerDemandChangesToPayload,
   mapCustomerDemandRow,
+  mapCustomerDemandWithCustomer,
   normalizeDemandTextArray,
   validateCustomerDemand,
 } from "./customerDemands.js";
@@ -146,6 +147,24 @@ describe("customerDemands – mapování a normalizace", () => {
       }
     );
   });
+
+  test("mapuje poptávku včetně souvisejícího zákazníka", () => {
+    const demand = mapCustomerDemandWithCustomer({
+      id: "demand-1",
+      customer_id: "customer-1",
+      title: "SUV",
+      customer: {
+        id: "customer-1",
+        first_name: "Jan",
+        last_name: "Novák",
+        phone: "+420 777 123 456",
+      },
+    });
+
+    assert.equal(demand.customer.firstName, "Jan");
+    assert.equal(demand.customer.lastName, "Novák");
+    assert.equal(demand.customer.phone, "+420 777 123 456");
+  });
 });
 
 describe("customerDemands – validace", () => {
@@ -180,6 +199,34 @@ describe("customerDemands – validace", () => {
 });
 
 describe("customerDemands – CRUD service", () => {
+  test("načítá aktivní poptávky se zákazníky jedním dotazem", async () => {
+    const mock = createSupabaseMock({
+      data: [
+        {
+          id: "demand-1",
+          customer_id: "customer-1",
+          title: "SUV",
+          status: "active",
+          customer: {
+            id: "customer-1",
+            first_name: "Jan",
+            last_name: "Novák",
+          },
+        },
+      ],
+      error: null,
+    });
+    const service = createCustomerDemandsService(mock.client);
+
+    const demands =
+      await service.loadActiveCustomerDemandsWithCustomers();
+
+    assert.equal(mock.calls.length, 1);
+    assert.deepEqual(mock.calls[0].eq, [["status", "active"]]);
+    assert.equal(mock.calls[0].select.includes("customer:customers"), true);
+    assert.equal(demands[0].customer.firstName, "Jan");
+  });
+
   test("načítá pouze poptávky konkrétního customer_id", async () => {
     const mock = createSupabaseMock({
       data: [

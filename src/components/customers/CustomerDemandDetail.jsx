@@ -2,6 +2,7 @@ import {
   customerDemandPriorities,
   customerDemandStatuses,
 } from "../../services/customerDemands.js"
+import CustomerRecommendedVehicles from "./CustomerRecommendedVehicles.jsx"
 
 function getLabel(options, value) {
   return options.find((option) => option.value === value)?.label || value
@@ -56,6 +57,8 @@ export default function CustomerDemandDetail({
   onBack,
   onEdit,
   onDelete,
+  onOpenVehicle,
+  onMatchesChanged,
 }) {
   return (
     <div className="crmDemandDetail">
@@ -173,6 +176,15 @@ export default function CustomerDemandDetail({
       <div className="crmDemandNotes">
         <small>Poznámka</small>
         <p>{demand.notes || "Bez poznámky."}</p>
+      </div>
+
+      <div className="crmDemandDetailSection">
+        <h3>Doporučené vozy</h3>
+        <CustomerRecommendedVehicles
+          customerDemandId={demand.id}
+          onOpenVehicle={onOpenVehicle}
+          onMatchesChanged={onMatchesChanged}
+        />
       </div>
     </div>
   )

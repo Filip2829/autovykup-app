@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
+  BellRing,
   Camera,
   CheckCircle,
   ClipboardList,
@@ -36,11 +37,18 @@ import AppModal from "./components/ui/AppModal";
 import CustomerList from "./components/customers/CustomerList.jsx";
 import CustomerForm from "./components/customers/CustomerForm.jsx";
 import CustomerDetail from "./components/customers/CustomerDetail.jsx";
+import CustomerVehicleMatchesOverview from "./components/customers/CustomerVehicleMatchesOverview.jsx";
+import VehicleInterestedCustomers from "./components/VehicleInterestedCustomers.jsx";
 import {
   createCustomer as createCrmCustomer,
   loadCustomers as loadCrmCustomers,
   updateCustomer as updateCrmCustomer,
 } from "./services/customers.js";
+import { countNewCustomerVehicleMatches } from "./services/customerVehicleMatches.js";
+import {
+  hasVehicleMatchingRelevantChanges,
+  syncMatchesForVehicle,
+} from "./services/customerVehicleMatchSync.js";
 
 const emptyChecklist = {
   "Servisní historie": false,
@@ -689,6 +697,8 @@ const remainingEquipment = equipmentItems.filter(
   const [selectedCustomer, setSelectedCustomer] = useState(null);
   const [customersLoading, setCustomersLoading] = useState(false);
   const [customersError, setCustomersError] = useState("");
+  const [newMatchCount, setNewMatchCount] = useState(0);
+  const [appNotification, setAppNotification] = useState(null);
   const [listMode, setListMode] = useState("valuation");
   const [module, setModule] = useState("overview");
   const moduleContentRef = useRef(null);
@@ -771,6 +781,10 @@ const remainingEquipment = equipmentItems.filter(
     }
   }, [selectedCar?.id, view]);
 
+  useEffect(() => {
+    if (user) refreshNewMatchCount();
+  }, [user]);
+
   function createEmailFromUsername() {
     return `${username}@autovykup.local`;
   }
@@ -830,6 +844,8 @@ const remainingEquipment = equipmentItems.filter(
     setCustomers([]);
     setSelectedCustomer(null);
     setCustomersError("");
+    setNewMatchCount(0);
+    setAppNotification(null);
     setView("home");
   }
 
@@ -865,6 +881,66 @@ const remainingEquipment = equipmentItems.filter(
       return null;
     } finally {
       setCustomersLoading(false);
+    }
+  }
+
+  async function refreshNewMatchCount() {
+    try {
+      const count = await countNewCustomerVehicleMatches();
+      setNewMatchCount(count);
+      return count;
+    } catch (error) {
+      console.error("Počet nových shod se nepodařilo načíst:", error);
+      return null;
+    }
+  }
+
+  function showNewMatchesNotification(result, contextLabel) {
+    if (!result?.createdCount) return;
+
+    setAppNotification({
+      type: "success",
+      message: `${contextLabel}: nalezeno ${result.createdCount} nových shod.`,
+      actionLabel: "Zobrazit nové shody",
+      action: () => {
+        setView("matches");
+        setAppNotification(null);
+      },
+    });
+  }
+
+  async function handleDemandMatchSync(demand, result) {
+    await refreshNewMatchCount();
+    showNewMatchesNotification(
+      result,
+      `Poptávka „${demand.title || "Bez názvu"}“`
+    );
+  }
+
+  async function synchronizeVehicleMatches(previousCar, savedCar) {
+    if (
+      previousCar
+      && !hasVehicleMatchingRelevantChanges(previousCar, savedCar)
+    ) {
+      return null;
+    }
+
+    try {
+      const result = await syncMatchesForVehicle(savedCar);
+      await refreshNewMatchCount();
+      showNewMatchesNotification(
+        result,
+        `Vozidlo „${savedCar.name || "Bez názvu"}“`
+      );
+      return result;
+    } catch (error) {
+      console.error("Automatická aktualizace shod vozidla selhala:", error);
+      setAppNotification({
+        type: "warning",
+        message:
+          "Údaje byly uloženy, ale automatická aktualizace shod se nepodařila.",
+      });
+      return null;
     }
   }
 
@@ -1032,6 +1108,8 @@ const remainingEquipment = equipmentItems.filter(
   }
 
   async function updateCar(updated) {
+    const previousCar =
+      cars.find((car) => car.id === updated.id) || selectedCar;
     const advertisingData = normalizeAdvertisingData(updated.advertisingData);
     const technicalParams = {
       ...(updated.technicalParams || {}),
@@ -1102,7 +1180,11 @@ const remainingEquipment = equipmentItems.filter(
     if (error) {
       console.error(error);
       alert(error.message);
+      return false;
     }
+
+    await synchronizeVehicleMatches(previousCar, updatedWithUser);
+    return true;
   }
 
   async function createCar() {
@@ -1170,6 +1252,8 @@ const remainingEquipment = equipmentItems.filter(
 
   async function saveCarEdit() {
     if (!selectedCar) return;
+    const previousCar =
+      cars.find((car) => car.id === selectedCar.id) || selectedCar;
 
     const updated = {
       ...selectedCar,
@@ -1206,6 +1290,7 @@ const remainingEquipment = equipmentItems.filter(
       currentCars.map((car) => (car.id === updated.id ? updated : car))
     );
     setEditMode(false);
+    await synchronizeVehicleMatches(previousCar, updated);
   }
 
   async function moveSelectedCarToPurchased() {
@@ -1796,6 +1881,34 @@ const remainingEquipment = equipmentItems.filter(
         </div>
       </header>
 
+      {appNotification && (
+        <div
+          className={`appNotification appNotification-${appNotification.type || "info"}`}
+          role="status"
+        >
+          <span>{appNotification.message}</span>
+          <div>
+            {appNotification.action && (
+              <button
+                type="button"
+                className="secondaryButton"
+                onClick={appNotification.action}
+              >
+                {appNotification.actionLabel}
+              </button>
+            )}
+            <button
+              type="button"
+              className="notificationClose"
+              aria-label="Zavřít upozornění"
+              onClick={() => setAppNotification(null)}
+            >
+              ×
+            </button>
+          </div>
+        </div>
+      )}
+
       {view === "home" && (
         <section className="homeMenu">
           <div className="card decision">
@@ -1830,6 +1943,18 @@ const remainingEquipment = equipmentItems.filter(
                 <h3>Seznam zákazníků</h3>
                 <p>Evidence kontaktů</p>
                 <button onClick={openCustomerList}>
+                  Otevřít
+                </button>
+              </div>
+
+              <div className="module">
+                <BellRing />
+                <h3>
+                  Nové shody
+                  <span className="matchCountBadge">{newMatchCount}</span>
+                </h3>
+                <p>{newMatchCount} nových shod</p>
+                <button onClick={() => setView("matches")}>
                   Otevřít
                 </button>
               </div>
@@ -1893,6 +2018,18 @@ const remainingEquipment = equipmentItems.filter(
           customer={selectedCustomer}
           onBack={() => setView("customers")}
           onEdit={openCustomerEdit}
+          onOpenVehicle={selectCar}
+          onDemandMatchSync={handleDemandMatchSync}
+          onMatchesChanged={refreshNewMatchCount}
+        />
+      )}
+
+      {view === "matches" && (
+        <CustomerVehicleMatchesOverview
+          onBack={() => setView("home")}
+          onOpenCustomer={openCustomerDetail}
+          onOpenVehicle={selectCar}
+          onMatchesChanged={refreshNewMatchCount}
         />
       )}
 
@@ -2185,6 +2322,14 @@ const remainingEquipment = equipmentItems.filter(
               <UserRound />
               <h3>Zákazník</h3>
               <button onClick={() => openModule("customer")}>Otevřít</button>
+            </div>
+
+            <div className="module">
+              <UserRound />
+              <h3>Možní zájemci</h3>
+              <button onClick={() => openModule("interestedCustomers")}>
+                Otevřít
+              </button>
             </div>
 
             <div className="module">
@@ -2607,6 +2752,15 @@ const remainingEquipment = equipmentItems.filter(
             </div>
           )}
 
+          {module === "interestedCustomers" && (
+            <VehicleInterestedCustomers
+              selectedCar={selectedCar}
+              moduleContentRef={moduleContentRef}
+              onOpenCustomer={openCustomerDetail}
+              onMatchesChanged={refreshNewMatchCount}
+            />
+          )}
+
           {module === "valuation" && (
             <VehiclePricing
               selectedCar={selectedCar}
@@ -2617,6 +2771,7 @@ const remainingEquipment = equipmentItems.filter(
               toNullableNumber={toNullableNumber}
               currentUsername={currentUsername}
               moduleContentRef={moduleContentRef}
+              onSaved={synchronizeVehicleMatches}
             />
           )}
 

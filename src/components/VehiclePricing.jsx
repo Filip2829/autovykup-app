@@ -19,6 +19,7 @@ export default function VehiclePricing({
   toNullableNumber,
   currentUsername,
   moduleContentRef,
+  onSaved,
 }) {
   const [form, setForm] = useState(() => getPricingForm(selectedCar));
   const [savedForm, setSavedForm] = useState(() => getPricingForm(selectedCar));
@@ -117,6 +118,12 @@ export default function VehiclePricing({
     setForm(nextForm);
     setSavedForm(nextForm);
     setSuccessMessage("Nacenění uloženo.");
+
+    try {
+      await onSaved?.(selectedCar, savedCar);
+    } catch (syncError) {
+      console.error("Automatická aktualizace shod vozidla selhala:", syncError);
+    }
   }
 
   return (

@@ -7,11 +7,14 @@ import {
   loadCustomerDemands,
   updateCustomerDemand,
 } from "../../services/customerDemands.js"
+import { syncMatchesForDemand } from "../../services/customerVehicleMatchSync.js"
 import CustomerDemandDetail from "./CustomerDemandDetail.jsx"
 import CustomerDemandForm from "./CustomerDemandForm.jsx"
 
 const reloadWarningMessage =
   "Změna byla uložena, ale seznam se nepodařilo obnovit. Zkuste stránku načíst znovu."
+const matchSyncWarningMessage =
+  "Údaje byly uloženy, ale automatická aktualizace shod se nepodařila."
 
 function getLabel(options, value) {
   return options.find((option) => option.value === value)?.label || value
@@ -37,7 +40,12 @@ function getDemandSummary(demand) {
   return values.length > 0 ? values.slice(0, 5).join(" • ") : "Bez upřesnění vozu"
 }
 
-export default function CustomerDemandList({ customerId }) {
+export default function CustomerDemandList({
+  customerId,
+  onDemandMatchSync,
+  onOpenVehicle,
+  onMatchesChanged,
+}) {
   const [demands, setDemands] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
@@ -46,6 +54,7 @@ export default function CustomerDemandList({ customerId }) {
   const [deleting, setDeleting] = useState(false)
   const [actionError, setActionError] = useState("")
   const [reloadWarning, setReloadWarning] = useState("")
+  const [matchSyncWarning, setMatchSyncWarning] = useState("")
 
   useEffect(() => {
     let active = true
@@ -114,6 +123,16 @@ export default function CustomerDemandList({ customerId }) {
     setSelectedDemand(savedDemand)
     setActionError("")
     setView("detail")
+
+    try {
+      const matchResult = await syncMatchesForDemand(savedDemand)
+      setMatchSyncWarning("")
+      await onDemandMatchSync?.(savedDemand, matchResult)
+    } catch (syncError) {
+      console.error("Automatická aktualizace shod poptávky selhala:", syncError)
+      setMatchSyncWarning(matchSyncWarningMessage)
+    }
+
     await refreshDemands({ afterMutation: true })
   }
 
@@ -133,6 +152,11 @@ export default function CustomerDemandList({ customerId }) {
       )
       setSelectedDemand(null)
       setView("list")
+      try {
+        await onMatchesChanged?.()
+      } catch (countError) {
+        console.error("Počet nových shod se nepodařilo obnovit:", countError)
+      }
       await refreshDemands({ afterMutation: true })
     } catch (deleteError) {
       setActionError(deleteError.message || "Poptávku se nepodařilo smazat.")
@@ -165,10 +189,12 @@ export default function CustomerDemandList({ customerId }) {
         demand={selectedDemand}
         deleting={deleting}
         error={actionError}
-        notice={reloadWarning}
+        notice={[reloadWarning, matchSyncWarning].filter(Boolean).join(" ")}
         onBack={() => setView("list")}
         onEdit={() => setView("form")}
         onDelete={removeDemand}
+        onOpenVehicle={onOpenVehicle}
+        onMatchesChanged={onMatchesChanged}
       />
     )
   }
@@ -188,6 +214,11 @@ export default function CustomerDemandList({ customerId }) {
       {reloadWarning && (
         <div className="crmReloadWarning" role="status">
           {reloadWarning}
+        </div>
+      )}
+      {matchSyncWarning && (
+        <div className="crmReloadWarning" role="status">
+          {matchSyncWarning}
         </div>
       )}
 

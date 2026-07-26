@@ -1,5 +1,6 @@
 import { useState } from "react"
 import CustomerDemandList from "./CustomerDemandList.jsx"
+import CustomerRecommendedVehicles from "./CustomerRecommendedVehicles.jsx"
 
 const statusLabels = {
   active: "Aktivní",
@@ -44,7 +45,14 @@ function getCustomerName(customer) {
     || "Zákazník bez jména"
 }
 
-export default function CustomerDetail({ customer, onBack, onEdit }) {
+export default function CustomerDetail({
+  customer,
+  onBack,
+  onEdit,
+  onOpenVehicle,
+  onDemandMatchSync,
+  onMatchesChanged,
+}) {
   const [activeTab, setActiveTab] = useState("overview")
 
   return (
@@ -129,11 +137,20 @@ export default function CustomerDetail({ customer, onBack, onEdit }) {
           </div>
         </div>
       ) : activeTab === "demands" ? (
-        <CustomerDemandList customerId={customer.id} />
+        <CustomerDemandList
+          customerId={customer.id}
+          onDemandMatchSync={onDemandMatchSync}
+          onOpenVehicle={onOpenVehicle}
+          onMatchesChanged={onMatchesChanged}
+        />
+      ) : activeTab === "recommended" ? (
+        <CustomerRecommendedVehicles
+          customerId={customer.id}
+          onOpenVehicle={onOpenVehicle}
+          onMatchesChanged={onMatchesChanged}
+        />
       ) : (
         <div className="crmStateMessage">
-          {activeTab === "recommended"
-            && "Doporučené vozy budou doplněny v další fázi CRM."}
           {activeTab === "history"
             && "Historie komunikace bude doplněna v další fázi CRM."}
         </div>
