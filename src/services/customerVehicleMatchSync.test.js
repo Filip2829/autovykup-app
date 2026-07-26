@@ -193,6 +193,58 @@ describe("customerVehicleMatchSync – vyhodnocení", () => {
 })
 
 describe("customerVehicleMatchSync – idempotence a workflow", () => {
+  test("uloží jako novou shodu Dacia Dokker ID 69 pro poptávku 200 000–280 000 Kč", async () => {
+    const vehicle = {
+      id: 69,
+      name: "Dacia Dokker",
+      status: "purchased",
+      year: 2019,
+      km: 46717,
+      sale_estimate: 249000,
+      technical_params: {
+        brand: "Dacia",
+        model: "Dokker",
+      },
+      equipment: {},
+    }
+    const demand = {
+      id: "58373fa6-c7c6-4b6b-959c-7c773d114f8b",
+      customerId: "5a3d86da-795b-463f-8adc-113adb1dcf5a",
+      title: "Dacia Dokker",
+      status: "active",
+      makes: ["Dacia"],
+      models: ["Dokker"],
+      minPrice: 200000,
+      maxPrice: 280000,
+      bodyTypes: [],
+      fuelTypes: [],
+      transmissions: [],
+      drivetrains: [],
+      minYear: null,
+      maxYear: null,
+      maxMileage: null,
+      minPowerKw: null,
+      maxPowerKw: null,
+      requiredEquipment: [],
+      preferredEquipment: [],
+      preferredColors: [],
+      excludedColors: [],
+    }
+    const context = createSync({
+      vehicles: [vehicle],
+      demands: [demand],
+    })
+
+    const result = await context.sync.syncAllCustomerVehicleMatches()
+
+    assert.equal(result.createdCount, 1)
+    assert.equal(context.state.length, 1)
+    assert.equal(context.state[0].customerDemandId, demand.id)
+    assert.equal(context.state[0].carId, 69)
+    assert.equal(context.state[0].status, "new")
+    assert.equal(context.state[0].failedCriteria.length, 0)
+  })
+
   test("opakovaná synchronizace nevytvoří duplicitu", async () => {
     const context = createSync()
 

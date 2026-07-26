@@ -44,11 +44,15 @@ import {
   loadCustomers as loadCrmCustomers,
   updateCustomer as updateCrmCustomer,
 } from "./services/customers.js";
-import { countNewCustomerVehicleMatches } from "./services/customerVehicleMatches.js";
+import {
+  countNewCustomerVehicleMatches,
+  relevantVehicleMatchStatuses,
+} from "./services/customerVehicleMatches.js";
 import {
   hasVehicleMatchingRelevantChanges,
   syncMatchesForVehicle,
 } from "./services/customerVehicleMatchSync.js";
+import { validateVehicleIdentityForMatching } from "./utils/vehicleTechnicalValidation.js";
 
 const emptyChecklist = {
   "Servisní historie": false,
@@ -937,8 +941,9 @@ const remainingEquipment = equipmentItems.filter(
       console.error("Automatická aktualizace shod vozidla selhala:", error);
       setAppNotification({
         type: "warning",
-        message:
-          "Údaje byly uloženy, ale automatická aktualizace shod se nepodařila.",
+        message: `Údaje byly uloženy, ale automatická aktualizace shod se nepodařila.${
+          error?.message ? ` Důvod: ${error.message}` : ""
+        }`,
       });
       return null;
     }
@@ -1107,6 +1112,26 @@ const remainingEquipment = equipmentItems.filter(
     return true;
   }
 
+  function validateCarForCrmMatching(car) {
+    const status = normalizeVehicleStatus(car?.status);
+    const validation = validateVehicleIdentityForMatching(
+      {
+        ...car,
+        status,
+      },
+      relevantVehicleMatchStatuses
+    );
+
+    if (!validation.valid) {
+      alert(
+        `Vozidlo ve stavu „${getVehicleStatusLabel(status)}“ musí mít pro CRM párování vyplněnou značku a model. ${validation.error}`
+      );
+      return false;
+    }
+
+    return true;
+  }
+
   async function updateCar(updated) {
     const previousCar =
       cars.find((car) => car.id === updated.id) || selectedCar;
@@ -1123,6 +1148,8 @@ const remainingEquipment = equipmentItems.filter(
       status: normalizeVehicleStatus(updated.status),
       updated_by: currentUsername,
     };
+
+    if (!validateCarForCrmMatching(updatedWithUser)) return false;
 
     setSelectedCar(updatedWithUser);
 
@@ -1266,6 +1293,7 @@ const remainingEquipment = equipmentItems.filter(
     };
 
     if (!validateRequiredCarFields(updated)) return;
+    if (!validateCarForCrmMatching(updated)) return;
 
     const { error } = await supabase
       .from("cars")
@@ -2772,6 +2800,7 @@ const remainingEquipment = equipmentItems.filter(
               currentUsername={currentUsername}
               moduleContentRef={moduleContentRef}
               onSaved={synchronizeVehicleMatches}
+              validateBeforeSave={validateCarForCrmMatching}
             />
           )}
 

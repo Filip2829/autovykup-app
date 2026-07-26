@@ -20,6 +20,7 @@ export default function VehiclePricing({
   currentUsername,
   moduleContentRef,
   onSaved,
+  validateBeforeSave,
 }) {
   const [form, setForm] = useState(() => getPricingForm(selectedCar));
   const [savedForm, setSavedForm] = useState(() => getPricingForm(selectedCar));
@@ -62,6 +63,7 @@ export default function VehiclePricing({
 
   async function savePricing() {
     if (!selectedCar) return;
+    if (validateBeforeSave && !validateBeforeSave(selectedCar)) return;
 
     setIsSaving(true);
     setSuccessMessage("");

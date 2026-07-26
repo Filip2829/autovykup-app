@@ -13,8 +13,10 @@ import CustomerDemandForm from "./CustomerDemandForm.jsx"
 
 const reloadWarningMessage =
   "Změna byla uložena, ale seznam se nepodařilo obnovit. Zkuste stránku načíst znovu."
-const matchSyncWarningMessage =
-  "Údaje byly uloženy, ale automatická aktualizace shod se nepodařila."
+function getMatchSyncWarning(error) {
+  const detail = error?.message ? ` Důvod: ${error.message}` : ""
+  return `Údaje byly uloženy, ale automatická aktualizace shod se nepodařila.${detail}`
+}
 
 function getLabel(options, value) {
   return options.find((option) => option.value === value)?.label || value
@@ -130,7 +132,7 @@ export default function CustomerDemandList({
       await onDemandMatchSync?.(savedDemand, matchResult)
     } catch (syncError) {
       console.error("Automatická aktualizace shod poptávky selhala:", syncError)
-      setMatchSyncWarning(matchSyncWarningMessage)
+      setMatchSyncWarning(getMatchSyncWarning(syncError))
     }
 
     await refreshDemands({ afterMutation: true })

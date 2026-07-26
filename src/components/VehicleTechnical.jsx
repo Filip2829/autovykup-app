@@ -1,3 +1,6 @@
+import { useEffect, useState } from "react";
+import { validateVehicleTechnicalIdentity } from "../utils/vehicleTechnicalValidation.js";
+
 export default function VehicleTechnical({
   selectedCar,
   updateCar,
@@ -5,20 +8,62 @@ export default function VehicleTechnical({
   technicalAiLoading,
   moduleContentRef,
 }) {
-  function updateTechnicalParam(key, value) {
-    if (!selectedCar) return;
+  const [technicalParams, setTechnicalParams] = useState(
+    () => selectedCar?.technicalParams || {}
+  );
+  const [validationError, setValidationError] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
 
-    updateCar({
-      ...selectedCar,
-      technicalParams: {
-        ...selectedCar.technicalParams,
-        [key]: value,
-      },
-    });
+  useEffect(() => {
+    setTechnicalParams(selectedCar?.technicalParams || {});
+    setValidationError("");
+    setSuccessMessage("");
+  }, [selectedCar?.id, selectedCar?.technicalParams]);
+
+  function updateTechnicalParam(key, value) {
+    setTechnicalParams((current) => ({
+      ...current,
+      [key]: value,
+    }));
+    setValidationError("");
+    setSuccessMessage("");
   }
 
   function getTechnicalParam(key) {
-    return selectedCar?.technicalParams?.[key] || "";
+    return technicalParams?.[key] || "";
+  }
+
+  async function saveTechnicalParams() {
+    if (!selectedCar || isSaving) return;
+
+    const validation = validateVehicleTechnicalIdentity(technicalParams);
+    if (!validation.valid) {
+      setValidationError(validation.error);
+      setSuccessMessage("");
+      return;
+    }
+
+    setIsSaving(true);
+    setValidationError("");
+    setSuccessMessage("");
+
+    try {
+      const saved = await updateCar({
+        ...selectedCar,
+        technicalParams: validation.normalized,
+      });
+
+      if (saved === false) {
+        setValidationError("Technické údaje se nepodařilo uložit.");
+        return;
+      }
+
+      setTechnicalParams(validation.normalized);
+      setSuccessMessage("Technické údaje byly uloženy.");
+    } finally {
+      setIsSaving(false);
+    }
   }
 
   return (
@@ -47,8 +92,12 @@ export default function VehicleTechnical({
         <div>
           <p className="label">Značka</p>
           <input
+            required
             placeholder="Značka"
             value={getTechnicalParam("brand")}
+            aria-invalid={Boolean(
+              validationError && !getTechnicalParam("brand").trim()
+            )}
             onChange={(event) =>
               updateTechnicalParam("brand", event.target.value)
             }
@@ -58,8 +107,12 @@ export default function VehicleTechnical({
         <div>
           <p className="label">Model</p>
           <input
+            required
             placeholder="Model"
             value={getTechnicalParam("model")}
+            aria-invalid={Boolean(
+              validationError && !getTechnicalParam("model").trim()
+            )}
             onChange={(event) =>
               updateTechnicalParam("model", event.target.value)
             }
@@ -230,6 +283,18 @@ export default function VehicleTechnical({
           />
         </div>
       </div>
+
+      {validationError && <p className="badText">{validationError}</p>}
+      {successMessage && <p className="okText">{successMessage}</p>}
+
+      <button
+        type="button"
+        className="success"
+        onClick={saveTechnicalParams}
+        disabled={isSaving}
+      >
+        {isSaving ? "Ukládám…" : "Uložit technické údaje"}
+      </button>
     </div>
   );
 }
