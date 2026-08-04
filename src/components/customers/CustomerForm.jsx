@@ -8,18 +8,7 @@ const emptyForm = {
   email: "",
   notes: "",
   status: "active",
-  lastContactAt: "",
-  nextContactAt: "",
-}
-
-function toLocalDate(value) {
-  if (!value) return ""
-
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return ""
-
-  const localDate = new Date(date.getTime() - date.getTimezoneOffset() * 60_000)
-  return localDate.toISOString().slice(0, 10)
+  demandDate: "",
 }
 
 function getInitialForm(customer) {
@@ -32,8 +21,7 @@ function getInitialForm(customer) {
     email: customer.email || "",
     notes: customer.notes || "",
     status: customer.status || "active",
-    lastContactAt: toLocalDate(customer.lastContactAt),
-    nextContactAt: toLocalDate(customer.nextContactAt),
+    demandDate: customer.demandDate || "",
   }
 }
 
@@ -123,32 +111,11 @@ export default function CustomerForm({ customer, onSave, onCancel }) {
           </label>
 
           <label>
-            Stav
-            <select
-              value={form.status}
-              onChange={(event) => updateField("status", event.target.value)}
-            >
-              <option value="active">Aktivní</option>
-              <option value="inactive">Neaktivní</option>
-              <option value="archived">Archivovaný</option>
-            </select>
-          </label>
-
-          <label>
-            Poslední kontakt
+            Datum poptávky
             <input
               type="date"
-              value={form.lastContactAt}
-              onChange={(event) => updateField("lastContactAt", event.target.value)}
-            />
-          </label>
-
-          <label>
-            Kontaktovat znovu
-            <input
-              type="date"
-              value={form.nextContactAt}
-              onChange={(event) => updateField("nextContactAt", event.target.value)}
+              value={form.demandDate}
+              onChange={(event) => updateField("demandDate", event.target.value)}
             />
           </label>
         </div>

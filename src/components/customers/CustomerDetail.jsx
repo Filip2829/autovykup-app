@@ -114,6 +114,10 @@ export default function CustomerDetail({
               )}
             </div>
             <div>
+              <small>Datum poptávky</small>
+              <strong>{formatContactDate(customer.demandDate)}</strong>
+            </div>
+            <div>
               <small>Poslední kontakt</small>
               <strong>{formatContactDate(customer.lastContactAt)}</strong>
             </div>

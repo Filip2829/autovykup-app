@@ -13,6 +13,7 @@ const customerFields = {
   email: "email",
   notes: "notes",
   status: "status",
+  demandDate: "demand_date",
   lastContactAt: "last_contact_at",
   nextContactAt: "next_contact_at",
 };
@@ -33,6 +34,13 @@ function nullableDate(value) {
   return Number.isNaN(date.getTime()) ? null : date.toISOString();
 }
 
+function nullableDateOnly(value) {
+  const normalized = trimText(value);
+  if (!normalized) return null;
+
+  return /^\d{4}-\d{2}-\d{2}$/.test(normalized) ? normalized : null;
+}
+
 export function mapCustomerRow(row = {}) {
   return {
     id: row.id ?? null,
@@ -42,6 +50,7 @@ export function mapCustomerRow(row = {}) {
     email: row.email ?? "",
     notes: row.notes ?? "",
     status: row.status ?? "active",
+    demandDate: row.demand_date ?? null,
     lastContactAt: row.last_contact_at ?? null,
     nextContactAt: row.next_contact_at ?? null,
     createdAt: row.created_at ?? null,
@@ -54,6 +63,11 @@ export function mapCustomerChangesToPayload(changes = {}) {
 
   Object.entries(customerFields).forEach(([uiField, databaseField]) => {
     if (!Object.prototype.hasOwnProperty.call(changes, uiField)) return;
+
+    if (uiField === "demandDate") {
+      payload[databaseField] = nullableDateOnly(changes[uiField]);
+      return;
+    }
 
     if (uiField === "lastContactAt" || uiField === "nextContactAt") {
       payload[databaseField] = nullableDate(changes[uiField]);

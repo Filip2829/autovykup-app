@@ -53,6 +53,10 @@ import {
   syncMatchesForVehicle,
 } from "./services/customerVehicleMatchSync.js";
 import { validateVehicleIdentityForMatching } from "./utils/vehicleTechnicalValidation.js";
+import {
+  buildVehicleAnalysisDocumentUrls,
+  getFunctionErrorDetail,
+} from "./utils/vehicleDocumentAnalysis.js";
 
 const emptyChecklist = {
   "Servisní historie": false,
@@ -1652,7 +1656,7 @@ const remainingEquipment = equipmentItems.filter(
     }
 
     if (urls.length > 0) {
-      await updateCar({
+      const saved = await updateCar({
         ...selectedCar,
         photos: [...selectedCar.photos, ...urls],
       });
@@ -1707,36 +1711,52 @@ const remainingEquipment = equipmentItems.filter(
   async function analyzeVehicleTechnicalData() {
     if (!selectedCar) return;
 
-    const hasTechnicalCard =
-      Array.isArray(selectedCar.technicalCardPhotos) &&
-      selectedCar.technicalCardPhotos.length > 0;
-
-    const hasCebia =
-      Array.isArray(selectedCar.cebiaFiles) &&
-      selectedCar.cebiaFiles.length > 0;
-
-    if (!hasTechnicalCard && !hasCebia) {
-      alert("Nejdřív nahraj CEBIA nebo TP do Administrativy.");
-      return;
-    }
-
     setTechnicalAiLoading(true);
 
     try {
+      const inputDocumentUrls = await buildVehicleAnalysisDocumentUrls({
+        vehicleDocuments,
+        technicalCardPhotos: selectedCar.technicalCardPhotos || [],
+        cebiaFiles: selectedCar.cebiaFiles || [],
+        createSignedUrl: async (filePath, document) => {
+          const { data, error } = await supabase.storage
+            .from("vehicle-documents")
+            .createSignedUrl(filePath, 600);
+
+          if (error) {
+            const documentName =
+              document.fileName || document.title || filePath;
+            throw new Error(
+              `Dokument „${documentName}“ se nepodařilo připravit pro AI: ${error.message}`
+            );
+          }
+
+          return data?.signedUrl || "";
+        },
+      });
+
+      if (inputDocumentUrls.length === 0) {
+        alert(
+          "Nejdříve nahrajte CEBIA nebo fotografie technického průkazu v Administrativě."
+        );
+        return;
+      }
+
       const { data, error } = await supabase.functions.invoke(
         "analyze-vehicle-technical-data",
         {
           body: {
             car: selectedCar,
-            technicalCardPhotos: selectedCar.technicalCardPhotos || [],
-            cebiaFiles: selectedCar.cebiaFiles || [],
+            technicalCardPhotos: inputDocumentUrls,
+            cebiaFiles: [],
           },
         }
       );
 
-      if (error) {
+      if (error || data?.error) {
         console.error(error);
-        alert("AI doplnění technických dat selhalo.");
+        const detail = await getFunctionErrorDetail(error, data);
+        alert(`AI doplnění technických dat selhalo: ${detail}`);
         return;
       }
 
@@ -1772,10 +1792,16 @@ const remainingEquipment = equipmentItems.filter(
         aiCebiaReport: selectedCar.aiCebiaReport || report,
       });
 
+      if (!saved) return;
+
       alert("AI doplnila technická data. Prosím zkontroluj je.");
     } catch (err) {
       console.error(err);
-      alert("Chyba při AI doplnění technických dat.");
+      alert(
+        `Chyba při AI doplnění technických dat: ${
+          err instanceof Error ? err.message : "Neznámá chyba."
+        }`
+      );
     } finally {
       setTechnicalAiLoading(false);
     }

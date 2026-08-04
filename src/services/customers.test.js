@@ -38,6 +38,7 @@ describe("customers – mapování", () => {
         email: "jan@example.cz",
         notes: "Poznámka",
         status: "active",
+        demand_date: "2026-08-04",
         last_contact_at: "2026-07-20T10:00:00.000Z",
         next_contact_at: null,
         created_at: "2026-07-01T10:00:00.000Z",
@@ -51,6 +52,7 @@ describe("customers – mapování", () => {
         email: "jan@example.cz",
         notes: "Poznámka",
         status: "active",
+        demandDate: "2026-08-04",
         lastContactAt: "2026-07-20T10:00:00.000Z",
         nextContactAt: null,
         createdAt: "2026-07-01T10:00:00.000Z",
@@ -68,6 +70,7 @@ describe("customers – mapování", () => {
         email: " jan@example.cz ",
         notes: " Poznámka ",
         status: "active",
+        demandDate: "2026-08-04",
         lastContactAt: "",
       }),
       {
@@ -77,9 +80,14 @@ describe("customers – mapování", () => {
         email: "jan@example.cz",
         notes: "Poznámka",
         status: "active",
+        demand_date: "2026-08-04",
         last_contact_at: null,
       }
     );
+  });
+
+  test("starší zákazník bez data poptávky zůstává kompatibilní", () => {
+    assert.equal(mapCustomerRow({ id: "customer-old" }).demandDate, null);
   });
 });
 
