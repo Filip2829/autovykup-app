@@ -856,6 +856,137 @@ textarea::placeholder {
   gap: 10px;
 }
 
+.vehicleAiAssistant {
+  display: grid;
+  gap: 18px;
+}
+
+.vehicleAiAssistantHeader,
+.aiModuleIntro,
+.aiResultHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.vehicleAiAssistantHeader h2,
+.vehicleAiAssistantHeader p,
+.aiModuleIntro h2,
+.aiModuleIntro p,
+.aiResultHeader h3,
+.aiResultHeader p {
+  margin-top: 0;
+}
+
+.aiReadOnlyBadge {
+  flex: 0 0 auto;
+  padding: 9px 13px;
+  border: 1px solid rgba(96, 165, 250, 0.38);
+  border-radius: 999px;
+  background: rgba(37, 99, 235, 0.12);
+  color: #bfdbfe;
+  font-weight: 800;
+}
+
+.aiModuleList {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 10px;
+}
+
+.aiModuleList button {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+  padding: 14px;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  border-radius: 14px;
+  background: rgba(15, 23, 42, 0.55);
+  color: #e2e8f0;
+  text-align: left;
+}
+
+.aiModuleList button.isActive {
+  border-color: rgba(96, 165, 250, 0.55);
+  background: rgba(37, 99, 235, 0.14);
+}
+
+.aiModuleList span {
+  color: #94a3b8;
+  font-size: 13px;
+}
+
+.aiModulePanel,
+.aiResultPanel {
+  display: grid;
+  gap: 16px;
+}
+
+.aiAssistantSection,
+.aiResultSection {
+  min-width: 0;
+  padding: 15px;
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  border-radius: 14px;
+  background: rgba(15, 23, 42, 0.42);
+}
+
+.aiAssistantSection h3,
+.aiResultSection h3 {
+  margin-top: 0;
+}
+
+.aiSourceGrid,
+.aiResultGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.aiSourceItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(148, 163, 184, 0.08);
+}
+
+.aiSourceItem.isAvailable strong {
+  color: #86efac;
+}
+
+.aiSourceItem.isMissing strong {
+  color: #fca5a5;
+}
+
+.aiResultSection ul,
+.aiMissingData ul {
+  margin: 0;
+  padding-left: 20px;
+}
+
+.aiResultSection li,
+.aiMissingData li {
+  margin-bottom: 7px;
+  overflow-wrap: anywhere;
+}
+
+.aiResultWarning {
+  padding: 13px 15px;
+  border: 1px solid rgba(251, 191, 36, 0.35);
+  border-radius: 14px;
+  background: rgba(245, 158, 11, 0.1);
+  color: #fde68a;
+}
+
+.aiResultWarning p {
+  margin: 0;
+  color: inherit;
+}
+
 .valuationSummaryHeader {
   display: flex;
   align-items: flex-start;
@@ -1687,9 +1818,17 @@ input[type="checkbox"] {
   }
 
   .lifecycleContext,
-  .valuationSummaryHeader {
+  .valuationSummaryHeader,
+  .vehicleAiAssistantHeader,
+  .aiModuleIntro,
+  .aiResultHeader {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .aiSourceGrid,
+  .aiResultGrid {
+    grid-template-columns: 1fr;
   }
 
   .vehicleMarketingCard {

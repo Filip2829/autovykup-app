@@ -4,6 +4,7 @@ import {
   ClipboardList,
   FileText,
   MessageCircle,
+  Bot,
   Search,
   ShieldCheck,
   Star,
@@ -59,6 +60,12 @@ const valuationModules = [
     title: "Nacenění",
     description: "Návrhy cen a potvrzená výkupní cena",
     icon: WalletCards,
+  },
+  {
+    key: "aiAssistant",
+    title: "AI Asistent",
+    description: "Bezpečný souhrn uložených údajů vozidla",
+    icon: Bot,
   },
   {
     key: "valuationSummary",
@@ -134,6 +141,12 @@ const stockModules = [
     title: "Náklady po výkupu",
     description: "Náklady na přípravu skladového vozu",
     icon: WalletCards,
+  },
+  {
+    key: "aiAssistant",
+    title: "AI Asistent",
+    description: "Souhrn vozidla pouze ke kontrole",
+    icon: Bot,
   },
   {
     key: "advertising",

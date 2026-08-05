@@ -37,6 +37,7 @@ import CustomerVehicleMatchesOverview from "./components/customers/CustomerVehic
 import VehicleInterestedCustomers from "./components/VehicleInterestedCustomers.jsx";
 import VehicleModuleNavigation from "./components/VehicleModuleNavigation.jsx";
 import VehicleValuationSummary from "./components/VehicleValuationSummary.jsx";
+import VehicleAiAssistant from "./components/ai/VehicleAiAssistant.jsx";
 import {
   createCustomer as createCrmCustomer,
   loadCustomers as loadCrmCustomers,
@@ -60,6 +61,7 @@ import {
   filterVehiclesByLifecycleSection,
   getVehicleLifecycleSection,
 } from "./utils/vehicleLifecycle.js";
+import { applyVehicleAnalysis } from "./ai/applyVehicleAnalysis.js";
 
 const emptyChecklist = {
   "Servisní historie": false,
@@ -1620,7 +1622,7 @@ const remainingEquipment = equipmentItems.filter(
     }
 
     if (urls.length > 0) {
-      const saved = await updateCar({
+      await updateCar({
         ...selectedCar,
         photos: [...selectedCar.photos, ...urls],
       });
@@ -1730,30 +1732,17 @@ const remainingEquipment = equipmentItems.filter(
         ? data.equipment
         : [];
 
-      const updatedEquipment = { ...selectedCar.equipment };
-
-      for (const item of extractedEquipment) {
-        if (equipmentItems.includes(item)) {
-          updatedEquipment[item] = true;
-        }
-      }
-
       const report =
         data?.report || "AI zpracovala technické údaje bez textového výstupu.";
 
-      await updateCar({
-        ...selectedCar,
-        technicalParams: {
-          ...selectedCar.technicalParams,
-          ...extractedParams,
-        },
-        cebiaHistory: {
-          ...selectedCar.cebiaHistory,
-          ...cebiaHistory,
-        },
-        equipment: updatedEquipment,
-        aiDocumentReport: report,
-        aiCebiaReport: selectedCar.aiCebiaReport || report,
+      const saved = await applyVehicleAnalysis({
+        selectedCar,
+        technicalParams: extractedParams,
+        cebiaHistory,
+        equipment: extractedEquipment,
+        report,
+        allowedEquipment: equipmentItems,
+        updateCar,
       });
 
       if (!saved) return;
@@ -2299,6 +2288,17 @@ const remainingEquipment = equipmentItems.filter(
               documentsLoading={vehicleDocumentsLoading}
               lifecycleSection={selectedLifecycleSection}
               getVehicleStatusLabel={getVehicleStatusLabel}
+              moduleContentRef={moduleContentRef}
+            />
+          )}
+
+          {module === "aiAssistant" && (
+            <VehicleAiAssistant
+              key={selectedCar.id}
+              selectedCar={selectedCar}
+              documents={administrationDocuments}
+              documentsLoading={vehicleDocumentsLoading}
+              lifecycleSection={selectedLifecycleSection}
               moduleContentRef={moduleContentRef}
             />
           )}
