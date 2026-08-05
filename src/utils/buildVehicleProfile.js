@@ -251,6 +251,11 @@ export function buildVehicleProfile(
         technicalParams.engineCode,
         technicalParams.engine_code
       ),
+      displacement: firstValue(
+        technicalParams.displacement,
+        technicalParams.engineDisplacement,
+        technicalParams.engine_displacement
+      ),
       powerKw: firstValue(technicalParams.powerKw),
       fuel: firstValue(technicalParams.fuel),
       transmission: firstValue(technicalParams.transmission),

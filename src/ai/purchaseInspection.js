@@ -6,9 +6,6 @@ import {
   TRANSMISSION_INSPECTION_RULES,
 } from "./purchaseInspectionCatalog.js";
 
-export const PURCHASE_INSPECTION_EMPTY_MESSAGE =
-  "Pro tuto variantu zatím nemáme dostatek konkrétních modelových doporučení.";
-
 const MAX_INSPECTION_ITEMS = 8;
 
 function hasValue(value) {
@@ -132,7 +129,7 @@ function getKnownConditionItems(profile) {
   return [...new Set(conditions)].slice(0, 2).map((condition, index) => ({
     id: `known-condition-${index + 1}`,
     riskKey: `known-condition-${normalize(condition)}`,
-    category: "knownCondition",
+    category: "other",
     priority: "critical",
     title: `Ověřit evidovaný stav: ${condition}`,
     reason:
@@ -193,4 +190,12 @@ export function updatePurchaseInspectionItem(items, itemId, changes) {
   return items.map((item) =>
     item.id === itemId ? { ...item, ...changes } : item
   );
+}
+
+export function createLocalPurchaseInspectionItems(risks) {
+  return (Array.isArray(risks) ? risks : []).map((risk) => ({
+    ...risk,
+    status: "unchecked",
+    note: "",
+  }));
 }

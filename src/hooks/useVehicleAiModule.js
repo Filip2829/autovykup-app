@@ -1,4 +1,5 @@
 import { useCallback, useRef, useState } from "react";
+import { createSingleFlightGuard } from "../ai/singleFlight.js";
 import { vehicleAi } from "../services/vehicleAi.js";
 
 export default function useVehicleAiModule(service = vehicleAi) {
@@ -6,10 +7,11 @@ export default function useVehicleAiModule(service = vehicleAi) {
   const [error, setError] = useState("");
   const [result, setResult] = useState(null);
   const lastRequestRef = useRef(null);
+  const singleFlightRef = useRef(createSingleFlightGuard());
 
   const run = useCallback(
     async (request) => {
-      if (loading) return null;
+      if (loading || !singleFlightRef.current.tryStart()) return null;
       setLoading(true);
       setError("");
       lastRequestRef.current = request;
@@ -26,6 +28,7 @@ export default function useVehicleAiModule(service = vehicleAi) {
         );
         return null;
       } finally {
+        singleFlightRef.current.finish();
         setLoading(false);
       }
     },

@@ -15,12 +15,14 @@ import {
 } from "./vehicleAiContracts.js";
 import {
   buildPurchaseInspectionItems,
+  createLocalPurchaseInspectionItems,
   getPurchaseInspectionMissingData,
   updatePurchaseInspectionItem,
 } from "./purchaseInspection.js";
 import {
   createDeterministicPurchaseInspection,
   createDeterministicVehicleSummary,
+  createVehicleAiService,
   vehicleAi,
 } from "../services/vehicleAi.js";
 
@@ -311,15 +313,13 @@ describe("Specifická rizika vozu", () => {
         transmission: "Manuální",
       },
     });
-    const response = createDeterministicPurchaseInspection(
-      context,
-      "2026-08-05T15:00:00.000Z"
-    );
-
-    assert.deepEqual(response.output.items, []);
-    assert.equal(
-      response.output.emptyMessage,
-      "Pro tuto variantu zatím nemáme dostatek konkrétních modelových doporučení."
+    assert.throws(
+      () =>
+        createDeterministicPurchaseInspection(
+          context,
+          "2026-08-05T15:00:00.000Z"
+        ),
+      /nemáme přesný lokální fallback/
     );
   });
 
@@ -362,47 +362,93 @@ describe("Specifická rizika vozu", () => {
       context,
       "2026-08-05T15:00:00.000Z"
     );
-    const ids = response.output.items.map((item) => item.id);
+    const ids = response.output.risks.map((item) => item.id);
 
     assert.equal(isVehicleAiResponse(response), true);
-    assert.ok(response.output.items.length <= 8);
+    assert.ok(response.output.risks.length <= 8);
     assert.equal(new Set(ids).size, ids.length);
-    for (const item of response.output.items) {
+    for (const item of response.output.risks) {
       assert.ok(
-        ["engine", "transmission", "model", "knownCondition"].includes(
-          item.category
-        )
+        [
+          "engine",
+          "emissions",
+          "transmission",
+          "drivetrain",
+          "chassis",
+          "body",
+          "electronics",
+          "cooling",
+          "other",
+        ].includes(item.category)
       );
       assert.ok(
         ["critical", "important", "recommended"].includes(item.priority)
       );
-      assert.equal(item.status, "unchecked");
-      assert.equal(item.note, "");
+      assert.equal(typeof item.specificity, "string");
     }
+    assert.deepEqual(response.proposedChanges, []);
   });
 
   test("service nemění kontext, nezapisuje a nepropustí kontaktní údaje", async () => {
     const context = buildVehicleAiContext(inspectionCar);
     const originalContext = structuredClone(context);
-    const result = await vehicleAi.runModule({
+    let receivedPayload;
+    const service = createVehicleAiService({
+      purchaseInspectionInvoker: async (payload) => {
+        receivedPayload = payload;
+        return {
+          vehicleIdentification: {
+            brand: "Dacia",
+            model: "Dokker",
+            generation: "2012–2021",
+            engine: "1.5 dCi K9K",
+            transmission: "Easy-R",
+            year: "2019",
+          },
+          confidence: "high",
+          confidenceReason: "Varianta je přesně identifikovaná.",
+          risks: [
+            {
+              id: "dokker-k9k-injectors",
+              category: "engine",
+              priority: "critical",
+              title: "Korekce vstřikovačů K9K",
+              reason: "Hodnoty mohou upozornit na opotřebení.",
+              howToCheck: "Ověřit korekce diagnostikou.",
+              specificity: "Dacia Dokker, motor K9K",
+            },
+          ],
+          disclaimer: "Jde o doporučení k ověření, nikoli potvrzení závady.",
+        };
+      },
+    });
+    const result = await service.runModule({
       moduleId: "purchase-inspection",
       vehicleId: 101,
       context,
       options: { generatedAt: "2026-08-05T15:00:00.000Z" },
     });
-    const serialized = JSON.stringify({ context, result });
+    const serializedPayload = JSON.stringify(receivedPayload);
 
     assert.deepEqual(context, originalContext);
     assert.deepEqual(result.proposedChanges, []);
     assert.doesNotMatch(
-      serialized,
+      serializedPayload,
       /Tajný kontakt|\+420777111222|kontakt@example\.cz/
+    );
+    assert.doesNotMatch(
+      serializedPayload,
+      /customerExpectedPrice|buyEstimate|saleEstimate|purchaseEconomy/
     );
   });
 
   test("lokální změna stavu vytvoří nový seznam bez updateCar", () => {
-    const originalItems = buildPurchaseInspectionItems(
-      buildVehicleAiContext(inspectionCar)
+    const fallback = createDeterministicPurchaseInspection(
+      buildVehicleAiContext(inspectionCar),
+      "2026-08-05T15:00:00.000Z"
+    );
+    const originalItems = createLocalPurchaseInspectionItems(
+      fallback.output.risks
     );
     const nextItems = updatePurchaseInspectionItem(
       originalItems,

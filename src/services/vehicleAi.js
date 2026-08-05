@@ -4,9 +4,13 @@ import { createVehicleAiResponse } from "../ai/vehicleAiContracts.js";
 import {
   buildPurchaseInspectionItems,
   getPurchaseInspectionMissingData,
-  PURCHASE_INSPECTION_EMPTY_MESSAGE,
 } from "../ai/purchaseInspection.js";
 import { sanitizeVehicleAiContext } from "../ai/sanitizeVehicleAiContext.js";
+import {
+  buildPurchaseInspectionAiPayload,
+  invokePurchaseInspectionAi,
+  PurchaseInspectionAiError,
+} from "./purchaseInspectionAi.js";
 
 function hasValue(value) {
   return value !== null && value !== undefined && String(value).trim() !== "";
@@ -174,6 +178,44 @@ export function createDeterministicVehicleSummary(context, generatedAt) {
   });
 }
 
+function describeSpecificity(specificity) {
+  if (!specificity || typeof specificity !== "object") return "";
+  return Object.entries(specificity)
+    .map(([key, value]) =>
+      `${key}: ${Array.isArray(value) ? value.join(", ") : value}`
+    )
+    .join("; ");
+}
+
+function getInspectionIdentification(context) {
+  const identity = context.profile?.identity || {};
+  const technical = context.profile?.technical || {};
+  return {
+    brand: String(identity.brand || ""),
+    model: String(identity.model || ""),
+    generation: String(identity.version || technical.version || ""),
+    engine: String(technical.engine || ""),
+    transmission: String(technical.transmission || ""),
+    year: String(
+      technical.productionYear ||
+        technical.year ||
+        technical.firstRegistration ||
+        ""
+    ),
+  };
+}
+
+function hasExactFallback(items) {
+  return items.some((item) => {
+    const specificity = item.specificity || {};
+    return Boolean(
+      specificity.engineCode ||
+        (specificity.brand && specificity.model) ||
+        specificity.transmission
+    );
+  });
+}
+
 export function createDeterministicPurchaseInspection(context, generatedAt) {
   const missingData = getPurchaseInspectionMissingData(context);
   if (missingData.length > 0) {
@@ -181,13 +223,32 @@ export function createDeterministicPurchaseInspection(context, generatedAt) {
   }
 
   const items = buildPurchaseInspectionItems(context);
+  if (!hasExactFallback(items)) {
+    throw new PurchaseInspectionAiError(
+      "fallback-unavailable",
+      "AI služba není dostupná a pro tuto variantu nemáme přesný lokální fallback."
+    );
+  }
 
   return createVehicleAiResponse({
     moduleId: "purchase-inspection",
     generatedAt,
     output: {
-      items,
-      emptyMessage: items.length === 0 ? PURCHASE_INSPECTION_EMPTY_MESSAGE : "",
+      vehicleIdentification: getInspectionIdentification(context),
+      confidence: "medium",
+      confidenceReason:
+        "AI služba nebyla dostupná. Výsledek používá pouze přesná lokální pravidla odpovídající této variantě.",
+      risks: items.map((item) => {
+        const risk = { ...item };
+        delete risk.status;
+        delete risk.note;
+        return {
+          ...risk,
+          specificity: describeSpecificity(risk.specificity),
+        };
+      }),
+      disclaimer:
+        "Lokální fallback uvádí pouze rizika k ověření a nepotvrzuje, že konkrétní vůz některou závadu má.",
     },
     sourceReferences: [
       "profile.identity",
@@ -196,13 +257,52 @@ export function createDeterministicPurchaseInspection(context, generatedAt) {
     ],
     missingData: [],
     warnings: [
-      "Seznam upozorňuje pouze na specifická rizika k ověření; nepotvrzuje konkrétní závadu ani výsledek prohlídky.",
+      "AI služba nebyla dostupná. Zobrazen je přesný lokální fallback z ručně ověřeného katalogu.",
     ],
     proposedChanges: [],
   });
 }
 
-async function runModule({ moduleId, vehicleId, context, options = {} }) {
+function createAiPurchaseInspectionResponse(output, generatedAt) {
+  const missingData = [];
+  const identification = output.vehicleIdentification || {};
+  if (!hasValue(identification.generation)) missingData.push("Generace nebo verze");
+  if (!hasValue(identification.engine)) missingData.push("Motorizace");
+  if (!hasValue(identification.transmission)) missingData.push("Převodovka");
+  if (!hasValue(identification.year)) missingData.push("Rok výroby nebo registrace");
+
+  return createVehicleAiResponse({
+    moduleId: "purchase-inspection",
+    generatedAt,
+    output,
+    sourceReferences: [
+      "profile.identity",
+      "profile.technical",
+      "profile.condition.publicDefects",
+      "profile.condition.publicDamage",
+    ],
+    missingData,
+    warnings:
+      output.confidence === "low"
+        ? [
+            "Doporučení je obecnější kvůli chybějícím nebo nejednoznačným technickým údajům.",
+          ]
+        : [],
+    proposedChanges: [],
+  });
+}
+
+function canUsePurchaseInspectionFallback(error) {
+  return (
+    error instanceof PurchaseInspectionAiError &&
+    ["timeout", "network", "unavailable"].includes(error.code)
+  );
+}
+
+export function createVehicleAiService({
+  purchaseInspectionInvoker = invokePurchaseInspectionAi,
+} = {}) {
+  async function runModule({ moduleId, vehicleId, context, options = {} }) {
   const moduleDefinition = getAiModule(moduleId);
   if (!moduleDefinition || moduleDefinition.enabled !== true) {
     throw new Error("Požadovaný AI modul není dostupný.");
@@ -243,13 +343,25 @@ async function runModule({ moduleId, vehicleId, context, options = {} }) {
   }
 
   if (moduleId === "purchase-inspection") {
-    return createDeterministicPurchaseInspection(
-      sanitizedContext,
-      options.generatedAt
-    );
+    const payload = buildPurchaseInspectionAiPayload(sanitizedContext);
+    try {
+      const output = await purchaseInspectionInvoker(payload, {
+        timeoutMs: options.timeoutMs,
+      });
+      return createAiPurchaseInspectionResponse(output, options.generatedAt);
+    } catch (error) {
+      if (!canUsePurchaseInspectionFallback(error)) throw error;
+      return createDeterministicPurchaseInspection(
+        sanitizedContext,
+        options.generatedAt
+      );
+    }
   }
 
   throw new Error("AI modul zatím nemá implementovaný backend.");
+  }
+
+  return { runModule };
 }
 
-export const vehicleAi = { runModule };
+export const vehicleAi = createVehicleAiService();

@@ -1,8 +1,13 @@
 export const PURCHASE_INSPECTION_CATEGORIES = {
-  engine: "Motor a emisní systém",
-  transmission: "Převodovka a pohon",
-  model: "Specifická místa modelu",
-  knownCondition: "Evidovaný stav vozu",
+  engine: "Motor",
+  emissions: "Emisní systém",
+  transmission: "Převodovka",
+  drivetrain: "Pohon",
+  chassis: "Specifická místa podvozku",
+  body: "Karoserie a konstrukce",
+  electronics: "Elektronika",
+  cooling: "Chladicí systém",
+  other: "Další specifická rizika",
 };
 
 export const PURCHASE_INSPECTION_PRIORITIES = {
@@ -89,7 +94,7 @@ export const MODEL_GENERATION_INSPECTION_RULES = [
       {
         id: "dokker-sliding-door-guides",
         riskKey: "dokker-sliding-doors",
-        category: "model",
+        category: "body",
         priority: "important",
         title: "Vedení a zámky posuvných dveří",
         reason:
@@ -105,7 +110,7 @@ export const MODEL_GENERATION_INSPECTION_RULES = [
       {
         id: "dokker-rear-load-stress",
         riskKey: "dokker-load-stress",
-        category: "model",
+        category: "chassis",
         priority: "important",
         title: "Zadní část vozu a známky přetěžování",
         reason:
@@ -143,7 +148,7 @@ export const ENGINE_FAMILY_INSPECTION_RULES = [
       {
         id: "15dci-dpf-egr-values",
         riskKey: "diesel-emissions",
-        category: "engine",
+        category: "emissions",
         priority: "important",
         title: "Hodnoty DPF a funkce EGR u 1.5 dCi",
         reason:

@@ -4,6 +4,7 @@ import {
   PURCHASE_INSPECTION_PRIORITIES,
 } from "../../../ai/purchaseInspectionCatalog.js";
 import {
+  createLocalPurchaseInspectionItems,
   getPurchaseInspectionMissingData,
   updatePurchaseInspectionItem,
 } from "../../../ai/purchaseInspection.js";
@@ -13,6 +14,12 @@ const statusLabels = {
   unchecked: "Neověřeno",
   passed: "V pořádku",
   defect: "Závada",
+};
+
+const confidenceLabels = {
+  high: "Vysoká jistota",
+  medium: "Střední jistota",
+  low: "Nízká jistota",
 };
 
 function hasValue(value) {
@@ -108,7 +115,7 @@ export default function PurchaseInspectionAssistant({
       options: {},
     });
     if (result) {
-      setItems(result.output?.items || []);
+      setItems(createLocalPurchaseInspectionItems(result.output?.risks));
       setCopied(false);
     }
   };
@@ -172,10 +179,22 @@ export default function PurchaseInspectionAssistant({
       />
       {aiState.error && <p className="badText">{aiState.error}</p>}
 
+      {aiState.result && (
+        <section
+          className={`aiAssistantSection purchaseInspectionConfidence confidence-${aiState.result.output?.confidence}`}
+        >
+          <h3>
+            {confidenceLabels[aiState.result.output?.confidence] ||
+              "Úroveň jistoty"}
+          </h3>
+          <p>{aiState.result.output?.confidenceReason}</p>
+        </section>
+      )}
+
       {aiState.result && items.length === 0 && (
         <section className="aiAssistantSection purchaseInspectionEmpty">
           <h3>Konkrétní doporučení nejsou dostupná</h3>
-          <p>{aiState.result.output?.emptyMessage}</p>
+          <p>{aiState.result.output?.confidenceReason}</p>
           <button
             type="button"
             className="primary outline"
@@ -274,6 +293,9 @@ export default function PurchaseInspectionAssistant({
                           <p>
                             <strong>Jak zkontrolovat:</strong> {item.howToCheck}
                           </p>
+                          <p>
+                            <strong>Specifičnost:</strong> {item.specificity}
+                          </p>
                           <label>
                             Poznámka
                             <textarea
@@ -301,6 +323,12 @@ export default function PurchaseInspectionAssistant({
               <p>{warning}</p>
             </div>
           ))}
+
+          {aiState.result?.output?.disclaimer && (
+            <div className="aiResultWarning">
+              <p>{aiState.result.output.disclaimer}</p>
+            </div>
+          )}
         </div>
       )}
     </div>
