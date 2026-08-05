@@ -8,7 +8,7 @@
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "test": "node --test src/marketing/mapper/buildMarketingVehicle.test.js src/services/customers.test.js src/services/customerDemands.test.js src/services/vehicleMatching.test.js src/services/customerVehicleMatches.test.js src/services/customerVehicleMatchSync.test.js src/utils/vehicleTechnicalValidation.test.js src/utils/vehicleDocumentAnalysis.test.js"
+    "test": "node --test src/marketing/mapper/buildMarketingVehicle.test.js src/services/customers.test.js src/services/customerDemands.test.js src/services/vehicleMatching.test.js src/services/customerVehicleMatches.test.js src/services/customerVehicleMatchSync.test.js src/utils/vehicleTechnicalValidation.test.js src/utils/vehicleDocumentAnalysis.test.js src/utils/vehicleLifecycle.test.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.106.1",

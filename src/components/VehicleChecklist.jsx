@@ -12,6 +12,8 @@ export default function VehicleChecklist({
   downloadVehicleDocument,
   deleteVehicleDocument,
   formatFileSize,
+  analyzeVehicleTechnicalData,
+  technicalAiLoading,
   moduleContentRef,
 }) {
   return (
@@ -87,9 +89,26 @@ export default function VehicleChecklist({
 
       <h2>Dokumenty vozidla</h2>
 
-      <button className="primary" onClick={openVehicleDocumentModal}>
-        + Přidat dokument
-      </button>
+      <p>
+        Nahrajte CEBIA, technický průkaz nebo další podklady. Stejné dokumenty
+        lze následně použít pro AI doplnění technických údajů.
+      </p>
+
+      <div className="documentActionRow">
+        <button className="primary" onClick={openVehicleDocumentModal}>
+          + Přidat dokument
+        </button>
+
+        <button
+          className="primary outline"
+          onClick={analyzeVehicleTechnicalData}
+          disabled={technicalAiLoading}
+        >
+          {technicalAiLoading
+            ? "AI načítá technické údaje…"
+            : "AI načíst technické údaje"}
+        </button>
+      </div>
 
       {vehicleDocumentsLoading && <p>Načítám dokumenty...</p>}
 

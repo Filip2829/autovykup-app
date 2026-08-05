@@ -1,15 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   BellRing,
-  Camera,
   CheckCircle,
-  ClipboardList,
   MessageCircle,
   Plus,
   Search,
   ShieldCheck,
-  Star,
-  UserRound,
 } from "lucide-react";
 
 import "./App.css";
@@ -39,6 +35,8 @@ import CustomerForm from "./components/customers/CustomerForm.jsx";
 import CustomerDetail from "./components/customers/CustomerDetail.jsx";
 import CustomerVehicleMatchesOverview from "./components/customers/CustomerVehicleMatchesOverview.jsx";
 import VehicleInterestedCustomers from "./components/VehicleInterestedCustomers.jsx";
+import VehicleModuleNavigation from "./components/VehicleModuleNavigation.jsx";
+import VehicleValuationSummary from "./components/VehicleValuationSummary.jsx";
 import {
   createCustomer as createCrmCustomer,
   loadCustomers as loadCrmCustomers,
@@ -57,6 +55,11 @@ import {
   buildVehicleAnalysisDocumentUrls,
   getFunctionErrorDetail,
 } from "./utils/vehicleDocumentAnalysis.js";
+import {
+  VEHICLE_STATUSES_BY_SECTION,
+  filterVehiclesByLifecycleSection,
+  getVehicleLifecycleSection,
+} from "./utils/vehicleLifecycle.js";
 
 const emptyChecklist = {
   "Servisní historie": false,
@@ -211,26 +214,7 @@ const legacyStatusMap = {
   [LEGACY_STATUS.APPROVED]: VEHICLE_STATUS.APPROVED_FOR_PURCHASE,
 };
 
-const VALUATION_STATUSES = [
-  VEHICLE_STATUS.VALUATION,
-];
-
-const APPROVED_PURCHASE_STATUSES = [
-  VEHICLE_STATUS.APPROVED_FOR_PURCHASE,
-];
-
-const STOCK_STATUSES = [
-  VEHICLE_STATUS.PURCHASED,
-  VEHICLE_STATUS.COMMISSION,
-  VEHICLE_STATUS.PREPARATION,
-  VEHICLE_STATUS.READY_FOR_ADVERTISING,
-  VEHICLE_STATUS.ADVERTISED,
-  VEHICLE_STATUS.RESERVED,
-];
-
-const SOLD_STATUSES = [VEHICLE_STATUS.SOLD];
-
-const ARCHIVED_STATUSES = [VEHICLE_STATUS.ARCHIVED];
+const STOCK_STATUSES = VEHICLE_STATUSES_BY_SECTION.stock;
 
 const POST_PURCHASE_STATUSES = [
   ...STOCK_STATUSES,
@@ -243,11 +227,6 @@ const PURCHASE_MOVE_STATUSES = [
   VEHICLE_STATUS.APPROVED_FOR_PURCHASE,
 ];
 
-const valuationStatusGroup = VALUATION_STATUSES;
-const approvedPurchaseStatusGroup = APPROVED_PURCHASE_STATUSES;
-const stockStatusGroup = STOCK_STATUSES;
-const soldStatusGroup = SOLD_STATUSES;
-const archivedStatusGroup = ARCHIVED_STATUSES;
 const postPurchaseStatusGroup = POST_PURCHASE_STATUSES;
 const purchaseMoveStatusGroup = PURCHASE_MOVE_STATUSES;
 
@@ -999,50 +978,35 @@ const remainingEquipment = equipmentItems.filter(
   }, [cars, query]);
 
   const valuationCars = useMemo(
-    () =>
-      filteredCars.filter((car) =>
-        hasVehicleStatus(car.status, valuationStatusGroup)
-      ),
+    () => filterVehiclesByLifecycleSection(filteredCars, "valuation"),
     [filteredCars]
   );
 
   const approvedPurchaseCars = useMemo(
-    () =>
-      filteredCars.filter((car) =>
-        hasVehicleStatus(car.status, approvedPurchaseStatusGroup)
-      ),
+    () => filterVehiclesByLifecycleSection(filteredCars, "approved_purchase"),
     [filteredCars]
   );
 
   const stockCars = useMemo(
-    () =>
-      filteredCars.filter((car) =>
-        hasVehicleStatus(car.status, stockStatusGroup)
-      ),
+    () => filterVehiclesByLifecycleSection(filteredCars, "stock"),
     [filteredCars]
   );
 
   const soldCars = useMemo(
-    () =>
-      filteredCars.filter((car) =>
-        hasVehicleStatus(car.status, soldStatusGroup)
-      ),
+    () => filterVehiclesByLifecycleSection(filteredCars, "sold"),
     [filteredCars]
   );
 
   const archivedCars = useMemo(
-    () =>
-      filteredCars.filter((car) =>
-        hasVehicleStatus(car.status, archivedStatusGroup)
-      ),
+    () => filterVehiclesByLifecycleSection(filteredCars, "archived"),
     [filteredCars]
   );
 
   const listModeConfig = {
     valuation: {
       cars: valuationCars,
-      title: "Aktuální nacenění",
-      emptyText: "Žádná aktuální nacenění.",
+      title: "Aktuální evidence vozidel",
+      emptyText: "Žádná vozidla v aktuální evidenci.",
     },
     approved_purchase: {
       cars: approvedPurchaseCars,
@@ -1905,6 +1869,9 @@ const remainingEquipment = equipmentItems.filter(
   }
 
   const valuationComplete = selectedCar && isValuationComplete(selectedCar);
+  const selectedLifecycleSection = selectedCar
+    ? getVehicleLifecycleSection(selectedCar.status)
+    : "valuation";
   const administrationDocuments = [
     ...(selectedCar?.technicalCardPhotos || []).map(prepareLegacyTechnicalCard),
     ...vehicleDocuments,
@@ -2315,87 +2282,26 @@ const remainingEquipment = equipmentItems.filter(
             </div>
           )}
 
-          <div className="grid">
-            <div className="module">
-              <ClipboardList />
-              <h3>Technické parametry</h3>
-              <button onClick={() => openModule("technical")}>Otevřít</button>
-            </div>
+          <VehicleModuleNavigation
+            lifecycleSection={selectedLifecycleSection}
+            valuationComplete={valuationComplete}
+            onOpenModule={openModule}
+            onEditIdentification={() => {
+              setEditMode(true);
+              window.scrollTo({ top: 0, behavior: "smooth" });
+            }}
+          />
 
-            <div className="module">
-              <Camera />
-              <h3>Fotky vozu</h3>
-              <button onClick={() => openModule("photos")}>Otevřít</button>
-            </div>
-
-            <div className="module">
-              <ClipboardList />
-              <h3>Administrativa</h3>
-              <button onClick={() => openModule("checklist")}>Otevřít</button>
-            </div>
-
-            <div className="module">
-              <Star />
-              <h3>Výbava</h3>
-              <button onClick={() => openModule("equipment")}>Otevřít</button>
-            </div>
-
-            <div className="module">
-              <ShieldCheck />
-              <h3>Poškození a opravy</h3>
-              <button onClick={() => openModule("damage")}>Otevřít</button>
-            </div>
-
-            {hasVehicleStatus(selectedCar.status, postPurchaseStatusGroup) && (
-              <div className="module">
-                <ShieldCheck />
-                <h3>Náklady po výkupu</h3>
-                <button onClick={() => openModule("postPurchaseCosts")}>
-                  Otevřít
-                </button>
-              </div>
-            )}
-
-            {hasVehicleStatus(selectedCar.status, postPurchaseStatusGroup) && (
-              <div className="module">
-                <ClipboardList />
-                <h3>Inzerce vozu</h3>
-                <button onClick={() => openModule("advertising")}>
-                  Otevřít
-                </button>
-              </div>
-            )}
-
-            <div className="module">
-              <MessageCircle />
-              <h3>Poznámky</h3>
-              <button onClick={() => openModule("notes")}>Otevřít</button>
-            </div>
-
-            <div className="module">
-              <UserRound />
-              <h3>Zákazník</h3>
-              <button onClick={() => openModule("customer")}>Otevřít</button>
-            </div>
-
-            <div className="module">
-              <UserRound />
-              <h3>Možní zájemci</h3>
-              <button onClick={() => openModule("interestedCustomers")}>
-                Otevřít
-              </button>
-            </div>
-
-            <div className="module">
-              <ShieldCheck />
-              <h3>Nacenění</h3>
-              <p className={valuationComplete ? "okText" : ""}>
-                {valuationComplete ? "Hotovo" : "Zatím neprovedeno"}
-              </p>
-              <button onClick={() => openModule("valuation")}>Otevřít</button>
-            </div>
-
-          </div>
+          {module === "valuationSummary" && (
+            <VehicleValuationSummary
+              selectedCar={selectedCar}
+              documents={administrationDocuments}
+              documentsLoading={vehicleDocumentsLoading}
+              lifecycleSection={selectedLifecycleSection}
+              getVehicleStatusLabel={getVehicleStatusLabel}
+              moduleContentRef={moduleContentRef}
+            />
+          )}
 
           {module === "technical" && (
             <VehicleTechnical
@@ -2430,6 +2336,8 @@ const remainingEquipment = equipmentItems.filter(
               downloadVehicleDocument={downloadVehicleDocument}
               deleteVehicleDocument={deleteVehicleDocument}
               formatFileSize={formatFileSize}
+              analyzeVehicleTechnicalData={analyzeVehicleTechnicalData}
+              technicalAiLoading={technicalAiLoading}
               moduleContentRef={moduleContentRef}
             />
           )}
