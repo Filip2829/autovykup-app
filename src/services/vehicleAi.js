@@ -1,6 +1,10 @@
 import { getAiModule } from "../ai/aiModuleRegistry.js";
 import { evaluateVehicleAiCapabilities } from "../ai/vehicleAiCapabilities.js";
 import { createVehicleAiResponse } from "../ai/vehicleAiContracts.js";
+import {
+  buildPurchaseInspectionItems,
+  getPurchaseInspectionMissingData,
+} from "../ai/purchaseInspection.js";
 import { sanitizeVehicleAiContext } from "../ai/sanitizeVehicleAiContext.js";
 
 function hasValue(value) {
@@ -169,6 +173,34 @@ export function createDeterministicVehicleSummary(context, generatedAt) {
   });
 }
 
+export function createDeterministicPurchaseInspection(context, generatedAt) {
+  const missingData = getPurchaseInspectionMissingData(context);
+  if (missingData.length > 0) {
+    throw new Error(`Chybí povinné údaje: ${missingData.join(", ")}.`);
+  }
+
+  return createVehicleAiResponse({
+    moduleId: "purchase-inspection",
+    generatedAt,
+    output: {
+      items: buildPurchaseInspectionItems(context),
+    },
+    sourceReferences: [
+      "profile.identity",
+      "profile.technical",
+      "profile.condition",
+      "profile.equipment",
+      "sources.photos",
+      "internal.notes",
+    ],
+    missingData: [],
+    warnings: [
+      "Kontrolní list upozorňuje na místa k ověření; nepotvrzuje konkrétní závadu ani výsledek prohlídky.",
+    ],
+    proposedChanges: [],
+  });
+}
+
 async function runModule({ moduleId, vehicleId, context, options = {} }) {
   const moduleDefinition = getAiModule(moduleId);
   if (!moduleDefinition || moduleDefinition.enabled !== true) {
@@ -182,6 +214,16 @@ async function runModule({ moduleId, vehicleId, context, options = {} }) {
   }
 
   const sanitizedContext = sanitizeVehicleAiContext(context, moduleDefinition);
+  if (moduleId === "purchase-inspection") {
+    const missingInspectionData = getPurchaseInspectionMissingData(
+      sanitizedContext
+    );
+    if (missingInspectionData.length > 0) {
+      throw new Error(
+        `Chybí povinné údaje: ${missingInspectionData.join(", ")}.`
+      );
+    }
+  }
   const capabilities = evaluateVehicleAiCapabilities(
     sanitizedContext,
     moduleDefinition
@@ -194,6 +236,13 @@ async function runModule({ moduleId, vehicleId, context, options = {} }) {
 
   if (moduleId === "vehicle-summary") {
     return createDeterministicVehicleSummary(
+      sanitizedContext,
+      options.generatedAt
+    );
+  }
+
+  if (moduleId === "purchase-inspection") {
+    return createDeterministicPurchaseInspection(
       sanitizedContext,
       options.generatedAt
     );

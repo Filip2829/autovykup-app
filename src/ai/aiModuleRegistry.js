@@ -27,6 +27,18 @@ export const aiModuleRegistry = [
     enabled: true,
   },
   {
+    id: "purchase-inspection",
+    label: "Kontrola při výkupu",
+    description:
+      "Praktický kontrolní list pro fyzickou prohlídku konkrétního vozu.",
+    supportedSections: ["valuation", "approved_purchase"],
+    requiredSources: ["identity", "technical"],
+    optionalSources: ["condition", "equipment", "photos", "notes"],
+    dataScope: "internal",
+    resultMode: "review-only",
+    enabled: true,
+  },
+  {
     id: "purchase-assistant",
     label: "Výkupní asistent",
     supportedSections: ["valuation", "approved_purchase"],

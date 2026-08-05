@@ -987,6 +987,103 @@ textarea::placeholder {
   color: inherit;
 }
 
+.purchaseInspectionResult,
+.purchaseInspectionGroups,
+.purchaseInspectionItems {
+  display: grid;
+  gap: 14px;
+}
+
+.purchaseInspectionInputs {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 9px 18px;
+}
+
+.purchaseInspectionInputs p {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0;
+}
+
+.purchaseInspectionInputs span {
+  color: #94a3b8;
+}
+
+.purchaseInspectionInputs strong {
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+
+.purchaseInspectionActions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 9px;
+}
+
+.purchaseInspectionItem {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  border-left-width: 4px;
+  border-radius: 13px;
+  background: rgba(15, 23, 42, 0.55);
+}
+
+.purchaseInspectionItem.priority-critical {
+  border-left-color: #f87171;
+}
+
+.purchaseInspectionItem.priority-important {
+  border-left-color: #fbbf24;
+}
+
+.purchaseInspectionItem.priority-recommended {
+  border-left-color: #60a5fa;
+}
+
+.purchaseInspectionItemHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.purchaseInspectionItemHeader h4,
+.purchaseInspectionItem p {
+  margin: 0;
+}
+
+.purchaseInspectionPriority {
+  display: inline-block;
+  margin-bottom: 5px;
+  color: #cbd5e1;
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.purchaseInspectionItem select {
+  flex: 0 0 auto;
+  min-width: 135px;
+}
+
+.purchaseInspectionItem label {
+  display: grid;
+  gap: 7px;
+  color: #e2e8f0;
+  font-weight: 700;
+}
+
+.purchaseInspectionItem textarea {
+  width: 100%;
+  resize: vertical;
+}
+
 .valuationSummaryHeader {
   display: flex;
   align-items: flex-start;
@@ -1827,8 +1924,27 @@ input[type="checkbox"] {
   }
 
   .aiSourceGrid,
-  .aiResultGrid {
+  .aiResultGrid,
+  .purchaseInspectionInputs {
     grid-template-columns: 1fr;
+  }
+
+  .purchaseInspectionActions {
+    width: 100%;
+    justify-content: stretch;
+  }
+
+  .purchaseInspectionActions button {
+    flex: 1 1 180px;
+  }
+
+  .purchaseInspectionItemHeader {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .purchaseInspectionItem select {
+    width: 100%;
   }
 
   .vehicleMarketingCard {

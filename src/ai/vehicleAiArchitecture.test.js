@@ -14,6 +14,12 @@ import {
   isVehicleAiResponse,
 } from "./vehicleAiContracts.js";
 import {
+  buildPurchaseInspectionItems,
+  getPurchaseInspectionMissingData,
+  updatePurchaseInspectionItem,
+} from "./purchaseInspection.js";
+import {
+  createDeterministicPurchaseInspection,
   createDeterministicVehicleSummary,
   vehicleAi,
 } from "../services/vehicleAi.js";
@@ -53,9 +59,10 @@ describe("AI registry", () => {
       "sold",
       "archived",
     ]) {
-      assert.deepEqual(
-        getAvailableAiModules(section).map((module) => module.id),
-        ["vehicle-summary"]
+      assert.ok(
+        getAvailableAiModules(section)
+          .map((module) => module.id)
+          .includes("vehicle-summary")
       );
     }
   });
@@ -183,5 +190,165 @@ describe("deterministický AI souhrn", () => {
 
     assert.equal(result.status, "completed");
     assert.deepEqual(result.proposedChanges, []);
+  });
+});
+
+describe("Kontrola při výkupu", () => {
+  const inspectionCar = {
+    id: 101,
+    name: "Dacia Dokker",
+    status: "valuation",
+    km: 145000,
+    year: 2019,
+    technicalParams: {
+      brand: "Dacia",
+      model: "Dokker",
+      engine: "1.5 dCi",
+      fuel: "Nafta",
+      transmission: "Automatická",
+      drive: "4x4",
+      bodyType: "Dodávka",
+      powerKw: 66,
+    },
+    damageReport: {
+      exterior: "Promáčklina pravých posuvných dveří",
+    },
+    customerInfo: {
+      firstName: "Tajný kontakt",
+      phone: "+420777111222",
+      email: "kontakt@example.cz",
+    },
+    notes: ["Prověřit zvuk od zadní nápravy"],
+    equipment: { Klimatizace: true },
+    photos: ["photo.jpg"],
+  };
+
+  test("je dostupná pouze pro valuation a approved_for_purchase lifecycle", () => {
+    assert.ok(
+      getAvailableAiModules("valuation").some(
+        (module) => module.id === "purchase-inspection"
+      )
+    );
+    assert.ok(
+      getAvailableAiModules("approved_purchase").some(
+        (module) => module.id === "purchase-inspection"
+      )
+    );
+
+    for (const section of ["stock", "sold", "archived"]) {
+      assert.ok(
+        !getAvailableAiModules(section).some(
+          (module) => module.id === "purchase-inspection"
+        )
+      );
+    }
+
+    const approvedContext = buildVehicleAiContext({
+      ...inspectionCar,
+      status: "approved_for_purchase",
+    });
+    assert.equal(approvedContext.lifecycleSection, "approved_purchase");
+  });
+
+  test("chybějící značka nebo model vytvoření zablokují konkrétní chybou", async () => {
+    const context = buildVehicleAiContext({
+      id: 102,
+      status: "valuation",
+      technicalParams: { fuel: "Nafta" },
+    });
+
+    assert.deepEqual(getPurchaseInspectionMissingData(context), [
+      "Značka vozidla",
+      "Model vozidla",
+    ]);
+    await assert.rejects(
+      vehicleAi.runModule({
+        moduleId: "purchase-inspection",
+        vehicleId: 102,
+        context,
+      }),
+      /Značka vozidla, Model vozidla/
+    );
+  });
+
+  test("diesel, automat a dodávka přidají relevantní kontrolní body", () => {
+    const context = buildVehicleAiContext(inspectionCar);
+    const items = buildPurchaseInspectionItems(context);
+
+    assert.ok(items.some((item) => item.id === "diesel-emissions"));
+    assert.ok(items.some((item) => item.id === "automatic-transmission"));
+    assert.ok(items.some((item) => item.id === "van-sliding-doors"));
+    assert.ok(items.some((item) => item.id === "van-load-stress"));
+  });
+
+  test("evidované poškození se promítne jako bod k ověření", () => {
+    const items = buildPurchaseInspectionItems(
+      buildVehicleAiContext(inspectionCar)
+    );
+    const conditionItem = items.find((item) =>
+      item.id.startsWith("known-condition-")
+    );
+
+    assert.match(conditionItem.title, /Promáčklina pravých posuvných dveří/);
+    assert.match(conditionItem.reason, /ověřit/);
+  });
+
+  test("výstup má nejvýše 12 unikátních bodů a validní kontrakt", () => {
+    const context = buildVehicleAiContext(inspectionCar);
+    const response = createDeterministicPurchaseInspection(
+      context,
+      "2026-08-05T15:00:00.000Z"
+    );
+    const ids = response.output.items.map((item) => item.id);
+
+    assert.equal(isVehicleAiResponse(response), true);
+    assert.ok(response.output.items.length <= 12);
+    assert.equal(new Set(ids).size, ids.length);
+    for (const item of response.output.items) {
+      assert.ok(
+        ["engine", "chassis", "body", "interior", "testDrive"].includes(
+          item.category
+        )
+      );
+      assert.ok(
+        ["critical", "important", "recommended"].includes(item.priority)
+      );
+      assert.equal(item.status, "unchecked");
+      assert.equal(item.note, "");
+    }
+  });
+
+  test("service nemění kontext, nezapisuje a nepropustí kontaktní údaje", async () => {
+    const context = buildVehicleAiContext(inspectionCar);
+    const originalContext = structuredClone(context);
+    const result = await vehicleAi.runModule({
+      moduleId: "purchase-inspection",
+      vehicleId: 101,
+      context,
+      options: { generatedAt: "2026-08-05T15:00:00.000Z" },
+    });
+    const serialized = JSON.stringify({ context, result });
+
+    assert.deepEqual(context, originalContext);
+    assert.deepEqual(result.proposedChanges, []);
+    assert.doesNotMatch(
+      serialized,
+      /Tajný kontakt|\+420777111222|kontakt@example\.cz/
+    );
+  });
+
+  test("lokální změna stavu vytvoří nový seznam bez updateCar", () => {
+    const originalItems = buildPurchaseInspectionItems(
+      buildVehicleAiContext(inspectionCar)
+    );
+    const nextItems = updatePurchaseInspectionItem(
+      originalItems,
+      originalItems[0].id,
+      { status: "passed", note: "Ověřeno" }
+    );
+
+    assert.equal(originalItems[0].status, "unchecked");
+    assert.equal(nextItems[0].status, "passed");
+    assert.equal(nextItems[0].note, "Ověřeno");
   });
 });
