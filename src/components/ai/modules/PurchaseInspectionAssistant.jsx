@@ -30,6 +30,7 @@ function InputSummary({ context }) {
         .join(" "),
     ],
     ["Verze / motorizace", profile.identity?.version || technical.engine],
+    ["Kód motoru", technical.engineCode],
     ["Palivo", technical.fuel],
     ["Převodovka", technical.transmission],
     ["Pohon", technical.drive],
@@ -49,14 +50,6 @@ function InputSummary({ context }) {
       "Známý stav",
       profile.condition?.hasStructuredData ? "Evidován" : "Neevidován",
     ],
-    [
-      "Výbava",
-      Number(profile.equipment?.count || 0) > 0
-        ? `${profile.equipment.count} položek`
-        : "Neevidována",
-    ],
-    ["Fotografie", `${context.sources?.photos?.length || 0}`],
-    ["Poznámky", `${context.internal?.notes?.length || 0}`],
   ].filter(([, value]) => hasValue(value));
 
   return (
@@ -154,9 +147,8 @@ export default function PurchaseInspectionAssistant({
         <div>
           <h2>{moduleDefinition.label}</h2>
           <p>
-            Krátký kontrolní list ukazuje, na co se při fyzické prohlídce,
-            vizuální kontrole a zkušební jízdě zaměřit. Nepotvrzuje závadu a
-            nic neukládá.
+            Modelově a motorizací specifické body, na které se zaměřit před
+            výkupem. Seznam nepotvrzuje závadu a nic neukládá.
           </p>
         </div>
         {!aiState.result && (
@@ -168,7 +160,7 @@ export default function PurchaseInspectionAssistant({
           >
             {aiState.loading
               ? "Připravuji kontrolu…"
-              : "Vytvořit kontrolní list"}
+              : "Vytvořit seznam rizik"}
           </button>
         )}
       </div>
@@ -180,12 +172,27 @@ export default function PurchaseInspectionAssistant({
       />
       {aiState.error && <p className="badText">{aiState.error}</p>}
 
+      {aiState.result && items.length === 0 && (
+        <section className="aiAssistantSection purchaseInspectionEmpty">
+          <h3>Konkrétní doporučení nejsou dostupná</h3>
+          <p>{aiState.result.output?.emptyMessage}</p>
+          <button
+            type="button"
+            className="primary outline"
+            onClick={runInspection}
+            disabled={aiState.loading}
+          >
+            Vytvořit znovu
+          </button>
+        </section>
+      )}
+
       {items.length > 0 && (
         <div className="purchaseInspectionResult">
           <div className="aiResultHeader">
             <div>
               <p className="label">Lokální pracovní kontrola</p>
-              <h3>Kontrolní list ({items.length} bodů)</h3>
+              <h3>Specifická rizika ({items.length} bodů)</h3>
             </div>
             <div className="purchaseInspectionActions">
               <button
@@ -215,7 +222,7 @@ export default function PurchaseInspectionAssistant({
 
           {copied && (
             <p className="goodText" role="status">
-              Kontrolní list byl zkopírován.
+              Seznam specifických rizik byl zkopírován.
             </p>
           )}
 

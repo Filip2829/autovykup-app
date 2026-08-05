@@ -4,6 +4,7 @@ import { createVehicleAiResponse } from "../ai/vehicleAiContracts.js";
 import {
   buildPurchaseInspectionItems,
   getPurchaseInspectionMissingData,
+  PURCHASE_INSPECTION_EMPTY_MESSAGE,
 } from "../ai/purchaseInspection.js";
 import { sanitizeVehicleAiContext } from "../ai/sanitizeVehicleAiContext.js";
 
@@ -179,23 +180,23 @@ export function createDeterministicPurchaseInspection(context, generatedAt) {
     throw new Error(`Chybí povinné údaje: ${missingData.join(", ")}.`);
   }
 
+  const items = buildPurchaseInspectionItems(context);
+
   return createVehicleAiResponse({
     moduleId: "purchase-inspection",
     generatedAt,
     output: {
-      items: buildPurchaseInspectionItems(context),
+      items,
+      emptyMessage: items.length === 0 ? PURCHASE_INSPECTION_EMPTY_MESSAGE : "",
     },
     sourceReferences: [
       "profile.identity",
       "profile.technical",
       "profile.condition",
-      "profile.equipment",
-      "sources.photos",
-      "internal.notes",
     ],
     missingData: [],
     warnings: [
-      "Kontrolní list upozorňuje na místa k ověření; nepotvrzuje konkrétní závadu ani výsledek prohlídky.",
+      "Seznam upozorňuje pouze na specifická rizika k ověření; nepotvrzuje konkrétní závadu ani výsledek prohlídky.",
     ],
     proposedChanges: [],
   });

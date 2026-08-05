@@ -193,7 +193,7 @@ describe("deterministický AI souhrn", () => {
   });
 });
 
-describe("Kontrola při výkupu", () => {
+describe("Specifická rizika vozu", () => {
   const inspectionCar = {
     id: 101,
     name: "Dacia Dokker",
@@ -204,9 +204,10 @@ describe("Kontrola při výkupu", () => {
       brand: "Dacia",
       model: "Dokker",
       engine: "1.5 dCi",
+      engineCode: "K9K 612",
       fuel: "Nafta",
-      transmission: "Automatická",
-      drive: "4x4",
+      transmission: "Easy-R",
+      drive: "Přední",
       bodyType: "Dodávka",
       powerKw: 66,
     },
@@ -271,14 +272,76 @@ describe("Kontrola při výkupu", () => {
     );
   });
 
-  test("diesel, automat a dodávka přidají relevantní kontrolní body", () => {
+  test("Dacia Dokker 1.5 dCi dostane pouze specifické body", () => {
     const context = buildVehicleAiContext(inspectionCar);
     const items = buildPurchaseInspectionItems(context);
 
-    assert.ok(items.some((item) => item.id === "diesel-emissions"));
-    assert.ok(items.some((item) => item.id === "automatic-transmission"));
-    assert.ok(items.some((item) => item.id === "van-sliding-doors"));
-    assert.ok(items.some((item) => item.id === "van-load-stress"));
+    assert.ok(items.some((item) => item.id === "k9k-injector-corrections"));
+    assert.ok(items.some((item) => item.id === "dokker-15dci-turbo-oil-feed"));
+    assert.ok(items.some((item) => item.id === "dokker-sliding-door-guides"));
+    assert.ok(items.some((item) => item.id === "easy-r-clutch-actuator"));
+    assert.ok(items.every((item) => item.specificity));
+  });
+
+  test("výstup neobsahuje obecný checklist", () => {
+    const items = buildPurchaseInspectionItems(
+      buildVehicleAiContext(inspectionCar)
+    );
+    const output = JSON.stringify(items);
+
+    assert.doesNotMatch(
+      output,
+      /chassis-brakes|body-panels-paint|interior-electronics|test-drive-behaviour/
+    );
+    assert.doesNotMatch(
+      output,
+      /běžná kontrola brzd|kontrola pneumatik|kontrola laku|kontrola klimatizace/i
+    );
+  });
+
+  test("vůz bez konkrétních pravidel nedostane obecný fallback", () => {
+    const context = buildVehicleAiContext({
+      id: 103,
+      status: "valuation",
+      technicalParams: {
+        brand: "Seat",
+        model: "Toledo",
+        engine: "1.2 TSI",
+        fuel: "Benzín",
+        transmission: "Manuální",
+      },
+    });
+    const response = createDeterministicPurchaseInspection(
+      context,
+      "2026-08-05T15:00:00.000Z"
+    );
+
+    assert.deepEqual(response.output.items, []);
+    assert.equal(
+      response.output.emptyMessage,
+      "Pro tuto variantu zatím nemáme dostatek konkrétních modelových doporučení."
+    );
+  });
+
+  test("kód motoru má přednost před exact model + engine pravidlem", () => {
+    const items = buildPurchaseInspectionItems(
+      buildVehicleAiContext(inspectionCar)
+    );
+
+    assert.ok(items.some((item) => item.id === "k9k-injector-corrections"));
+    assert.ok(!items.some((item) => item.id === "dokker-15dci-injectors"));
+    assert.ok(!items.some((item) => item.id === "15dci-injector-balance"));
+  });
+
+  test("exact model + engine má přednost před engine family", () => {
+    const carWithoutEngineCode = structuredClone(inspectionCar);
+    delete carWithoutEngineCode.technicalParams.engineCode;
+    const items = buildPurchaseInspectionItems(
+      buildVehicleAiContext(carWithoutEngineCode)
+    );
+
+    assert.ok(items.some((item) => item.id === "dokker-15dci-injectors"));
+    assert.ok(!items.some((item) => item.id === "15dci-injector-balance"));
   });
 
   test("evidované poškození se promítne jako bod k ověření", () => {
@@ -293,7 +356,7 @@ describe("Kontrola při výkupu", () => {
     assert.match(conditionItem.reason, /ověřit/);
   });
 
-  test("výstup má nejvýše 12 unikátních bodů a validní kontrakt", () => {
+  test("výstup má nejvýše 8 unikátních bodů a validní kontrakt", () => {
     const context = buildVehicleAiContext(inspectionCar);
     const response = createDeterministicPurchaseInspection(
       context,
@@ -302,11 +365,11 @@ describe("Kontrola při výkupu", () => {
     const ids = response.output.items.map((item) => item.id);
 
     assert.equal(isVehicleAiResponse(response), true);
-    assert.ok(response.output.items.length <= 12);
+    assert.ok(response.output.items.length <= 8);
     assert.equal(new Set(ids).size, ids.length);
     for (const item of response.output.items) {
       assert.ok(
-        ["engine", "chassis", "body", "interior", "testDrive"].includes(
+        ["engine", "transmission", "model", "knownCondition"].includes(
           item.category
         )
       );

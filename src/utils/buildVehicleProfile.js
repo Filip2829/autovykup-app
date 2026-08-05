@@ -247,6 +247,10 @@ export function buildVehicleProfile(
       firstRegistration: firstValue(technicalParams.firstRegistration),
       mileage: firstValue(car.km),
       engine: firstValue(technicalParams.engine),
+      engineCode: firstValue(
+        technicalParams.engineCode,
+        technicalParams.engine_code
+      ),
       powerKw: firstValue(technicalParams.powerKw),
       fuel: firstValue(technicalParams.fuel),
       transmission: firstValue(technicalParams.transmission),

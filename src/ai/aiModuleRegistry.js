@@ -28,9 +28,9 @@ export const aiModuleRegistry = [
   },
   {
     id: "purchase-inspection",
-    label: "Kontrola při výkupu",
+    label: "Specifická rizika vozu",
     description:
-      "Praktický kontrolní list pro fyzickou prohlídku konkrétního vozu.",
+      "Modelově a motorizací specifické body, na které se zaměřit před výkupem.",
     supportedSections: ["valuation", "approved_purchase"],
     requiredSources: ["identity", "technical"],
     optionalSources: ["condition", "equipment", "photos", "notes"],

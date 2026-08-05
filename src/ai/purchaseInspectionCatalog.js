@@ -1,9 +1,8 @@
 export const PURCHASE_INSPECTION_CATEGORIES = {
-  engine: "Motor a pohon",
-  chassis: "Podvozek a brzdy",
-  body: "Karoserie a vizuální stav",
-  interior: "Interiér a elektronika",
-  testDrive: "Zkušební jízda",
+  engine: "Motor a emisní systém",
+  transmission: "Převodovka a pohon",
+  model: "Specifická místa modelu",
+  knownCondition: "Evidovaný stav vozu",
 };
 
 export const PURCHASE_INSPECTION_PRIORITIES = {
@@ -12,90 +11,171 @@ export const PURCHASE_INSPECTION_PRIORITIES = {
   recommended: "Doporučené",
 };
 
-export const BASE_INSPECTION_RULES = [
+export const ENGINE_CODE_INSPECTION_RULES = [
   {
-    id: "engine-cold-start",
-    category: "engine",
-    priority: "critical",
-    title: "Studený start a chod motoru",
-    reason:
-      "Neobvyklý zvuk, kouřivost nebo nepravidelný chod může upozornit na technický problém.",
-    howToCheck:
-      "Startovat se studeným motorem, poslouchat chod a sledovat kouřivost i kontrolky.",
-  },
-  {
-    id: "engine-leaks-fluids",
-    category: "engine",
-    priority: "important",
-    title: "Úniky a stav provozních kapalin",
-    reason:
-      "Stopy kapalin mohou upozornit na netěsnost nebo zanedbanou údržbu.",
-    howToCheck:
-      "Prohlédnout motorový prostor i místo pod vozem a ověřit stav dostupných kapalin.",
-  },
-  {
-    id: "chassis-brakes",
-    category: "chassis",
-    priority: "critical",
-    title: "Podvozek, pneumatiky a brzdy",
-    reason:
-      "Nerovnoměrné opotřebení nebo vůle může upozornit na problém podvozku či geometrie.",
-    howToCheck:
-      "Zkontrolovat pneumatiky, viditelné části brzd a při jízdě ověřit hluk, vůle a brzdění.",
-  },
-  {
-    id: "body-panels-paint",
-    category: "body",
-    priority: "important",
-    title: "Spáry karoserie a lak",
-    reason:
-      "Rozdíly odstínu, tloušťky laku nebo nepravidelné spáry mohou upozornit na dřívější opravu.",
-    howToCheck:
-      "Porovnat odstíny a spáry jednotlivých dílů, podle možností použít měřič laku.",
-  },
-  {
-    id: "interior-electronics",
-    category: "interior",
-    priority: "important",
-    title: "Funkce interiéru a elektroniky",
-    reason:
-      "Nefunkční ovládání nebo kontrolky mohou znamenat potřebu další diagnostiky.",
-    howToCheck:
-      "Vyzkoušet hlavní ovladače, klimatizaci, infotainment, okna, světla a sledovat kontrolky.",
-  },
-  {
-    id: "test-drive-behaviour",
-    category: "testDrive",
-    priority: "critical",
-    title: "Chování vozu při zkušební jízdě",
-    reason:
-      "Vibrace, hluk nebo nestabilita mohou upozornit na závadu, která při stání není patrná.",
-    howToCheck:
-      "Ověřit rozjezd, akceleraci, držení směru, brzdění a zvuky v různých rychlostech.",
+    match: { engineCodes: ["K9K"] },
+    items: [
+      {
+        id: "k9k-injector-corrections",
+        riskKey: "diesel-injection",
+        category: "engine",
+        priority: "critical",
+        title: "Studený start a korekce vstřikovačů K9K",
+        reason:
+          "U motoru K9K mohou nepravidelný studený chod nebo vysoké korekce upozornit na opotřebení vstřikovací soustavy.",
+        howToCheck:
+          "Startovat skutečně studený motor, poslouchat chod a diagnostikou ověřit korekce jednotlivých vstřikovačů.",
+        specificity: {
+          engineCode: ["K9K"],
+        },
+      },
+    ],
   },
 ];
 
-export const MODEL_INSPECTION_RULES = {
-  "dacia dokker": [
-    {
-      id: "van-sliding-doors",
-      category: "body",
-      priority: "important",
-      title: "Posuvné dveře a jejich vedení",
-      reason:
-        "U modelu Dacia Dokker jde o typické kontrolní místo namáhané každodenním používáním.",
-      howToCheck:
-        "Několikrát otevřít a zavřít posuvné dveře, ověřit zámky, dorazy a plynulost vedení.",
+export const MODEL_ENGINE_INSPECTION_RULES = [
+  {
+    match: {
+      brand: "Dacia",
+      model: "Dokker",
+      engineIncludes: ["1.5 dci", "1,5 dci"],
     },
-    {
-      id: "van-load-stress",
-      category: "chassis",
-      priority: "important",
-      title: "Známky dlouhodobého zatěžování",
-      reason:
-        "U užitkového provedení může stav nákladového prostoru a zadní části upozornit na intenzivní provoz.",
-      howToCheck:
-        "Prohlédnout podlahu, prahy, zadní nápravu, pružiny a nerovnoměrné opotřebení pneumatik.",
+    items: [
+      {
+        id: "dokker-15dci-injectors",
+        riskKey: "diesel-injection",
+        category: "engine",
+        priority: "critical",
+        title: "Studený chod a vstřikovací soustava 1.5 dCi",
+        reason:
+          "U kombinace Dacia Dokker 1.5 dCi může nepravidelný studený chod upozornit na stav vstřikovačů.",
+        howToCheck:
+          "Startovat studený motor, sledovat ustálení volnoběhu a diagnostikou ověřit korekce vstřikovačů.",
+        specificity: {
+          brand: "Dacia",
+          model: "Dokker",
+          engine: "1.5 dCi",
+        },
+      },
+      {
+        id: "dokker-15dci-turbo-oil-feed",
+        riskKey: "turbo-oil-feed",
+        category: "engine",
+        priority: "critical",
+        title: "Turbodmychadlo a jeho mazání",
+        reason:
+          "U této motorizace je stav turbodmychadla a jeho mazání známým kontrolním místem; olej v sání nebo nepravidelný plnicí tlak může upozornit na opotřebení.",
+        howToCheck:
+          "Ověřit netěsnosti a množství oleje v sacím vedení, vůli turba podle možností a průběh plnicího tlaku diagnostikou.",
+        specificity: {
+          brand: "Dacia",
+          model: "Dokker",
+          engine: "1.5 dCi",
+        },
+      },
+    ],
+  },
+];
+
+export const MODEL_GENERATION_INSPECTION_RULES = [
+  {
+    match: {
+      brand: "Dacia",
+      model: "Dokker",
+      minYear: 2012,
+      maxYear: 2021,
     },
-  ],
-};
+    items: [
+      {
+        id: "dokker-sliding-door-guides",
+        riskKey: "dokker-sliding-doors",
+        category: "model",
+        priority: "important",
+        title: "Vedení a zámky posuvných dveří",
+        reason:
+          "U Dacie Dokker této generace jde o specifické namáhané místo; zadrhávání nebo vůle může upozornit na opotřebení vedení či zámku.",
+        howToCheck:
+          "Několikrát projet celý chod dveří, ověřit vůli, dorazy, spodní vedení a jisté dovření zámku.",
+        specificity: {
+          brand: "Dacia",
+          model: "Dokker",
+          generationYears: "2012–2021",
+        },
+      },
+      {
+        id: "dokker-rear-load-stress",
+        riskKey: "dokker-load-stress",
+        category: "model",
+        priority: "important",
+        title: "Zadní část vozu a známky přetěžování",
+        reason:
+          "U užitkově provozovaného Dokkeru je specifickým kontrolním místem nákladová podlaha, uložení zadní nápravy a pružiny.",
+        howToCheck:
+          "Zaměřit se na deformace podlahy a prahů, výšku zadní části, stav pružin a uložení zadní nápravy.",
+        specificity: {
+          brand: "Dacia",
+          model: "Dokker",
+          generationYears: "2012–2021",
+        },
+      },
+    ],
+  },
+];
+
+export const ENGINE_FAMILY_INSPECTION_RULES = [
+  {
+    match: { engineIncludes: ["1.5 dci", "1,5 dci"] },
+    items: [
+      {
+        id: "15dci-injector-balance",
+        riskKey: "diesel-injection",
+        category: "engine",
+        priority: "critical",
+        title: "Vyvážení vstřikovačů 1.5 dCi",
+        reason:
+          "U rodiny 1.5 dCi mohou vysoké korekce upozornit na opotřebení vstřikovací soustavy.",
+        howToCheck:
+          "Ověřit studený chod a diagnostikou porovnat korekce jednotlivých vstřikovačů.",
+        specificity: {
+          engineFamily: "1.5 dCi",
+        },
+      },
+      {
+        id: "15dci-dpf-egr-values",
+        riskKey: "diesel-emissions",
+        category: "engine",
+        priority: "important",
+        title: "Hodnoty DPF a funkce EGR u 1.5 dCi",
+        reason:
+          "U rodiny 1.5 dCi jsou DPF a EGR známá kontrolní místa; časté regenerace nebo odchylky hodnot mohou upozornit na problém emisního systému.",
+        howToCheck:
+          "Diagnostikou ověřit zanesení a historii regenerací DPF, požadované a skutečné hodnoty EGR a související chyby.",
+        specificity: {
+          engineFamily: "1.5 dCi",
+        },
+      },
+    ],
+  },
+];
+
+export const TRANSMISSION_INSPECTION_RULES = [
+  {
+    match: { transmissionIncludes: ["easy-r", "easy r"] },
+    items: [
+      {
+        id: "easy-r-clutch-actuator",
+        riskKey: "easy-r-actuator",
+        category: "transmission",
+        priority: "critical",
+        title: "Aktuátor spojky a adaptace převodovky Easy-R",
+        reason:
+          "U převodovky Easy-R je aktuátor a správná adaptace spojky specifickým kontrolním místem; prodlevy nebo rázy mohou upozornit na opotřebení či chybnou adaptaci.",
+        howToCheck:
+          "Ověřit rozjezd, manévrování a řazení za studena i po zahřátí a diagnostikou zkontrolovat chyby a adaptační hodnoty.",
+        specificity: {
+          transmission: "Easy-R",
+        },
+      },
+    ],
+  },
+];
