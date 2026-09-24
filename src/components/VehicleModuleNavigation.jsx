@@ -63,8 +63,8 @@ const valuationModules = [
   },
   {
     key: "aiAssistant",
-    title: "AI Asistent",
-    description: "Bezpečný souhrn uložených údajů vozidla",
+    title: "AI asistent pro nacenění ceny",
+    description: "Porovnání se Sauto a návrh výkupní i prodejní ceny",
     icon: Bot,
   },
   {
@@ -144,8 +144,8 @@ const stockModules = [
   },
   {
     key: "aiAssistant",
-    title: "AI Asistent",
-    description: "Souhrn vozidla pouze ke kontrole",
+    title: "AI asistent pro nacenění ceny",
+    description: "Porovnání se Sauto a návrh výkupní i prodejní ceny",
     icon: Bot,
   },
   {

@@ -989,9 +989,84 @@ textarea::placeholder {
 
 .purchaseInspectionResult,
 .purchaseInspectionGroups,
-.purchaseInspectionItems {
+.purchaseInspectionItems,
+.priceRecommendationResult,
+.priceComparableList {
   display: grid;
   gap: 14px;
+}
+
+.priceRecommendationPrices {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.priceRecommendationPrices > div {
+  display: grid;
+  gap: 6px;
+  padding: 16px;
+  border-radius: 12px;
+  background: rgba(37, 99, 235, 0.12);
+}
+
+.priceRecommendationPrices span,
+.priceRecommendationPrices small,
+.priceRecommendationFormula span,
+.priceComparableList p,
+.priceComparableFacts span {
+  color: #94a3b8;
+}
+
+.priceRecommendationPrices strong {
+  color: #bfdbfe;
+  font-size: clamp(1.45rem, 4vw, 2rem);
+}
+
+.priceRecommendationFormula {
+  display: grid;
+  gap: 8px;
+}
+
+.priceRecommendationFormula p {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  margin: 0;
+}
+
+.priceRecommendationFormulaTotal {
+  margin-top: 5px !important;
+  padding-top: 10px;
+  border-top: 1px solid rgba(148, 163, 184, 0.2);
+}
+
+.priceComparableList article {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 13px;
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  border-radius: 12px;
+  background: rgba(15, 23, 42, 0.48);
+}
+
+.priceComparableList a {
+  color: #93c5fd;
+  font-weight: 800;
+  overflow-wrap: anywhere;
+}
+
+.priceComparableList p {
+  margin: 6px 0 0;
+}
+
+.priceComparableFacts {
+  display: grid;
+  flex: 0 0 auto;
+  gap: 4px;
+  text-align: right;
 }
 
 .purchaseInspectionConfidence {
@@ -1947,6 +2022,18 @@ input[type="checkbox"] {
   .aiResultGrid,
   .purchaseInspectionInputs {
     grid-template-columns: 1fr;
+  }
+
+  .priceRecommendationPrices {
+    grid-template-columns: 1fr;
+  }
+
+  .priceComparableList article {
+    display: grid;
+  }
+
+  .priceComparableFacts {
+    text-align: left;
   }
 
   .purchaseInspectionActions {

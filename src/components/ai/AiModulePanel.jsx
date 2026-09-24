@@ -1,7 +1,12 @@
 import VehicleSummaryAssistant from "./modules/VehicleSummaryAssistant.jsx";
 import PurchaseInspectionAssistant from "./modules/PurchaseInspectionAssistant.jsx";
+import PriceRecommendationAssistant from "./modules/PriceRecommendationAssistant.jsx";
 
 export default function AiModulePanel(props) {
+  if (props.moduleDefinition?.id === "price-recommendation") {
+    return <PriceRecommendationAssistant {...props} />;
+  }
+
   if (props.moduleDefinition?.id === "vehicle-summary") {
     return <VehicleSummaryAssistant {...props} />;
   }

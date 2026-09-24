@@ -39,8 +39,10 @@ export default function VehicleAiAssistant({
       <div className="vehicleAiAssistantHeader">
         <div>
           <p className="label">Bez automatických změn dat</p>
-          <h2>🤖 AI Asistent</h2>
-          <p>Společné místo pro bezpečné analytické nástroje vozidla.</p>
+          <h2>🤖 AI asistent pro nacenění ceny</h2>
+          <p>
+            Tržní porovnání a bezpečné analytické nástroje konkrétního vozidla.
+          </p>
         </div>
         <span className="aiReadOnlyBadge">Pouze ke čtení</span>
       </div>

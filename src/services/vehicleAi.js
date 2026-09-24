@@ -11,6 +11,10 @@ import {
   invokePurchaseInspectionAi,
   PurchaseInspectionAiError,
 } from "./purchaseInspectionAi.js";
+import {
+  buildPriceRecommendationPayload,
+  invokePriceRecommendationAi,
+} from "./priceRecommendationAi.js";
 
 function hasValue(value) {
   return value !== null && value !== undefined && String(value).trim() !== "";
@@ -301,6 +305,7 @@ function canUsePurchaseInspectionFallback(error) {
 
 export function createVehicleAiService({
   purchaseInspectionInvoker = invokePurchaseInspectionAi,
+  priceRecommendationInvoker = invokePriceRecommendationAi,
 } = {}) {
   async function runModule({ moduleId, vehicleId, context, options = {} }) {
   const moduleDefinition = getAiModule(moduleId);
@@ -356,6 +361,27 @@ export function createVehicleAiService({
         options.generatedAt
       );
     }
+  }
+
+  if (moduleId === "price-recommendation") {
+    const payload = buildPriceRecommendationPayload(sanitizedContext);
+    const output = await priceRecommendationInvoker(payload, {
+      timeoutMs: options.timeoutMs,
+    });
+    return createVehicleAiResponse({
+      moduleId,
+      generatedAt: options.generatedAt,
+      output,
+      sourceReferences: [
+        "profile.identity",
+        "profile.technical",
+        "internal.purchaseEconomy.totalCosts",
+        "Sauto.cz",
+      ],
+      missingData: [],
+      warnings: output.warnings || [],
+      proposedChanges: [],
+    });
   }
 
   throw new Error("AI modul zatím nemá implementovaný backend.");

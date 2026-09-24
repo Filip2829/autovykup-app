@@ -8,6 +8,18 @@ const allLifecycleSections = [
 
 export const aiModuleRegistry = [
   {
+    id: "price-recommendation",
+    label: "AI nacenění podle trhu",
+    description:
+      "Porovnání se Sauto a návrh prodejní i výkupní ceny.",
+    supportedSections: ["valuation", "approved_purchase", "stock"],
+    requiredSources: ["identity", "technical"],
+    optionalSources: ["condition", "equipment", "valuation"],
+    dataScope: "internal",
+    resultMode: "review-only",
+    enabled: true,
+  },
+  {
     id: "vehicle-summary",
     label: "AI souhrn vozidla",
     description: "Přehled uložených údajů bez změny vozidla.",
@@ -54,12 +66,6 @@ export const aiModuleRegistry = [
     id: "readiness-assistant",
     label: "AI kontrola připravenosti vozu",
     supportedSections: ["stock"],
-    enabled: false,
-  },
-  {
-    id: "price-recommendation",
-    label: "AI doporučení ceny",
-    supportedSections: ["valuation", "approved_purchase", "stock"],
     enabled: false,
   },
 ];
