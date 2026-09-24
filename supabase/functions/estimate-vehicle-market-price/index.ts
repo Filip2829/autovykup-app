@@ -71,6 +71,15 @@ function text(value: unknown, maxLength = 500) {
     : "";
 }
 
+function getOpenAiErrorMessage(errorBody: string) {
+  try {
+    const parsed = JSON.parse(errorBody);
+    return text(parsed?.error?.message, 500);
+  } catch {
+    return "";
+  }
+}
+
 function isSautoUrl(value: unknown) {
   try {
     const url = new URL(text(value, 600));
@@ -221,17 +230,16 @@ Deno.serve(async (req) => {
             { role: "system", content: systemPrompt },
             {
               role: "user",
-              content: `Najdi porovnatelné aktivní nabídky pro toto vozidlo:\n${serializedVehicle}`,
+              content: `Vyhledej pomocí dotazu site:sauto.cz porovnatelné aktivní nabídky pro toto vozidlo:\n${serializedVehicle}`,
             },
           ],
           tools: [
             {
               type: "web_search",
-              filters: { allowed_domains: ["sauto.cz"] },
               search_context_size: "high",
             },
           ],
-          tool_choice: "auto",
+          tool_choice: "required",
           include: ["web_search_call.action.sources"],
           max_output_tokens: 3000,
           text: {
@@ -260,6 +268,7 @@ Deno.serve(async (req) => {
     if (!openAiResponse.ok) {
       const errorBody = await openAiResponse.text();
       const requestId = openAiResponse.headers.get("x-request-id") || "";
+      const openAiError = getOpenAiErrorMessage(errorBody);
       console.error("OpenAI price recommendation failed", {
         status: openAiResponse.status,
         requestId,
@@ -269,7 +278,11 @@ Deno.serve(async (req) => {
         {
           code: "unavailable",
           error: "Vyhledání porovnatelných nabídek selhalo.",
-          detail: requestId ? `Request ID: ${requestId}` : "Bez detailu požadavku.",
+          detail:
+            openAiError ||
+            (requestId
+              ? `Technický identifikátor požadavku: ${requestId}`
+              : "OpenAI služba nevrátila podrobnosti chyby."),
         },
         502
       );
