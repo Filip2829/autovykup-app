@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import {
   BellRing,
   CheckCircle,
+  CircleDot,
   MessageCircle,
   Plus,
   Search,
@@ -38,6 +39,7 @@ import VehicleInterestedCustomers from "./components/VehicleInterestedCustomers.
 import VehicleModuleNavigation from "./components/VehicleModuleNavigation.jsx";
 import VehicleValuationSummary from "./components/VehicleValuationSummary.jsx";
 import VehicleAiAssistant from "./components/ai/VehicleAiAssistant.jsx";
+import TireInventory from "./components/tires/TireInventory.jsx";
 import {
   createCustomer as createCrmCustomer,
   loadCustomers as loadCrmCustomers,
@@ -1979,6 +1981,13 @@ const remainingEquipment = equipmentItems.filter(
               </div>
 
               <div className="module">
+                <CircleDot />
+                <h3>Pneumatiky a kola</h3>
+                <p>Skladová evidence sad</p>
+                <button onClick={() => setView("tires")}>Otevřít</button>
+              </div>
+
+              <div className="module">
                 <CheckCircle />
                 <h3>Prodané vozy</h3>
                 <p>{soldCars.length} záznamů</p>
@@ -2011,6 +2020,10 @@ const remainingEquipment = equipmentItems.filter(
           onNew={openNewCustomer}
           onSelect={openCustomerDetail}
         />
+      )}
+
+      {view === "tires" && (
+        <TireInventory onBack={() => setView("home")} />
       )}
 
       {view === "customerForm" && (
