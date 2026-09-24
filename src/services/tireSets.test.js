@@ -13,6 +13,10 @@ import {
   validateTirePhotoFile,
   validateTireSet,
 } from "./tireSets.js";
+import {
+  buildTireSetDraftFromAnalysis,
+  validateTirePhotoAnalysisOutput,
+} from "./tirePhotoAnalysis.js";
 
 const validSet = {
   id: "set-1",
@@ -209,5 +213,82 @@ describe("tireSets – fotografie", () => {
     );
     assert.equal(photo.tireSetId, "set-id");
     assert.equal(photo.signedUrl, "https://signed.example/photo");
+  });
+});
+
+describe("tireSets – bezpečné AI rozpoznání fotografií", () => {
+  const confirmed = (value, evidence = "Údaj je čitelný na bočnici.") => ({
+    value,
+    status: "confirmed",
+    evidence,
+  });
+  const unreadable = (evidence = "Detail není na fotografii vidět.") => ({
+    value: null,
+    status: "unreadable",
+    evidence,
+  });
+
+  test("předvyplní potvrzené údaje a dovolí označený odhad vzorku", () => {
+    const analysis = validateTirePhotoAnalysisOutput({
+      fields: {
+        name: confirmed("Continental WinterContact"),
+        tireSize: confirmed("205/55 R16"),
+        treadDepthMm: { value: 6, status: "estimated", evidence: "Na fotografii je měrka." },
+        dotCode: confirmed("2321"),
+        season: confirmed("winter"),
+        assemblyType: confirmed("alloy_wheels"),
+        boltPattern: unreadable(),
+        et: confirmed(45),
+        quantity: confirmed(4),
+      },
+      summary: "Část údajů byla přečtena.",
+      warnings: [],
+    });
+    const result = buildTireSetDraftFromAnalysis(analysis);
+
+    assert.equal(result.draft.name, "Continental WinterContact");
+    assert.equal(result.draft.treadDepthMm, 6);
+    assert.equal(result.draft.dotCode, "2321");
+    assert.equal(result.draft.boltPattern, "");
+    assert.ok(result.warnings.some((warning) => /orientační odhad/.test(warning)));
+    assert.ok(result.warnings.some((warning) => /rozteč: z fotografií nelze/.test(warning)));
+  });
+
+  test("nejisté údaje kromě vzorku nikdy nepřenese do záznamu", () => {
+    const estimated = (value) => ({ value, status: "estimated", evidence: "Pouze odhad." });
+    const fields = Object.fromEntries(
+      ["name", "tireSize", "dotCode", "season", "assemblyType", "boltPattern"].map((field) => [field, estimated("odhad")])
+    );
+    fields.treadDepthMm = unreadable();
+    fields.et = estimated(45);
+    fields.quantity = estimated(4);
+    const result = buildTireSetDraftFromAnalysis(
+      validateTirePhotoAnalysisOutput({ fields, summary: "", warnings: [] })
+    );
+
+    assert.equal(result.draft.name, "");
+    assert.equal(result.draft.dotCode, "");
+    assert.equal(result.draft.et, "");
+    assert.equal(result.draft.quantity, "");
+  });
+
+  test("neplatný potvrzený DOT zahodí a zobrazí upozornění", () => {
+    const fields = {
+      name: confirmed("Michelin"),
+      tireSize: unreadable(),
+      treadDepthMm: unreadable(),
+      dotCode: confirmed("5521"),
+      season: unreadable(),
+      assemblyType: unreadable(),
+      boltPattern: unreadable(),
+      et: unreadable(),
+      quantity: unreadable(),
+    };
+    const result = buildTireSetDraftFromAnalysis(
+      validateTirePhotoAnalysisOutput({ fields, summary: "", warnings: [] })
+    );
+
+    assert.equal(result.draft.dotCode, "");
+    assert.ok(result.warnings.some((warning) => /validním čtyřmístném formátu/.test(warning)));
   });
 });

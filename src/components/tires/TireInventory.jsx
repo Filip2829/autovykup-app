@@ -15,6 +15,7 @@ import {
   uploadTireSetPhoto,
   validateTireSet,
 } from "../../services/tireSets.js";
+import TirePhotoIntake from "./TirePhotoIntake.jsx";
 import "./tires.css";
 
 const emptyTireSet = {
@@ -53,7 +54,7 @@ function TireSetForm({ tireSet, allSets, onSaved, onCancel }) {
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
   const editing = Boolean(tireSet?.id);
-  const hasWheels = form.assemblyType !== "tires_only";
+  const hasWheels = ["steel_wheels", "alloy_wheels"].includes(form.assemblyType);
 
   function updateField(field, value) {
     setForm((current) => ({ ...current, [field]: value }));
@@ -93,6 +94,19 @@ function TireSetForm({ tireSet, allSets, onSaved, onCancel }) {
           Zavřít
         </button>
       </div>
+
+      {(form.analysisSummary || form.analysisWarnings?.length > 0) && (
+        <div className="tireAnalysisResult" role="status">
+          <strong>Výsledek rozpoznání fotografií</strong>
+          {form.analysisSummary && <p>{form.analysisSummary}</p>}
+          {form.analysisWarnings?.length > 0 && (
+            <ul>
+              {form.analysisWarnings.map((warning) => <li key={warning}>{warning}</li>)}
+            </ul>
+          )}
+          <p>Než sadu uložíte, zkontrolujte všechny předvyplněné údaje.</p>
+        </div>
+      )}
 
       <div className="tireFormGrid">
         <label>
@@ -155,6 +169,7 @@ function TireSetForm({ tireSet, allSets, onSaved, onCancel }) {
         <label>
           Sezóna
           <select value={form.season} onChange={(event) => updateField("season", event.target.value)}>
+            {!form.season && <option value="">Vyberte sezónu</option>}
             {tireSeasons.map((option) => (
               <option key={option.value} value={option.value}>{option.label}</option>
             ))}
@@ -166,6 +181,7 @@ function TireSetForm({ tireSet, allSets, onSaved, onCancel }) {
             value={form.assemblyType}
             onChange={(event) => updateField("assemblyType", event.target.value)}
           >
+            {!form.assemblyType && <option value="">Vyberte provedení</option>}
             {tireAssemblyTypes.map((option) => (
               <option key={option.value} value={option.value}>{option.label}</option>
             ))}
@@ -248,6 +264,8 @@ export default function TireInventory({ onBack }) {
   const [editing, setEditing] = useState(null);
   const [photos, setPhotos] = useState([]);
   const [photoBusySetId, setPhotoBusySetId] = useState(null);
+  const [photoIntakeOpen, setPhotoIntakeOpen] = useState(false);
+  const [pendingPhotoFiles, setPendingPhotoFiles] = useState([]);
 
   async function refresh() {
     setLoading(true);
@@ -304,19 +322,56 @@ export default function TireInventory({ onBack }) {
   ).size;
 
   function startNew() {
+    setPhotoIntakeOpen(false);
+    setPendingPhotoFiles([]);
     setEditing({
       ...emptyTireSet,
       storageNumber: findFreeStorageNumber(items),
     });
   }
 
-  function handleSaved(saved) {
+  function startPhotoIntake() {
+    setEditing(null);
+    setPendingPhotoFiles([]);
+    setPhotoIntakeOpen(true);
+  }
+
+  function handlePhotosAnalyzed(analysis, files) {
+    setPendingPhotoFiles(files);
+    setPhotoIntakeOpen(false);
+    setEditing({
+      ...emptyTireSet,
+      ...analysis.draft,
+      storageNumber: findFreeStorageNumber(items),
+      status: "in_stock",
+      notes: "",
+      analysisSummary: analysis.summary,
+      analysisWarnings: analysis.warnings,
+    });
+  }
+
+  async function handleSaved(saved) {
     setItems((current) => {
       const exists = current.some((item) => item.id === saved.id);
       return exists
         ? current.map((item) => (item.id === saved.id ? saved : item))
         : [...current, saved];
     });
+    if (pendingPhotoFiles.length > 0) {
+      const uploaded = [];
+      try {
+        for (const file of pendingPhotoFiles) {
+          uploaded.push(await uploadTireSetPhoto(saved.id, file));
+        }
+        setPhotos((current) => [...current, ...uploaded]);
+      } catch (uploadError) {
+        setError(
+          `Sada byla vytvořena, ale některé fotografie se nepodařilo uložit: ${uploadError.message || "neznámá chyba"}`
+        );
+        await refresh();
+      }
+    }
+    setPendingPhotoFiles([]);
     setEditing(null);
   }
 
@@ -379,9 +434,14 @@ export default function TireInventory({ onBack }) {
           <h1 id="tireInventoryTitle">Pneumatiky a kola</h1>
           <p>Evidence fyzicky označených sad v bazaru.</p>
         </div>
-        <button type="button" className="primaryButton" onClick={startNew} disabled={occupiedCount >= 100}>
-          Přidat sadu
-        </button>
+        <div className="tireHeaderActions">
+          <button type="button" className="secondaryButton" onClick={startPhotoIntake} disabled={occupiedCount >= 100}>
+            Přidat z fotografií
+          </button>
+          <button type="button" className="primaryButton" onClick={startNew} disabled={occupiedCount >= 100}>
+            Přidat ručně
+          </button>
+        </div>
       </div>
 
       <div className="tireStats">
@@ -390,13 +450,23 @@ export default function TireInventory({ onBack }) {
         <div><strong>{items.filter((item) => item.status === "reserved").length}</strong><span>rezervovaných</span></div>
       </div>
 
+      {photoIntakeOpen && (
+        <TirePhotoIntake
+          onAnalyzed={handlePhotosAnalyzed}
+          onCancel={() => setPhotoIntakeOpen(false)}
+        />
+      )}
+
       {editing && (
         <TireSetForm
           key={editing.id || `new-${editing.storageNumber}`}
           tireSet={editing}
           allSets={items}
           onSaved={handleSaved}
-          onCancel={() => setEditing(null)}
+          onCancel={() => {
+            setPendingPhotoFiles([]);
+            setEditing(null);
+          }}
         />
       )}
 

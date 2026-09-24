@@ -47,3 +47,8 @@ entrypoint = "./functions/analyze-vehicle-technical-data/index.ts"
 enabled = true
 verify_jwt = true
 entrypoint = "./functions/estimate-vehicle-market-price/index.ts"
+
+[functions.analyze-tire-set-photos]
+enabled = true
+verify_jwt = true
+entrypoint = "./functions/analyze-tire-set-photos/index.ts"
