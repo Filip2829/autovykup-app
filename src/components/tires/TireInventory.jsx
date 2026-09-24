@@ -3,6 +3,7 @@ import {
   createTireSet,
   deleteTireSetPhoto,
   filterTireSets,
+  formatTireAge,
   loadTireSetPhotos,
   loadTireSets,
   MAX_TIRE_PHOTOS,
@@ -21,6 +22,7 @@ const emptyTireSet = {
   name: "",
   tireSize: "",
   treadDepthMm: "",
+  dotCode: "",
   season: "winter",
   assemblyType: "tires_only",
   boltPattern: "",
@@ -133,6 +135,22 @@ function TireSetForm({ tireSet, allSets, onSaved, onCancel }) {
             value={form.treadDepthMm}
             onChange={(event) => updateField("treadDepthMm", event.target.value)}
           />
+        </label>
+        <label>
+          DOT (týden a rok výroby)
+          <input
+            type="text"
+            inputMode="numeric"
+            maxLength="4"
+            placeholder="Např. 2321"
+            value={form.dotCode}
+            onChange={(event) => updateField("dotCode", event.target.value)}
+          />
+          <small>
+            {form.dotCode
+              ? formatTireAge(form.dotCode)
+              : "Pokud DOT na fotografii není čitelný, ponechte pole prázdné."}
+          </small>
         </label>
         <label>
           Sezóna
@@ -383,7 +401,7 @@ export default function TireInventory({ onBack }) {
       )}
 
       <div className="tireFilters">
-        <label>Hledat<input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Číslo, název, rozměr nebo rozteč" /></label>
+        <label>Hledat<input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Číslo, název, rozměr, DOT nebo rozteč" /></label>
         <label>Stav<select value={status} onChange={(event) => setStatus(event.target.value)}><option value="active">Aktuálně evidované</option><option value="all">Vše včetně historie</option>{tireSetStatuses.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
         <label>Sezóna<select value={season} onChange={(event) => setSeason(event.target.value)}><option value="all">Všechny</option>{tireSeasons.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
         <label>Provedení<select value={assemblyType} onChange={(event) => setAssemblyType(event.target.value)}><option value="all">Všechna</option>{tireAssemblyTypes.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
@@ -419,6 +437,7 @@ export default function TireInventory({ onBack }) {
                 <span><small>Sezóna</small>{labelFor(tireSeasons, item.season)}</span>
                 <span><small>Provedení</small>{labelFor(tireAssemblyTypes, item.assemblyType)}</span>
                 <span><small>Vzorek</small>{item.treadDepthMm === "" ? "Neuveden" : `${item.treadDepthMm} mm`}</span>
+                <span><small>DOT / stáří</small>{item.dotCode ? `${item.dotCode} · ${formatTireAge(item.dotCode)}` : "Nečitelné / neuvedeno"}</span>
                 <span><small>Rozteč / ET</small>{item.assemblyType === "tires_only" ? "Bez disků" : `${item.boltPattern || "—"} / ET ${item.et === "" ? "—" : item.et}`}</span>
               </div>
               <div className="tireCardActions">

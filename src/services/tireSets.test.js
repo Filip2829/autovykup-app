@@ -4,10 +4,12 @@ import { describe, test } from "node:test";
 import {
   createTirePhotoPath,
   filterTireSets,
+  formatTireAge,
   mapTirePhotoRow,
   mapTireSetRow,
   mapTireSetToPayload,
   MAX_TIRE_PHOTO_BYTES,
+  parseDotCode,
   validateTirePhotoFile,
   validateTireSet,
 } from "./tireSets.js";
@@ -18,6 +20,7 @@ const validSet = {
   name: "Continental WinterContact",
   tireSize: "205/55 R16",
   treadDepthMm: "6.5",
+  dotCode: "2321",
   season: "winter",
   assemblyType: "alloy_wheels",
   boltPattern: "5x112",
@@ -35,6 +38,7 @@ describe("tireSets – mapování", () => {
       name: "Continental",
       tire_size: "205/55 R16",
       tread_depth_mm: 6.5,
+      dot_code: "2321",
       assembly_type: "alloy_wheels",
       bolt_pattern: "5x112",
       et: 45,
@@ -46,6 +50,7 @@ describe("tireSets – mapování", () => {
 
     assert.equal(result.storageNumber, 12);
     assert.equal(result.treadDepthMm, 6.5);
+    assert.equal(result.dotCode, "2321");
     assert.equal(result.assemblyType, "alloy_wheels");
   });
 
@@ -53,6 +58,7 @@ describe("tireSets – mapování", () => {
     const payload = mapTireSetToPayload({ ...validSet, name: "  Continental  " });
     assert.equal(payload.name, "Continental");
     assert.equal(payload.tread_depth_mm, 6.5);
+    assert.equal(payload.dot_code, "2321");
     assert.equal(payload.et, 45);
   });
 
@@ -63,6 +69,31 @@ describe("tireSets – mapování", () => {
     });
     assert.equal(payload.bolt_pattern, null);
     assert.equal(payload.et, null);
+  });
+});
+
+describe("tireSets – DOT a stáří", () => {
+  test("převede DOT na týden a celý rok", () => {
+    assert.deepEqual(parseDotCode("23 21"), {
+      dotCode: "2321",
+      week: 23,
+      year: 2021,
+    });
+  });
+
+  test("odmítne neplatný týden nebo neúplný DOT", () => {
+    assert.equal(parseDotCode("5421"), null);
+    assert.equal(parseDotCode("321"), null);
+    assert.equal(validateTireSet({ ...validSet, dotCode: "5421" }).valid, false);
+  });
+
+  test("spočítá orientační aktuální stáří z DOT", () => {
+    assert.equal(formatTireAge("0120", new Date("2026-09-24T00:00:00Z")), "6 let 8 měs.");
+  });
+
+  test("starší záznam bez DOT zůstane platný", () => {
+    assert.equal(validateTireSet({ ...validSet, dotCode: "" }).valid, true);
+    assert.equal(formatTireAge(""), "Stáří nelze určit");
   });
 });
 

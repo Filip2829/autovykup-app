@@ -42,6 +42,42 @@ function nullableNumber(value) {
   return Number.isFinite(number) ? number : null;
 }
 
+export function normalizeDotCode(value) {
+  return trimText(value).replace(/\D/g, "");
+}
+
+export function parseDotCode(value) {
+  const dotCode = normalizeDotCode(value);
+  if (!/^\d{4}$/.test(dotCode)) return null;
+
+  const week = Number(dotCode.slice(0, 2));
+  const shortYear = Number(dotCode.slice(2));
+  if (week < 1 || week > 53) return null;
+
+  const currentShortYear = new Date().getFullYear() % 100;
+  const year = (shortYear <= currentShortYear ? 2000 : 1900) + shortYear;
+  return { dotCode, week, year };
+}
+
+export function formatTireAge(value, now = new Date()) {
+  const parsed = parseDotCode(value);
+  if (!parsed) return "Stáří nelze určit";
+
+  const manufacturedAt = new Date(Date.UTC(parsed.year, 0, 1 + (parsed.week - 1) * 7));
+  const months = Math.max(
+    0,
+    (now.getUTCFullYear() - manufacturedAt.getUTCFullYear()) * 12 +
+      now.getUTCMonth() -
+      manufacturedAt.getUTCMonth()
+  );
+  const years = Math.floor(months / 12);
+  const remainingMonths = months % 12;
+
+  if (years === 0) return `${remainingMonths} měs.`;
+  if (remainingMonths === 0) return `${years} ${years === 1 ? "rok" : years < 5 ? "roky" : "let"}`;
+  return `${years} ${years === 1 ? "rok" : years < 5 ? "roky" : "let"} ${remainingMonths} měs.`;
+}
+
 export function mapTireSetRow(row = {}) {
   return {
     id: row.id ?? null,
@@ -49,6 +85,7 @@ export function mapTireSetRow(row = {}) {
     name: row.name ?? "",
     tireSize: row.tire_size ?? "",
     treadDepthMm: row.tread_depth_mm ?? "",
+    dotCode: row.dot_code ?? "",
     season: row.season ?? "winter",
     assemblyType: row.assembly_type ?? "tires_only",
     boltPattern: row.bolt_pattern ?? "",
@@ -106,6 +143,7 @@ export function mapTireSetToPayload(tireSet = {}) {
     name: trimText(tireSet.name),
     tire_size: trimText(tireSet.tireSize),
     tread_depth_mm: nullableNumber(tireSet.treadDepthMm),
+    dot_code: nullableText(normalizeDotCode(tireSet.dotCode)),
     season: tireSet.season,
     assembly_type: tireSet.assemblyType,
     bolt_pattern: hasWheels ? nullableText(tireSet.boltPattern) : null,
@@ -121,6 +159,7 @@ export function validateTireSet(tireSet = {}, existingSets = []) {
   const quantity = Number(tireSet.quantity);
   const treadDepth = nullableNumber(tireSet.treadDepthMm);
   const et = nullableNumber(tireSet.et);
+  const dotCode = normalizeDotCode(tireSet.dotCode);
 
   if (!Number.isInteger(storageNumber) || storageNumber < 1 || storageNumber > 100) {
     return { valid: false, error: "Skladové číslo musí být celé číslo od 1 do 100." };
@@ -142,6 +181,9 @@ export function validateTireSet(tireSet = {}, existingSets = []) {
   }
   if (treadDepth !== null && treadDepth < 0) {
     return { valid: false, error: "Hloubka vzorku nesmí být záporná." };
+  }
+  if (dotCode && !parseDotCode(dotCode)) {
+    return { valid: false, error: "DOT musí mít čtyři číslice ve formátu TT RR, například 2321." };
   }
   if (tireSet.et !== "" && tireSet.et !== null && !Number.isInteger(et)) {
     return { valid: false, error: "ET musí být celé číslo." };
@@ -173,7 +215,7 @@ export function filterTireSets(tireSets = [], filters = {}) {
     ) return false;
     if (!query) return true;
 
-    return [item.storageNumber, item.name, item.tireSize, item.boltPattern, item.notes]
+    return [item.storageNumber, item.name, item.tireSize, item.dotCode, item.boltPattern, item.notes]
       .map((value) => String(value || "").toLocaleLowerCase("cs-CZ"))
       .some((value) => value.includes(query));
   });
