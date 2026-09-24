@@ -1,13 +1,17 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   createTireSet,
+  deleteTireSetPhoto,
   filterTireSets,
+  loadTireSetPhotos,
   loadTireSets,
+  MAX_TIRE_PHOTOS,
   retireTireSet,
   tireAssemblyTypes,
   tireSeasons,
   tireSetStatuses,
   updateTireSet,
+  uploadTireSetPhoto,
   validateTireSet,
 } from "../../services/tireSets.js";
 import "./tires.css";
@@ -224,12 +228,19 @@ export default function TireInventory({ onBack }) {
   const [season, setSeason] = useState("all");
   const [assemblyType, setAssemblyType] = useState("all");
   const [editing, setEditing] = useState(null);
+  const [photos, setPhotos] = useState([]);
+  const [photoBusySetId, setPhotoBusySetId] = useState(null);
 
   async function refresh() {
     setLoading(true);
     setError("");
     try {
-      setItems(await loadTireSets());
+      const [loadedItems, loadedPhotos] = await Promise.all([
+        loadTireSets(),
+        loadTireSetPhotos(),
+      ]);
+      setItems(loadedItems);
+      setPhotos(loadedPhotos);
     } catch (loadError) {
       setError(loadError.message || "Pneumatiky se nepodařilo načíst.");
     } finally {
@@ -239,9 +250,12 @@ export default function TireInventory({ onBack }) {
 
   useEffect(() => {
     let active = true;
-    loadTireSets()
-      .then((loadedItems) => {
-        if (active) setItems(loadedItems);
+    Promise.all([loadTireSets(), loadTireSetPhotos()])
+      .then(([loadedItems, loadedPhotos]) => {
+        if (active) {
+          setItems(loadedItems);
+          setPhotos(loadedPhotos);
+        }
       })
       .catch((loadError) => {
         if (active) {
@@ -298,6 +312,47 @@ export default function TireInventory({ onBack }) {
     }
   }
 
+  async function handlePhotoUpload(item, fileList, input) {
+    const files = Array.from(fileList || []);
+    const existingCount = photos.filter((photo) => photo.tireSetId === item.id).length;
+    if (files.length === 0) return;
+    if (existingCount + files.length > MAX_TIRE_PHOTOS) {
+      setError(`Jedna sada může mít maximálně ${MAX_TIRE_PHOTOS} fotografií.`);
+      input.value = "";
+      return;
+    }
+
+    setPhotoBusySetId(item.id);
+    setError("");
+    try {
+      const uploaded = [];
+      for (const file of files) {
+        uploaded.push(await uploadTireSetPhoto(item.id, file));
+      }
+      setPhotos((current) => [...current, ...uploaded]);
+    } catch (uploadError) {
+      setError(uploadError.message || "Fotografie se nepodařilo nahrát.");
+      await refresh();
+    } finally {
+      input.value = "";
+      setPhotoBusySetId(null);
+    }
+  }
+
+  async function handlePhotoDelete(item, photo) {
+    if (!window.confirm(`Smazat fotografii „${photo.fileName}“?`)) return;
+    setPhotoBusySetId(item.id);
+    setError("");
+    try {
+      await deleteTireSetPhoto(photo);
+      setPhotos((current) => current.filter((entry) => entry.id !== photo.id));
+    } catch (deleteError) {
+      setError(deleteError.message || "Fotografii se nepodařilo smazat.");
+    } finally {
+      setPhotoBusySetId(null);
+    }
+  }
+
   return (
     <section className="tirePage" aria-labelledby="tireInventoryTitle">
       <div className="tirePageHeader">
@@ -334,16 +389,26 @@ export default function TireInventory({ onBack }) {
         <label>Provedení<select value={assemblyType} onChange={(event) => setAssemblyType(event.target.value)}><option value="all">Všechna</option>{tireAssemblyTypes.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
       </div>
 
+      {error && !loading && (
+        <div className="tireState tireError" role="alert">
+          <p>{error}</p>
+          <button type="button" className="secondaryButton" onClick={refresh}>
+            Obnovit přehled
+          </button>
+        </div>
+      )}
+
       {loading ? (
         <div className="tireState">Načítám pneumatiky…</div>
-      ) : error ? (
-        <div className="tireState tireError" role="alert"><p>{error}</p><button type="button" className="secondaryButton" onClick={refresh}>Zkusit znovu</button></div>
       ) : filteredItems.length === 0 ? (
         <div className="tireState">Žádná sada neodpovídá zvoleným filtrům.</div>
       ) : (
         <div className="tireList">
-          {filteredItems.map((item) => (
-            <article key={item.id} className={`tireCard tireCard-${item.status}`}>
+          {filteredItems.map((item) => {
+            const itemPhotos = photos.filter((photo) => photo.tireSetId === item.id);
+            const photoBusy = photoBusySetId === item.id;
+            return (
+              <article key={item.id} className={`tireCard tireCard-${item.status}`}>
               <div className="tireNumber">{item.storageNumber}</div>
               <div className="tireIdentity">
                 <h2>{item.name}</h2>
@@ -361,8 +426,52 @@ export default function TireInventory({ onBack }) {
                 {item.status !== "retired" && <button type="button" className="secondaryButton" onClick={() => setEditing(item)}>Upravit</button>}
                 {item.status !== "retired" && <button type="button" className="dangerButton" onClick={() => handleRetire(item)}>Vyřadit</button>}
               </div>
-            </article>
-          ))}
+
+              <div className="tirePhotos">
+                <div className="tirePhotosHeader">
+                  <strong>Fotografie ({itemPhotos.length}/{MAX_TIRE_PHOTOS})</strong>
+                  {item.status !== "retired" && itemPhotos.length < MAX_TIRE_PHOTOS && (
+                    <label className={`secondaryButton tirePhotoUpload${photoBusy ? " tirePhotoUpload-disabled" : ""}`}>
+                      {photoBusy ? "Nahrávám…" : "Přidat fotky"}
+                      <input
+                        type="file"
+                        accept="image/jpeg,image/png,image/webp"
+                        multiple
+                        disabled={photoBusy}
+                        onChange={(event) =>
+                          handlePhotoUpload(item, event.target.files, event.target)
+                        }
+                      />
+                    </label>
+                  )}
+                </div>
+                {itemPhotos.length === 0 ? (
+                  <p className="tirePhotosEmpty">Zatím bez fotografií.</p>
+                ) : (
+                  <div className="tirePhotoGrid">
+                    {itemPhotos.map((photo) => (
+                      <figure key={photo.id} className="tirePhoto">
+                        <a href={photo.signedUrl} target="_blank" rel="noreferrer">
+                          <img src={photo.signedUrl} alt={`${item.name} – ${photo.fileName}`} />
+                        </a>
+                        {item.status !== "retired" && (
+                          <button
+                            type="button"
+                            aria-label={`Smazat fotografii ${photo.fileName}`}
+                            disabled={photoBusy}
+                            onClick={() => handlePhotoDelete(item, photo)}
+                          >
+                            ×
+                          </button>
+                        )}
+                      </figure>
+                    ))}
+                  </div>
+                )}
+              </div>
+              </article>
+            );
+          })}
         </div>
       )}
     </section>

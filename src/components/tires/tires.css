@@ -26,6 +26,18 @@
 .tireDetails span { display: flex; flex-direction: column; }
 .tireDetails small { color: #64748b; font-size: .68rem; font-weight: 800; text-transform: uppercase; }
 .tireCardActions { display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 8px; }
+.tirePhotos { grid-column: 1 / -1; padding-top: 14px; border-top: 1px solid rgba(148,163,184,.14); }
+.tirePhotosHeader { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 10px; }
+.tirePhotosHeader strong { color: #cbd5e1; font-size: .88rem; }
+.tirePhotoUpload { display: inline-flex; align-items: center; justify-content: center; cursor: pointer; }
+.tirePhotoUpload input { position: absolute; width: 1px; height: 1px; overflow: hidden; opacity: 0; pointer-events: none; }
+.tirePhotoUpload-disabled { cursor: wait; opacity: .65; }
+.tirePhotoGrid { display: grid; grid-template-columns: repeat(auto-fill,minmax(110px,1fr)); gap: 10px; }
+.tirePhoto { position: relative; min-height: 96px; margin: 0; overflow: hidden; border: 1px solid rgba(148,163,184,.18); border-radius: 12px; background: #020617; }
+.tirePhoto a, .tirePhoto img { display: block; width: 100%; height: 100%; }
+.tirePhoto img { min-height: 96px; max-height: 145px; object-fit: cover; }
+.tirePhoto button { position: absolute; top: 6px; right: 6px; width: 28px; height: 28px; border: 1px solid rgba(255,255,255,.25); border-radius: 50%; background: rgba(15,23,42,.88); color: #fff; font-size: 1.15rem; line-height: 1; }
+.tirePhotosEmpty { margin: 0; color: #64748b; font-size: .86rem; }
 .tireStatus { padding: 5px 9px; border-radius: 999px; font-size: .76rem; font-weight: 800; }
 .tireStatus-in_stock { background: rgba(22,163,74,.2); color: #86efac; }
 .tireStatus-reserved { background: rgba(217,119,6,.2); color: #fcd34d; }

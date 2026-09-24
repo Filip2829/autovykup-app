@@ -18,6 +18,15 @@ export const tireSetStatuses = [
   { value: "retired", label: "Vyřazeno" },
 ];
 
+export const MAX_TIRE_PHOTOS = 8;
+export const MAX_TIRE_PHOTO_BYTES = 10 * 1024 * 1024;
+const TIRE_PHOTO_BUCKET = "tire-photos";
+const allowedTirePhotoTypes = new Set([
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+]);
+
 function trimText(value) {
   return typeof value === "string" ? value.trim() : "";
 }
@@ -50,6 +59,44 @@ export function mapTireSetRow(row = {}) {
     createdAt: row.created_at ?? null,
     updatedAt: row.updated_at ?? null,
   };
+}
+
+export function mapTirePhotoRow(row = {}, signedUrl = "") {
+  return {
+    id: row.id ?? null,
+    tireSetId: row.tire_set_id ?? null,
+    filePath: row.file_path ?? "",
+    fileName: row.file_name ?? "",
+    fileSize: row.file_size ?? null,
+    mimeType: row.mime_type ?? "",
+    createdAt: row.created_at ?? null,
+    signedUrl,
+  };
+}
+
+export function validateTirePhotoFile(file) {
+  if (!file) return { valid: false, error: "Vyberte fotografii." };
+  if (!allowedTirePhotoTypes.has(file.type)) {
+    return { valid: false, error: "Povolené jsou pouze JPG, PNG a WebP fotografie." };
+  }
+  if (!Number.isFinite(file.size) || file.size <= 0) {
+    return { valid: false, error: "Fotografie je prázdná nebo neplatná." };
+  }
+  if (file.size > MAX_TIRE_PHOTO_BYTES) {
+    return { valid: false, error: "Jedna fotografie může mít maximálně 10 MB." };
+  }
+  return { valid: true, error: "" };
+}
+
+export function createTirePhotoPath(tireSetId, file, photoId) {
+  const extension = String(file?.name || "")
+    .split(".")
+    .pop()
+    ?.toLowerCase();
+  const safeExtension = ["jpg", "jpeg", "png", "webp"].includes(extension)
+    ? extension
+    : "jpg";
+  return `${tireSetId}/${photoId}.${safeExtension}`;
 }
 
 export function mapTireSetToPayload(tireSet = {}) {
@@ -177,4 +224,79 @@ export async function retireTireSet(id) {
     .single();
   if (error) throw serviceError("Vyřazení sady", error);
   return mapTireSetRow(data);
+}
+
+async function createTirePhotoSignedUrl(row) {
+  const { data, error } = await supabase.storage
+    .from(TIRE_PHOTO_BUCKET)
+    .createSignedUrl(row.file_path, 3600);
+  if (error) throw serviceError("Načtení fotografie", error);
+  return mapTirePhotoRow(row, data.signedUrl);
+}
+
+export async function loadTireSetPhotos() {
+  const { data, error } = await supabase
+    .from("tire_set_photos")
+    .select("*")
+    .order("created_at", { ascending: true });
+  if (error) throw serviceError("Načtení fotografií", error);
+  const photos = await Promise.all(
+    (data || []).map(async (row) => {
+      try {
+        return await createTirePhotoSignedUrl(row);
+      } catch {
+        return null;
+      }
+    })
+  );
+  return photos.filter(Boolean);
+}
+
+export async function uploadTireSetPhoto(tireSetId, file) {
+  const validation = validateTirePhotoFile(file);
+  if (!validation.valid) throw new Error(validation.error);
+  if (!tireSetId) throw new Error("Chybí identifikace sady pneumatik.");
+
+  const photoId = crypto.randomUUID();
+  const filePath = createTirePhotoPath(tireSetId, file, photoId);
+  const { error: uploadError } = await supabase.storage
+    .from(TIRE_PHOTO_BUCKET)
+    .upload(filePath, file, { contentType: file.type, upsert: false });
+  if (uploadError) throw serviceError("Nahrání fotografie", uploadError);
+
+  const { data, error } = await supabase
+    .from("tire_set_photos")
+    .insert({
+      id: photoId,
+      tire_set_id: tireSetId,
+      file_path: filePath,
+      file_name: file.name,
+      file_size: file.size,
+      mime_type: file.type,
+    })
+    .select()
+    .single();
+
+  if (error) {
+    await supabase.storage.from(TIRE_PHOTO_BUCKET).remove([filePath]);
+    throw serviceError("Uložení fotografie", error);
+  }
+  return createTirePhotoSignedUrl(data);
+}
+
+export async function deleteTireSetPhoto(photo) {
+  if (!photo?.id || !photo?.filePath) {
+    throw new Error("Fotografii nelze jednoznačně určit.");
+  }
+  const { error: storageError } = await supabase.storage
+    .from(TIRE_PHOTO_BUCKET)
+    .remove([photo.filePath]);
+  if (storageError) throw serviceError("Smazání souboru fotografie", storageError);
+
+  const { error } = await supabase
+    .from("tire_set_photos")
+    .delete()
+    .eq("id", photo.id)
+    .eq("tire_set_id", photo.tireSetId);
+  if (error) throw serviceError("Smazání fotografie", error);
 }

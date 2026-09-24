@@ -2,9 +2,13 @@ import assert from "node:assert/strict";
 import { describe, test } from "node:test";
 
 import {
+  createTirePhotoPath,
   filterTireSets,
+  mapTirePhotoRow,
   mapTireSetRow,
   mapTireSetToPayload,
+  MAX_TIRE_PHOTO_BYTES,
+  validateTirePhotoFile,
   validateTireSet,
 } from "./tireSets.js";
 
@@ -118,5 +122,61 @@ describe("tireSets – filtrace", () => {
       status: "reserved",
     });
     assert.deepEqual(result.map((item) => item.id), ["set-2"]);
+  });
+});
+
+describe("tireSets – fotografie", () => {
+  test("povolí JPG, PNG a WebP do 10 MB", () => {
+    assert.equal(
+      validateTirePhotoFile({ type: "image/jpeg", size: 1024 }).valid,
+      true
+    );
+    assert.equal(
+      validateTirePhotoFile({ type: "image/png", size: 2048 }).valid,
+      true
+    );
+    assert.equal(
+      validateTirePhotoFile({ type: "image/webp", size: 2048 }).valid,
+      true
+    );
+  });
+
+  test("odmítne nepodporovaný formát a příliš velký soubor", () => {
+    assert.equal(
+      validateTirePhotoFile({ type: "application/pdf", size: 1024 }).valid,
+      false
+    );
+    assert.equal(
+      validateTirePhotoFile({
+        type: "image/jpeg",
+        size: MAX_TIRE_PHOTO_BYTES + 1,
+      }).valid,
+      false
+    );
+  });
+
+  test("vytvoří cestu oddělenou podle ID sady", () => {
+    assert.equal(
+      createTirePhotoPath(
+        "tire-set-id",
+        { name: "Přední kolo.JPG" },
+        "photo-id"
+      ),
+      "tire-set-id/photo-id.jpg"
+    );
+  });
+
+  test("mapuje databázovou fotografii včetně podepsané URL", () => {
+    const photo = mapTirePhotoRow(
+      {
+        id: "photo-id",
+        tire_set_id: "set-id",
+        file_path: "set-id/photo-id.jpg",
+        file_name: "kolo.jpg",
+      },
+      "https://signed.example/photo"
+    );
+    assert.equal(photo.tireSetId, "set-id");
+    assert.equal(photo.signedUrl, "https://signed.example/photo");
   });
 });
