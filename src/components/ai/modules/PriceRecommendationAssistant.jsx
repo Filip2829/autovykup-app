@@ -133,6 +133,11 @@ export default function PriceRecommendationAssistant({
             <p>
               Použito {output.sampleSize} porovnatelných inzerátů. {output.querySummary}
             </p>
+            {output.selection && (
+              <p>
+                Rozsah porovnání: rok ±{output.selection.yearTolerance}, nájezd ±{Number(output.selection.mileageTolerance).toLocaleString("cs-CZ")} km.
+              </p>
+            )}
           </section>
 
           <section className="aiAssistantSection">

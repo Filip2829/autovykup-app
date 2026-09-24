@@ -9,6 +9,12 @@ const MODEL = "gpt-4.1-mini";
 const OPENAI_TIMEOUT_MS = 40000;
 const MAX_INPUT_LENGTH = 5000;
 const MAX_COMPARABLES = 10;
+const MIN_SUFFICIENT_SAMPLE = 5;
+const COMPARISON_LEVELS = [
+  { yearTolerance: 1, mileageTolerance: 35000 },
+  { yearTolerance: 1, mileageTolerance: 70000 },
+  { yearTolerance: 2, mileageTolerance: 100000 },
+];
 
 const outputSchema = {
   type: "object",
@@ -47,7 +53,12 @@ Jsi asistent autobazaru pro orientační tržní porovnání ojetých vozidel v 
 Použij webové vyhledávání výhradně na doméně sauto.cz a najdi nejvýše 10 aktuálních, co nejbližších nabídek k zadanému vozidlu.
 
 Pravidla:
-- Značka a model musí odpovídat. Upřednostni stejnou generaci, motor, palivo, převodovku, karoserii, výkon a podobný rok a nájezd.
+- Značka, model a modelová varianta musí odpovídat. Prodlouženou variantu nikdy nezaměň za základní variantu.
+- Renault Scenic a Renault Grand Scenic jsou odlišná vozidla. Pro Scenic nikdy nevracej Grand Scenic a pro Grand Scenic nikdy nevracej běžný Scenic.
+- Nejprve hledej rok výroby v rozsahu ±1 rok. Například pro rok 2018 začni roky 2017 až 2019.
+- Nejprve hledej nájezd v rozsahu ±35 000 km. Pokud nenajdeš alespoň 5 vhodných vozů, rozšiř nájezd na ±70 000 km. Teprve pokud ani potom není vzorek dostatečný, použij rok ±2 a nájezd ±100 000 km.
+- Ve warnings vždy uveď, pokud bylo nutné rozsah roku nebo nájezdu rozšířit.
+- Uvnitř povoleného rozsahu upřednostni stejnou generaci, motor, palivo, převodovku, karoserii a výkon.
 - Neber cenu z agregovaného přehledu, pokud není možné přiřadit konkrétní URL inzerátu.
 - Vyřaď duplicity, havarované vozy, náhradní díly, leasingové splátky vydávané za cenu, nové vozy a inzeráty bez jednoznačné celkové ceny.
 - Cena musí být celková nabídková cena vozidla v Kč jako číslo.
@@ -92,6 +103,92 @@ function isSautoUrl(value: unknown) {
   }
 }
 
+function normalize(value: unknown) {
+  return text(value, 600)
+    .toLocaleLowerCase("cs-CZ")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+function getYear(value: unknown) {
+  const match = text(value, 30).match(/(?:19|20)\d{2}/);
+  return match ? Number(match[0]) : null;
+}
+
+function positiveNumber(value: unknown) {
+  const number = Number(value);
+  return Number.isFinite(number) && number > 0 ? number : null;
+}
+
+function matchesModelVariant(
+  item: Record<string, unknown>,
+  vehicle: Record<string, unknown>
+) {
+  const model = normalize(vehicle.model);
+  if (!model) return true;
+  const source = normalize(`${item.title || ""} ${item.url || ""}`);
+  const targetDescriptor = normalize(
+    `${vehicle.brand || ""} ${vehicle.model || ""} ${vehicle.version || ""}`
+  );
+  if (!source.includes(model)) return false;
+
+  if (model.includes("scenic")) {
+    const targetIsGrand = targetDescriptor.includes("grand scenic");
+    const sourceIsGrand = source.includes("grand scenic");
+    if (targetIsGrand !== sourceIsGrand) return false;
+  }
+  return true;
+}
+
+function fitsComparisonLevel(
+  item: Record<string, unknown>,
+  vehicle: Record<string, unknown>,
+  level: { yearTolerance: number; mileageTolerance: number }
+) {
+  const targetYear = getYear(vehicle.year || vehicle.firstRegistration);
+  const itemYear = getYear(item.year);
+  if (targetYear && (!itemYear || Math.abs(itemYear - targetYear) > level.yearTolerance)) {
+    return false;
+  }
+
+  const targetMileage = positiveNumber(vehicle.mileage);
+  const itemMileage = positiveNumber(item.mileage);
+  if (
+    targetMileage &&
+    (!itemMileage || Math.abs(itemMileage - targetMileage) > level.mileageTolerance)
+  ) {
+    return false;
+  }
+  return true;
+}
+
+function selectComparables(
+  comparables: Record<string, unknown>[],
+  vehicle: Record<string, unknown>
+) {
+  const modelMatches = comparables.filter((item) =>
+    matchesModelVariant(item, vehicle)
+  );
+  let selected: Record<string, unknown>[] = [];
+  let selectedLevel = COMPARISON_LEVELS[COMPARISON_LEVELS.length - 1];
+
+  for (const level of COMPARISON_LEVELS) {
+    selectedLevel = level;
+    selected = modelMatches.filter((item) =>
+      fitsComparisonLevel(item, vehicle, level)
+    );
+    if (selected.length >= MIN_SUFFICIENT_SAMPLE) break;
+  }
+
+  return {
+    comparables: selected.slice(0, MAX_COMPARABLES),
+    excludedVariantCount: comparables.length - modelMatches.length,
+    selectedLevel,
+  };
+}
+
 function extractOutputText(response: Record<string, unknown>) {
   if (typeof response.output_text === "string") return response.output_text;
   const parts: string[] = [];
@@ -115,13 +212,13 @@ function extractOutputText(response: Record<string, unknown>) {
   return parts.join("\n").trim();
 }
 
-function validateOutput(value: unknown) {
+function validateOutput(value: unknown, vehicle: Record<string, unknown>) {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     throw new Error("AI odpověď není platný objekt.");
   }
   const source = value as Record<string, unknown>;
   const seenUrls = new Set<string>();
-  const comparables = (Array.isArray(source.comparables) ? source.comparables : [])
+  const validatedComparables = (Array.isArray(source.comparables) ? source.comparables : [])
     .filter((item) => item && typeof item === "object" && !Array.isArray(item))
     .map((item) => {
       const comparable = item as Record<string, unknown>;
@@ -148,16 +245,23 @@ function validateOutput(value: unknown) {
       }
       seenUrls.add(item.url);
       return true;
-    })
-    .slice(0, MAX_COMPARABLES);
+    });
+  const selection = selectComparables(validatedComparables, vehicle);
+  const warnings = (Array.isArray(source.warnings) ? source.warnings : [])
+    .map((warning) => text(warning, 300))
+    .filter(Boolean)
+    .filter((warning) => !normalize(warning).includes("grand scenic"))
+    .slice(0, 5);
+  if (selection.excludedVariantCount > 0) {
+    warnings.push(
+      `Vyřazeno ${selection.excludedVariantCount} nabídek jiné modelové varianty.`
+    );
+  }
 
   return {
     querySummary: text(source.querySummary, 500),
-    comparables,
-    warnings: (Array.isArray(source.warnings) ? source.warnings : [])
-      .map((warning) => text(warning, 300))
-      .filter(Boolean)
-      .slice(0, 5),
+    comparables: selection.comparables,
+    warnings,
   };
 }
 
@@ -307,7 +411,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    return jsonResponse({ output: validateOutput(parsed) });
+    return jsonResponse({ output: validateOutput(parsed, vehicle) });
   } catch (error) {
     console.error("estimate-vehicle-market-price failed", error);
     return jsonResponse(

@@ -4,6 +4,12 @@ const FUNCTION_NAME = "estimate-vehicle-market-price";
 const DEFAULT_TIMEOUT_MS = 45000;
 const MAX_TEXT_LENGTH = 180;
 const MAX_COMPARABLES = 10;
+const MIN_SUFFICIENT_SAMPLE = 5;
+const COMPARISON_LEVELS = [
+  { yearTolerance: 1, mileageTolerance: 35000 },
+  { yearTolerance: 1, mileageTolerance: 70000 },
+  { yearTolerance: 2, mileageTolerance: 100000 },
+];
 
 export class PriceRecommendationAiError extends Error {
   constructor(code, message) {
@@ -29,6 +35,92 @@ function positiveNumber(value) {
 function nonNegativeNumber(value) {
   const number = Number(value);
   return Number.isFinite(number) && number >= 0 ? number : 0;
+}
+
+function normalize(value) {
+  return text(value, 600)
+    .toLocaleLowerCase("cs-CZ")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+function getYear(value) {
+  const match = text(value, 30).match(/(?:19|20)\d{2}/);
+  return match ? Number(match[0]) : null;
+}
+
+function matchesModelVariant(item, vehicle) {
+  const model = normalize(vehicle?.model);
+  if (!model) return true;
+
+  const source = normalize(`${item.title} ${item.url}`);
+  const targetDescriptor = normalize(
+    `${vehicle?.brand || ""} ${vehicle?.model || ""} ${vehicle?.version || ""}`
+  );
+  if (!source.includes(model)) return false;
+
+  const isScenicFamily = model.includes("scenic");
+  if (isScenicFamily) {
+    const targetIsGrand = targetDescriptor.includes("grand scenic");
+    const sourceIsGrand = source.includes("grand scenic");
+    if (targetIsGrand !== sourceIsGrand) return false;
+  }
+
+  return true;
+}
+
+function fitsComparisonLevel(item, vehicle, level) {
+  const targetYear = getYear(vehicle?.year || vehicle?.firstRegistration);
+  const itemYear = getYear(item.year);
+  if (targetYear && (!itemYear || Math.abs(itemYear - targetYear) > level.yearTolerance)) {
+    return false;
+  }
+
+  const targetMileage = positiveNumber(vehicle?.mileage);
+  if (
+    targetMileage &&
+    (!item.mileage ||
+      Math.abs(item.mileage - targetMileage) > level.mileageTolerance)
+  ) {
+    return false;
+  }
+
+  return true;
+}
+
+export function selectComparableVehicles(comparables, vehicle = {}) {
+  const modelMatches = (Array.isArray(comparables) ? comparables : []).filter(
+    (item) => matchesModelVariant(item, vehicle)
+  );
+  let selected = [];
+  let selectedLevel = COMPARISON_LEVELS[COMPARISON_LEVELS.length - 1];
+  let levelIndex = COMPARISON_LEVELS.length - 1;
+
+  for (let index = 0; index < COMPARISON_LEVELS.length; index += 1) {
+    const level = COMPARISON_LEVELS[index];
+    const candidates = modelMatches.filter((item) =>
+      fitsComparisonLevel(item, vehicle, level)
+    );
+    selected = candidates;
+    selectedLevel = level;
+    levelIndex = index;
+    if (candidates.length >= MIN_SUFFICIENT_SAMPLE) break;
+  }
+
+  return {
+    comparables: selected.slice(0, MAX_COMPARABLES),
+    excludedVariantCount:
+      (Array.isArray(comparables) ? comparables.length : 0) -
+      modelMatches.length,
+    selection: {
+      yearTolerance: selectedLevel.yearTolerance,
+      mileageTolerance: selectedLevel.mileageTolerance,
+      expanded: levelIndex > 0,
+      sufficientSample: selected.length >= MIN_SUFFICIENT_SAMPLE,
+    },
+  };
 }
 
 export function calculateMinimumMargin(salePrice) {
@@ -143,7 +235,11 @@ function validateComparable(value) {
   return comparable;
 }
 
-export function validatePriceRecommendationOutput(value, preparationCosts = 0) {
+export function validatePriceRecommendationOutput(
+  value,
+  preparationCosts = 0,
+  vehicle = {}
+) {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     throw new PriceRecommendationAiError(
       "invalid-response",
@@ -152,14 +248,18 @@ export function validatePriceRecommendationOutput(value, preparationCosts = 0) {
   }
 
   const seenUrls = new Set();
-  const comparables = (Array.isArray(value.comparables) ? value.comparables : [])
+  const validatedComparables = (Array.isArray(value.comparables) ? value.comparables : [])
     .map(validateComparable)
     .filter((item) => {
       if (!item || seenUrls.has(item.url)) return false;
       seenUrls.add(item.url);
       return true;
-    })
-    .slice(0, MAX_COMPARABLES);
+    });
+  const selectionResult = selectComparableVehicles(
+    validatedComparables,
+    vehicle
+  );
+  const comparables = selectionResult.comparables;
   const calculation = calculatePriceRecommendation(
     comparables,
     preparationCosts
@@ -183,9 +283,20 @@ export function validatePriceRecommendationOutput(value, preparationCosts = 0) {
       ...(comparables.length < 5
         ? ["Výsledek vychází z malého počtu porovnatelných inzerátů."]
         : []),
+      ...(selectionResult.excludedVariantCount > 0
+        ? [
+            `Vyřazeno ${selectionResult.excludedVariantCount} nabídek jiné modelové varianty.`,
+          ]
+        : []),
+      ...(selectionResult.selection.expanded
+        ? [
+            `Kvůli malému vzorku bylo rozpětí rozšířeno na ±${selectionResult.selection.mileageTolerance.toLocaleString("cs-CZ")} km a ±${selectionResult.selection.yearTolerance} roky.`,
+          ]
+        : []),
       "Jde o nabídkové ceny z inzerce, nikoli potvrzené prodejní ceny.",
       "Samostatná riziková rezerva zatím není ve výpočtu zahrnuta.",
     ],
+    selection: selectionResult.selection,
     ...calculation,
   };
 }
@@ -244,7 +355,8 @@ export async function invokePriceRecommendationAi(
     }
     return validatePriceRecommendationOutput(
       response?.data?.output ?? response?.data,
-      payload.preparationCosts
+      payload.preparationCosts,
+      payload.vehicle
     );
   } catch (error) {
     if (error instanceof PriceRecommendationAiError) throw error;
@@ -262,4 +374,6 @@ export async function invokePriceRecommendationAi(
 export const priceRecommendationAiConstants = {
   functionName: FUNCTION_NAME,
   maxComparables: MAX_COMPARABLES,
+  minSufficientSample: MIN_SUFFICIENT_SAMPLE,
+  comparisonLevels: COMPARISON_LEVELS,
 };

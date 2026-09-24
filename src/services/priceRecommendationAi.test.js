@@ -7,6 +7,7 @@ import {
   buildPriceRecommendationPayload,
   calculateMinimumMargin,
   calculatePriceRecommendation,
+  selectComparableVehicles,
   validatePriceRecommendationOutput,
 } from "./priceRecommendationAi.js";
 
@@ -47,6 +48,23 @@ function comparable(index, price) {
     year: "2019",
     mileage: 120000 + index,
     matchReason: "Stejný model, rok a motorizace.",
+  };
+}
+
+function scenicComparable(index, {
+  grand = false,
+  year = 2018,
+  mileage = 181000,
+  price = 250000,
+} = {}) {
+  const variant = grand ? "grand-scenic" : "scenic";
+  return {
+    title: `Renault ${grand ? "Grand Scénic" : "Scénic"} dCi nabídka ${index}`,
+    url: `https://www.sauto.cz/osobni/detail/renault/${variant}/${index}`,
+    price,
+    year: String(year),
+    mileage,
+    matchReason: "Stejný model a podobný rok a nájezd.",
   };
 }
 
@@ -130,6 +148,100 @@ describe("AI nacenění podle trhu", () => {
     assert.equal(new Set(result.comparables.map((item) => item.url)).size, 10);
     assert.ok(result.comparables.every((item) => item.url.includes("sauto.cz")));
     assert.equal(result.confidence, "high");
+  });
+
+  test("běžný Scenic nikdy nesmíchá s Grand Scenic", () => {
+    const input = [
+      scenicComparable(1),
+      scenicComparable(2, { mileage: 170000 }),
+      scenicComparable(3, { mileage: 190000 }),
+      scenicComparable(4, { year: 2017 }),
+      scenicComparable(5, { year: 2019 }),
+      scenicComparable(6, { grand: true }),
+    ];
+    const result = selectComparableVehicles(input, {
+      brand: "Renault",
+      model: "Scenic",
+      year: "2018",
+      mileage: 181635,
+    });
+
+    assert.equal(result.comparables.length, 5);
+    assert.equal(result.excludedVariantCount, 1);
+    assert.ok(result.comparables.every((item) => !item.title.includes("Grand")));
+    assert.equal(result.selection.mileageTolerance, 35000);
+    assert.equal(result.selection.expanded, false);
+  });
+
+  test("Grand Scenic používá pouze prodlouženou variantu", () => {
+    const input = [
+      scenicComparable(1, { grand: true }),
+      scenicComparable(2, { grand: true, mileage: 170000 }),
+      scenicComparable(3, { grand: true, mileage: 190000 }),
+      scenicComparable(4, { grand: true, year: 2017 }),
+      scenicComparable(5, { grand: true, year: 2019 }),
+      scenicComparable(6),
+    ];
+    const result = selectComparableVehicles(input, {
+      brand: "Renault",
+      model: "Grand Scenic",
+      year: "2018",
+      mileage: 181635,
+    });
+
+    assert.equal(result.comparables.length, 5);
+    assert.ok(result.comparables.every((item) => item.title.includes("Grand")));
+    assert.equal(result.excludedVariantCount, 1);
+  });
+
+  test("začne na roku ±1 a nájezdu ±35 000 km", () => {
+    const input = [
+      scenicComparable(1, { year: 2017, mileage: 146635 }),
+      scenicComparable(2, { year: 2018, mileage: 181635 }),
+      scenicComparable(3, { year: 2019, mileage: 216635 }),
+      scenicComparable(4, { year: 2018, mileage: 180000 }),
+      scenicComparable(5, { year: 2017, mileage: 190000 }),
+      scenicComparable(6, { year: 2016, mileage: 181635 }),
+      scenicComparable(7, { year: 2018, mileage: 216636 }),
+    ];
+    const result = selectComparableVehicles(input, {
+      brand: "Renault",
+      model: "Scenic",
+      year: "2018",
+      mileage: 181635,
+    });
+
+    assert.deepEqual(
+      result.comparables.map((item) => item.url),
+      input.slice(0, 5).map((item) => item.url)
+    );
+    assert.deepEqual(result.selection, {
+      yearTolerance: 1,
+      mileageTolerance: 35000,
+      expanded: false,
+      sufficientSample: true,
+    });
+  });
+
+  test("při malém vzorku rozšíří nejprve jen nájezd", () => {
+    const input = [
+      scenicComparable(1),
+      scenicComparable(2, { mileage: 170000 }),
+      scenicComparable(3, { year: 2017 }),
+      scenicComparable(4, { year: 2019 }),
+      scenicComparable(5, { mileage: 230000 }),
+    ];
+    const result = selectComparableVehicles(input, {
+      brand: "Renault",
+      model: "Scenic",
+      year: "2018",
+      mileage: 181635,
+    });
+
+    assert.equal(result.comparables.length, 5);
+    assert.equal(result.selection.yearTolerance, 1);
+    assert.equal(result.selection.mileageTolerance, 70000);
+    assert.equal(result.selection.expanded, true);
   });
 
   test("service vrátí pouze kontrolní návrh bez změn vozidla", async () => {
