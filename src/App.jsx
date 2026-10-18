@@ -5,6 +5,7 @@ import {
   CircleDot,
   MessageCircle,
   Plus,
+  Radar,
   Search,
   ShieldCheck,
 } from "lucide-react";
@@ -40,6 +41,7 @@ import VehicleModuleNavigation from "./components/VehicleModuleNavigation.jsx";
 import VehicleValuationSummary from "./components/VehicleValuationSummary.jsx";
 import VehicleAiAssistant from "./components/ai/VehicleAiAssistant.jsx";
 import TireInventory from "./components/tires/TireInventory.jsx";
+import AuctionRadar from "./components/auction/AuctionRadar.jsx";
 import {
   createCustomer as createCrmCustomer,
   loadCustomers as loadCrmCustomers,
@@ -672,6 +674,9 @@ function getPurchasedVehicleReadiness(car, documents = []) {
 }
 
 export default function App() {
+
+  const isAuctionRadarPreview =
+    new URLSearchParams(window.location.search).get("preview") === "auction-radar";
 
   const [cars, setCars] = useState([]);
   const [query, setQuery] = useState("");
@@ -1828,6 +1833,20 @@ const remainingEquipment = equipmentItems.filter(
     setNoteText("");
   }
 
+  if (isAuctionRadarPreview) {
+    return (
+      <div className="app">
+        <header className="header">
+          <div>
+            <p className="label">Interní výkupní aplikace · prohlížecí režim</p>
+            <h1>AutoVýkup</h1>
+          </div>
+        </header>
+        <AuctionRadar onBack={() => { window.location.search = ""; }} />
+      </div>
+    );
+  }
+
   if (!user) {
     return (
       <div className="app">
@@ -1987,6 +2006,14 @@ const remainingEquipment = equipmentItems.filter(
                 <button onClick={() => setView("tires")}>Otevřít</button>
               </div>
 
+              <div className="module auctionRadarMenuCard">
+                <Radar />
+                <h3>Aukční radar</h3>
+                <p>Renault a Dacia · ČR · do 500 000 Kč</p>
+                <span className="menuDemoBadge">První verze</span>
+                <button onClick={() => setView("auctionRadar")}>Otevřít</button>
+              </div>
+
               <div className="module">
                 <CheckCircle />
                 <h3>Prodané vozy</h3>
@@ -2024,6 +2051,10 @@ const remainingEquipment = equipmentItems.filter(
 
       {view === "tires" && (
         <TireInventory onBack={() => setView("home")} />
+      )}
+
+      {view === "auctionRadar" && (
+        <AuctionRadar onBack={() => setView("home")} />
       )}
 
       {view === "customerForm" && (

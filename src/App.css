@@ -1898,6 +1898,27 @@ textarea::placeholder {
   background: rgba(37, 99, 235, 0.14);
 }
 
+.auctionRadarMenuCard {
+  border-color: rgba(59, 130, 246, 0.38);
+  background:
+    radial-gradient(circle at top right, rgba(37, 99, 235, 0.18), transparent 48%),
+    linear-gradient(180deg, rgba(15, 23, 42, 0.96), rgba(2, 6, 23, 0.96));
+}
+
+.menuDemoBadge {
+  display: inline-flex;
+  margin: 5px 0 10px;
+  padding: 5px 8px;
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  border-radius: 999px;
+  background: rgba(245, 158, 11, 0.1);
+  color: #fcd34d;
+  font-size: 11px;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
 .okText {
   color: #86efac !important;
 }
