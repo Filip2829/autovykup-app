@@ -7,7 +7,7 @@ const corsHeaders = {
 const MODEL = "gpt-4.1-mini";
 const TIMEOUT_MS = 60000;
 const MAX_INPUT_LENGTH = 7000;
-const MAX_PER_MARKET = 10;
+const MAX_PER_MARKET = 14;
 
 const comparableProperties = {
   title: { type: "string" },
@@ -20,6 +20,7 @@ const comparableProperties = {
   transmission: { type: ["string", "null"] },
   powerKw: { type: ["number", "null"] },
   bodyType: { type: ["string", "null"] },
+  seats: { type: ["number", "null"] },
   equipmentLevel: { type: ["string", "null"] },
   sellerType: { type: ["string", "null"] },
   vatDeductible: { type: ["boolean", "null"] },
@@ -53,9 +54,12 @@ Jsi analytik českého trhu ojetých vozidel. Tvým jediným úkolem je dohledat
 
 Zásady:
 - Hledej pouze na určené doméně a vrať odkaz na detail konkrétního inzerátu, nikdy stránku výsledků.
+- Projdi více stránek výsledků a každý konkrétní inzerát vrať právě jednou. Nikdy neopakuj stejnou URL ani stejný vůz.
 - Ověř, že inzerát je stále aktivní. Neaktivní výsledek označ active=false.
 - Značka, model a zásadní modelová varianta musí odpovídat. Grand Scénic není Scénic. Osobní a užitkové provedení nerozmělňuj bez upozornění.
 - Preferuj stejné palivo, převodovku, motor, výkon, karoserii, generaci a výbavový stupeň.
+- U dodávek a MPV vždy ověř počet sedadel; nákladní skříň, kombi a vícemístné provedení nejsou zaměnitelné.
+- Když je přesných shod málo, vrať i nejbližší aktivní nabídky stejného modelu a paliva; rozdíl přesně popiš v matchReason. Nikdy kvůli počtu neměň model ani osobní/užitkové určení.
 - Začni rokem ±1 a nájezdem ±30 000 km; při malém vzorku lze postupně rozšířit až na rok ±3 a nájezd ±150 000 km.
 - Vyřaď nové vozy, havarované vozy, náhradní díly, aukce, leasingovou splátku místo celkové ceny a inzeráty bez jasné celkové ceny v Kč.
 - price je celková inzerovaná cena v Kč. Uveď, zda je možný odpočet DPH, ale cenu kvůli tomu sám nepřepočítávej.
@@ -99,7 +103,42 @@ function validDomain(value: unknown, domain: string) {
   } catch { return false; }
 }
 
-function normalizeResult(value: unknown, domain: string) {
+function validDetailUrl(value: unknown, domain: string) {
+  try {
+    const url = new URL(text(value));
+    if (!validDomain(url.href, domain)) return false;
+    if (domain === "sauto.cz") return /^\/(osobni|uzitkova)\/detail\//.test(url.pathname);
+    if (domain === "tipcars.com") return url.pathname.endsWith(".html");
+  } catch { return false; }
+  return false;
+}
+
+function canonicalUrl(value: unknown) {
+  try {
+    const url = new URL(text(value));
+    url.hash = "";
+    url.search = "";
+    return `${url.origin}${url.pathname.replace(/\/$/, "")}`;
+  } catch { return ""; }
+}
+
+function webSearchSourceUrls(response: Record<string, unknown>) {
+  const urls = new Set<string>();
+  for (const item of Array.isArray(response.output) ? response.output : []) {
+    if (!item || typeof item !== "object") continue;
+    const action = (item as Record<string, unknown>).action;
+    if (!action || typeof action !== "object") continue;
+    for (const source of Array.isArray((action as Record<string, unknown>).sources)
+      ? (action as Record<string, unknown>).sources as unknown[] : []) {
+      if (!source || typeof source !== "object") continue;
+      const canonical = canonicalUrl((source as Record<string, unknown>).url);
+      if (canonical) urls.add(canonical);
+    }
+  }
+  return urls;
+}
+
+function normalizeResult(value: unknown, domain: string, sourceUrls: Set<string>) {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     throw new Error("Vyhledávač nevrátil platný objekt.");
   }
@@ -107,7 +146,7 @@ function normalizeResult(value: unknown, domain: string) {
   const comparables = (Array.isArray(result.comparables) ? result.comparables : [])
     .filter((item) => item && typeof item === "object" && !Array.isArray(item))
     .map((item) => item as Record<string, unknown>)
-    .filter((item) => validDomain(item.url, domain) && Number(item.price) > 0 && item.active !== false)
+    .filter((item) => validDetailUrl(item.url, domain) && sourceUrls.has(canonicalUrl(item.url)) && Number(item.price) > 0 && item.active !== false)
     .slice(0, MAX_PER_MARKET);
   return {
     querySummary: text(result.querySummary),
@@ -141,7 +180,7 @@ async function searchMarketplace({
       tools: [{ type: "web_search", search_context_size: "high" }],
       tool_choice: "required",
       include: ["web_search_call.action.sources"],
-      max_output_tokens: 3200,
+      max_output_tokens: 5200,
       text: {
         format: {
           type: "json_schema",
@@ -157,8 +196,9 @@ async function searchMarketplace({
     console.error(`${label} search failed`, { status: response.status, requestId });
     throw new Error(`${label} nevrátilo použitelné výsledky.`);
   }
-  const parsed = JSON.parse(outputText(await response.json()) || "{}");
-  return normalizeResult(parsed, domain);
+  const responseBody = await response.json() as Record<string, unknown>;
+  const parsed = JSON.parse(outputText(responseBody) || "{}");
+  return normalizeResult(parsed, domain, webSearchSourceUrls(responseBody));
 }
 
 Deno.serve(async (request) => {

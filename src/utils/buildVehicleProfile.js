@@ -266,6 +266,7 @@ export function buildVehicleProfile(
       transmission: firstValue(technicalParams.transmission),
       drive: firstValue(technicalParams.drive),
       bodyType: firstValue(technicalParams.bodyType),
+      seats: firstValue(technicalParams.seats),
       color: firstValue(technicalParams.color),
       consumption: firstValue(technicalParams.consumption),
       emissions: firstValue(technicalParams.emissions),

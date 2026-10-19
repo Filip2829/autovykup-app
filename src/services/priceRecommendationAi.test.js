@@ -90,12 +90,12 @@ describe("AI nacenění podle trhu", () => {
       17000
     );
 
-    assert.equal(result.medianPrice, 250000);
-    assert.equal(result.recommendedSalePrice, 250000);
+    assert.equal(result.medianPrice, 255000);
+    assert.equal(result.recommendedSalePrice, 255000);
     assert.equal(result.minimumMargin, 30000);
     assert.equal(result.preparationCosts, 17000);
     assert.equal(result.riskReserve, 10000);
-    assert.equal(result.recommendedPurchasePrice, 193000);
+    assert.equal(result.recommendedPurchasePrice, 198000);
   });
 
   test("payload používá jen technické údaje a součet přípravy", () => {
@@ -139,7 +139,7 @@ describe("AI nacenění podle trhu", () => {
     );
     items[1] = {
       ...items[1],
-      url: "https://www.tipcars.com/dacia-dokker/osobni/benzin/123456",
+      url: "https://www.tipcars.com/dacia-dokker/osobni/benzin/123456.html",
     };
     items.push(items[0]);
     items.push({ ...comparable(99, 250000), url: "https://example.com/auto" });

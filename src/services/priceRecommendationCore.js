@@ -1,5 +1,6 @@
 const MAX_COMPARABLES = 16;
 const MIN_SAMPLE = 5;
+const MIN_QUALITY = 50;
 const LEVELS = [
   { yearTolerance: 1, mileageTolerance: 30000 },
   { yearTolerance: 1, mileageTolerance: 60000 },
@@ -42,16 +43,16 @@ function fuel(value) {
   if (source.includes("lpg")) return "lpg";
   if (source.includes("hybrid")) return "hybrid";
   if (source.includes("elektr")) return "electric";
-  if (source.includes("naft") || source.includes("diesel")) return "diesel";
-  if (source.includes("benzin") || source.includes("petrol")) return "petrol";
+  if (source === "nm" || source.includes("naft") || source.includes("diesel")) return "diesel";
+  if (/^ba(?:\s|$)/.test(source) || source.includes("benzin") || source.includes("petrol")) return "petrol";
   return source;
 }
 
 function transmission(value) {
   const source = normalize(value);
   if (!source) return "";
-  if (/automat|dsg|edc|cvt/.test(source)) return "automatic";
-  if (source.includes("manual")) return "manual";
+  if (source === "aut" || /automat|dsg|edc|cvt/.test(source)) return "automatic";
+  if (source === "man" || /^mt\d/.test(source) || /manual|bvm\d/.test(source)) return "manual";
   return source;
 }
 
@@ -62,6 +63,16 @@ function marketplace(value) {
     if (host === "tipcars.com" || host.endsWith(".tipcars.com")) return "tipcars";
   } catch { return ""; }
   return "";
+}
+
+function isDetailUrl(value) {
+  try {
+    const url = new URL(value);
+    const source = marketplace(value);
+    if (source === "sauto") return /^\/(osobni|uzitkova)\/detail\//.test(url.pathname);
+    if (source === "tipcars") return url.pathname.endsWith(".html");
+  } catch { return false; }
+  return false;
 }
 
 function tokens(value) {
@@ -78,6 +89,16 @@ function overlap(left, right) {
   return count / Math.max(1, Math.min(a.size, b.size));
 }
 
+function bodyProfile(value) {
+  const source = normalize(value);
+  return {
+    cargo: /skrin|skrinovy|dodav|furgon|valnik|chladic|uzitkov|\bvan\b/.test(source),
+    passengerVan: /9 mist|8 mist|7 mist|6 mist|minibus|bus/.test(source),
+    box: /skrin|skrinovy|dodav|furgon|l[1-4]h[1-4]/.test(source),
+    specialized: /odtah|valnik|sklapec|chladic|hasic|sanit/.test(source),
+  };
+}
+
 function matchesVehicle(item, vehicle) {
   const brand = normalize(vehicle.brand);
   const model = normalize(vehicle.model);
@@ -87,12 +108,25 @@ function matchesVehicle(item, vehicle) {
   if (model.includes("scenic") || target.includes("scenic")) {
     if (target.includes("grand scenic") !== source.includes("grand scenic")) return false;
   }
+  if (model.includes("tiguan") || target.includes("tiguan")) {
+    const targetAllspace = target.includes("allspace") || number(vehicle.seats) >= 7;
+    const itemAllspace = source.includes("allspace") || number(item.seats) >= 7;
+    if (targetAllspace !== itemAllspace) return false;
+  }
   const targetFuel = fuel(vehicle.fuel);
   const itemFuel = fuel(item.fuel);
   if (targetFuel && itemFuel && targetFuel !== itemFuel) return false;
   const targetGearbox = transmission(vehicle.transmission);
   const itemGearbox = transmission(item.transmission);
   if (targetGearbox && itemGearbox && targetGearbox !== itemGearbox) return false;
+  const targetBody = bodyProfile(`${vehicle.bodyType} ${vehicle.version}`);
+  const itemBody = bodyProfile(`${item.bodyType} ${item.title} ${item.variant}`);
+  const targetSeats = number(vehicle.seats);
+  const itemSeats = number(item.seats);
+  if (targetBody.cargo && itemBody.passengerVan && !itemBody.cargo) return false;
+  if (targetBody.box && itemBody.specialized && !itemBody.box) return false;
+  if (targetSeats >= 6 && itemBody.cargo && !itemBody.passengerVan && (!itemSeats || itemSeats < 6)) return false;
+  if (targetSeats && itemSeats && Math.abs(targetSeats - itemSeats) >= 3) return false;
   const targetPower = number(vehicle.powerKw);
   const itemPower = number(item.powerKw);
   return !(targetPower && itemPower && Math.abs(itemPower - targetPower) / targetPower > 0.3);
@@ -121,6 +155,9 @@ function score(item, vehicle) {
   const variantOverlap = overlap(`${vehicle.version} ${vehicle.engine} ${vehicle.equipmentLevel}`, `${item.variant} ${item.title} ${item.equipmentLevel}`);
   result += variantOverlap ? Math.min(5, variantOverlap * 5) : -10;
   if (vehicle.bodyType && item.bodyType && !overlap(vehicle.bodyType, item.bodyType)) result -= 10;
+  const targetSeats = number(vehicle.seats);
+  const itemSeats = number(item.seats);
+  if (targetSeats && itemSeats) result -= Math.min(18, Math.abs(targetSeats - itemSeats) * 6);
   return Math.max(1, Math.min(100, Math.round(result)));
 }
 
@@ -129,7 +166,7 @@ function deduplicate(items) {
   const signatures = new Set();
   const output = [];
   for (const item of items) {
-    const signature = [normalize(item.title).split(" ").slice(0, 5).join(" "), year(item.year), item.mileage ? Math.round(item.mileage / 100) : "", Math.round(item.price / 1000)].join("|");
+    const signature = [normalize(item.title).split(" ").slice(0, 5).join(" "), year(item.year), item.mileage || ""].join("|");
     if (urls.has(item.url) || signatures.has(signature)) continue;
     urls.add(item.url);
     signatures.add(signature);
@@ -166,6 +203,13 @@ function weightedQuantile(items, quantile) {
   return sorted.at(-1)?.price || 0;
 }
 
+function reliableQuantile(items, quantile) {
+  if (items.length >= 5) return weightedQuantile(items, quantile);
+  const prices = items.map((item) => item.price).sort((a, b) => a - b);
+  if (quantile === 0.5) return median(prices);
+  return quantile < 0.5 ? prices[0] : prices.at(-1);
+}
+
 const round = (value) => Math.round(Number(value || 0) / 1000) * 1000;
 
 export function selectComparableVehicles(comparables, vehicle = {}) {
@@ -180,7 +224,8 @@ export function selectComparableVehicles(comparables, vehicle = {}) {
     levelIndex = index;
     if (selected.length >= MIN_SAMPLE) break;
   }
-  const scored = selected.map((item) => ({ ...item, qualityScore: score(item, vehicle) })).sort((a, b) => b.qualityScore - a.qualityScore);
+  const allScored = selected.map((item) => ({ ...item, qualityScore: score(item, vehicle) }));
+  const scored = allScored.filter((item) => item.qualityScore >= MIN_QUALITY).sort((a, b) => b.qualityScore - a.qualityScore);
   const unique = deduplicate(scored);
   const clean = removeOutliers(unique.items);
   return {
@@ -189,6 +234,7 @@ export function selectComparableVehicles(comparables, vehicle = {}) {
     excludedVariantCount: input.length - matching.length,
     duplicateCount: unique.removed,
     outlierCount: clean.removed,
+    lowQualityCount: allScored.length - scored.length,
     selection: {
       yearTolerance: selectedLevel.yearTolerance,
       mileageTolerance: selectedLevel.mileageTolerance,
@@ -206,11 +252,15 @@ export function calculateMinimumMargin(salePrice) {
 export function calculatePriceRecommendation(comparables, preparationCosts = 0) {
   const items = (Array.isArray(comparables) ? comparables : []).filter((item) => number(item.price));
   if (!items.length) throw new PriceRecommendationAiError("insufficient-data", "Na Sauto ani TipCars se nepodařilo najít dostatečně porovnatelné aktivní nabídky.");
-  const recommendedSalePrice = round(weightedQuantile(items, 0.5));
-  const salePriceLow = round(weightedQuantile(items, 0.25));
-  const salePriceHigh = round(weightedQuantile(items, 0.75));
+  const recommendedSalePrice = round(reliableQuantile(items, 0.5));
+  let salePriceLow = round(reliableQuantile(items, 0.25));
+  let salePriceHigh = round(reliableQuantile(items, 0.75));
   const averageQuality = Math.round(items.reduce((sum, item) => sum + (item.qualityScore || 60), 0) / items.length);
   const sourceCount = new Set(items.map((item) => item.source).filter(Boolean)).size;
+  if (items.length === 1) {
+    salePriceLow = round(recommendedSalePrice * 0.92);
+    salePriceHigh = round(recommendedSalePrice * 1.08);
+  }
   const spreadPercent = recommendedSalePrice ? (salePriceHigh - salePriceLow) / recommendedSalePrice : 1;
   const confidence = items.length >= 8 && sourceCount >= 2 && spreadPercent <= 0.2 && averageQuality >= 70
     ? "high" : items.length >= 5 && spreadPercent <= 0.3 && averageQuality >= 58 ? "medium" : "low";
@@ -218,7 +268,7 @@ export function calculatePriceRecommendation(comparables, preparationCosts = 0) 
   const costs = Math.max(0, Math.round(Number(preparationCosts) || 0));
   const purchase = (sale) => Math.max(0, sale - calculateMinimumMargin(sale) - costs - riskReserve);
   return {
-    medianPrice: weightedQuantile(items, 0.5), recommendedSalePrice, salePriceLow, salePriceHigh,
+    medianPrice: reliableQuantile(items, 0.5), recommendedSalePrice, salePriceLow, salePriceHigh,
     recommendedPurchasePrice: purchase(recommendedSalePrice), purchasePriceLow: purchase(salePriceLow), purchasePriceHigh: purchase(salePriceHigh),
     minimumMargin: calculateMinimumMargin(recommendedSalePrice), preparationCosts: costs, riskReserve,
     confidence, averageQuality, spreadPercent,
@@ -233,11 +283,11 @@ function validateComparable(value) {
     source, title: text(value.title), url: text(value.url, 600), price: number(value.price),
     year: text(value.year, 20), mileage: number(value.mileage), variant: text(value.variant, 140),
     fuel: text(value.fuel, 60), transmission: text(value.transmission, 80), powerKw: number(value.powerKw),
-    bodyType: text(value.bodyType, 80), equipmentLevel: text(value.equipmentLevel, 100),
+    bodyType: text(value.bodyType, 80), seats: number(value.seats), equipmentLevel: text(value.equipmentLevel, 100),
     sellerType: text(value.sellerType, 30), vatDeductible: value.vatDeductible === true,
     listingDate: text(value.listingDate, 30), matchReason: text(value.matchReason, 300),
   };
-  return item.title && item.price && source && value.active !== false ? item : null;
+  return item.title && item.price && source && isDetailUrl(item.url) && value.active !== false ? item : null;
 }
 
 export function validatePriceRecommendationOutput(value, preparationCosts = 0, vehicle = {}) {
@@ -249,10 +299,11 @@ export function validatePriceRecommendationOutput(value, preparationCosts = 0, v
   if (selected.excludedMismatchCount) warnings.push(`Vyřazeno ${selected.excludedMismatchCount} nabídek kvůli jiné variantě, palivu, převodovce nebo výkonu.`);
   if (selected.duplicateCount) warnings.push(`Odstraněno ${selected.duplicateCount} duplicitních nabídek.`);
   if (selected.outlierCount) warnings.push(`Odstraněno ${selected.outlierCount} cenových odlehlostí.`);
+  if (selected.lowQualityCount) warnings.push(`Vyřazeno ${selected.lowQualityCount} málo podobných nabídek.`);
   if (selected.comparables.length < MIN_SAMPLE) warnings.push("Výsledek vychází z malého počtu porovnatelných inzerátů.");
   if (selected.selection.expanded) warnings.push(`Rozpětí bylo rozšířeno na ±${selected.selection.mileageTolerance.toLocaleString("cs-CZ")} km a ±${selected.selection.yearTolerance} roky.`);
   warnings.push("Jde o nabídkové ceny, nikoli potvrzené realizované prodeje.");
   return { querySummary: text(value.querySummary, 600), comparables: selected.comparables, sampleSize: selected.comparables.length, warnings: [...new Set(warnings)], selection: selected.selection, ...calculation };
 }
 
-export const priceRecommendationCoreConstants = { maxComparables: MAX_COMPARABLES, minSufficientSample: MIN_SAMPLE, comparisonLevels: LEVELS };
+export const priceRecommendationCoreConstants = { maxComparables: MAX_COMPARABLES, minSufficientSample: MIN_SAMPLE, minQuality: MIN_QUALITY, comparisonLevels: LEVELS };

@@ -47,6 +47,7 @@ export function buildPriceRecommendationPayload(context) {
       transmission: text(technical.transmission, 100),
       drive: text(technical.drive, 80),
       bodyType: text(technical.bodyType, 80),
+      seats: positiveNumber(technical.seats),
       origin: text(history.origin, 80),
       ownersCount: text(history.ownersCount, 30),
       equipment: Array.isArray(equipment.activeItems)
