@@ -248,6 +248,7 @@ export function buildVehicleProfile(
       year: firstValue(car.year, technicalParams.productionYear),
       productionYear: firstValue(technicalParams.productionYear),
       version: firstValue(technicalParams.version),
+      equipmentLevel: firstValue(technicalParams.equipmentLevel),
       firstRegistration: firstValue(technicalParams.firstRegistration),
       mileage: firstValue(car.km),
       engine: firstValue(technicalParams.engine),

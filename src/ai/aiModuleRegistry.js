@@ -11,7 +11,7 @@ export const aiModuleRegistry = [
     id: "price-recommendation",
     label: "AI nacenění podle trhu",
     description:
-      "Porovnání se Sauto a návrh prodejní i výkupní ceny.",
+      "Očištěné porovnání se Sauto a TipCars včetně cenového pásma.",
     supportedSections: ["valuation", "approved_purchase", "stock"],
     requiredSources: ["identity", "technical"],
     optionalSources: ["condition", "equipment", "valuation"],

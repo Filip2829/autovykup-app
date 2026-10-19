@@ -24,6 +24,13 @@ function formatMileage(value) {
     : "Neuvedeno";
 }
 
+function formatRange(from, to) {
+  if (!hasValue(from) || !hasValue(to) || Number(from) === Number(to)) {
+    return formatCurrency(from);
+  }
+  return `${formatCurrency(from)} – ${formatCurrency(to)}`;
+}
+
 function InputSummary({ context }) {
   const profile = context.profile || {};
   const identity = profile.identity || {};
@@ -78,9 +85,9 @@ export default function PriceRecommendationAssistant({
         <div>
           <h2>{moduleDefinition.label}</h2>
           <p>
-            Vyhledá až 10 nejbližších aktivních nabídek na Sauto. Medián
-            nabídkových cen určí návrh prodejní ceny a výkupní cenu dopočítá
-            po odečtení přípravy a minimální marže.
+            Prohledá Sauto i TipCars, odstraní jiné varianty, duplicity a cenové
+            odlehlosti. Cenu určí váženě podle podobnosti roku, nájezdu,
+            motorizace, převodovky, karoserie a výbavy.
           </p>
         </div>
         <button
@@ -89,7 +96,7 @@ export default function PriceRecommendationAssistant({
           onClick={runRecommendation}
           disabled={aiState.loading || !capabilities.canRun}
         >
-          {aiState.loading ? "Porovnávám nabídky…" : "Porovnat se Sauto"}
+          {aiState.loading ? "Porovnávám oba trhy…" : "Přesně nacenit podle trhu"}
         </button>
       </div>
 
@@ -106,12 +113,12 @@ export default function PriceRecommendationAssistant({
             <div>
               <span>Doporučená prodejní cena</span>
               <strong>{formatCurrency(output.recommendedSalePrice)}</strong>
-              <small>Medián porovnatelných nabídkových cen</small>
+              <small>Tržní pásmo {formatRange(output.salePriceLow, output.salePriceHigh)}</small>
             </div>
             <div>
               <span>Doporučená výkupní cena</span>
               <strong>{formatCurrency(output.recommendedPurchasePrice)}</strong>
-              <small>Po odečtení nákladů a minimální marže</small>
+              <small>Bezpečné pásmo {formatRange(output.purchasePriceLow, output.purchasePriceHigh)}</small>
             </div>
           </section>
 
@@ -121,10 +128,12 @@ export default function PriceRecommendationAssistant({
               <p><span>Prodejní cena</span><strong>{formatCurrency(output.recommendedSalePrice)}</strong></p>
               <p><span>Náklady na přípravu</span><strong>− {formatCurrency(output.preparationCosts)}</strong></p>
               <p><span>Minimální marže</span><strong>− {formatCurrency(output.minimumMargin)}</strong></p>
+              <p><span>Rezerva podle jistoty výsledku</span><strong>− {formatCurrency(output.riskReserve)}</strong></p>
               <p className="priceRecommendationFormulaTotal"><span>Výkupní návrh</span><strong>{formatCurrency(output.recommendedPurchasePrice)}</strong></p>
             </div>
             <p className="mutedText">
-              Marže je 30 000 Kč do prodejní ceny 300 000 Kč a 10 % nad tuto hranici.
+              Marže je 30 000 Kč do prodejní ceny 300 000 Kč a 10 % nad tuto
+              hranici. Rezerva se přidá pouze při střední nebo nízké jistotě.
             </p>
           </section>
 
@@ -132,6 +141,10 @@ export default function PriceRecommendationAssistant({
             <h3>{confidenceLabels[output.confidence] || "Vypovídací hodnota"}</h3>
             <p>
               Použito {output.sampleSize} porovnatelných inzerátů. {output.querySummary}
+            </p>
+            <p>
+              Sauto: {output.sourceCounts?.sauto || 0}, TipCars: {output.sourceCounts?.tipcars || 0},
+              průměrná shoda {output.averageQuality || 0} %, cenový rozptyl {Math.round((output.spreadPercent || 0) * 100)} %.
             </p>
             {output.selection && (
               <p>
@@ -149,12 +162,16 @@ export default function PriceRecommendationAssistant({
                     <a href={item.url} target="_blank" rel="noreferrer">
                       {item.title}
                     </a>
+                    <span className={`marketplaceBadge marketplace-${item.source}`}>
+                      {item.source === "tipcars" ? "TipCars" : "Sauto"}
+                    </span>
                     <p>{item.matchReason}</p>
                   </div>
                   <div className="priceComparableFacts">
                     <strong>{formatCurrency(item.price)}</strong>
                     <span>{item.year || "Rok neuveden"}</span>
                     <span>{formatMileage(item.mileage)}</span>
+                    <span>Shoda {item.qualityScore || 0} %</span>
                   </div>
                 </article>
               ))}

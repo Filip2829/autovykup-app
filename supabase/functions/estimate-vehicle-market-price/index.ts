@@ -1,20 +1,32 @@
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
 const MODEL = "gpt-4.1-mini";
-const OPENAI_TIMEOUT_MS = 40000;
-const MAX_INPUT_LENGTH = 5000;
-const MAX_COMPARABLES = 10;
-const MIN_SUFFICIENT_SAMPLE = 5;
-const COMPARISON_LEVELS = [
-  { yearTolerance: 1, mileageTolerance: 35000 },
-  { yearTolerance: 1, mileageTolerance: 70000 },
-  { yearTolerance: 2, mileageTolerance: 100000 },
-];
+const TIMEOUT_MS = 60000;
+const MAX_INPUT_LENGTH = 7000;
+const MAX_PER_MARKET = 10;
+
+const comparableProperties = {
+  title: { type: "string" },
+  url: { type: "string" },
+  price: { type: "number" },
+  year: { type: ["string", "null"] },
+  mileage: { type: ["number", "null"] },
+  variant: { type: ["string", "null"] },
+  fuel: { type: ["string", "null"] },
+  transmission: { type: ["string", "null"] },
+  powerKw: { type: ["number", "null"] },
+  bodyType: { type: ["string", "null"] },
+  equipmentLevel: { type: ["string", "null"] },
+  sellerType: { type: ["string", "null"] },
+  vatDeductible: { type: ["boolean", "null"] },
+  listingDate: { type: ["string", "null"] },
+  active: { type: "boolean" },
+  matchReason: { type: "string" },
+};
 
 const outputSchema = {
   type: "object",
@@ -23,50 +35,33 @@ const outputSchema = {
     querySummary: { type: "string" },
     comparables: {
       type: "array",
-      maxItems: MAX_COMPARABLES,
+      maxItems: MAX_PER_MARKET,
       items: {
         type: "object",
         additionalProperties: false,
-        properties: {
-          title: { type: "string" },
-          url: { type: "string" },
-          price: { type: "number" },
-          year: { type: "string" },
-          mileage: { type: ["number", "null"] },
-          matchReason: { type: "string" },
-        },
-        required: ["title", "url", "price", "year", "mileage", "matchReason"],
+        properties: comparableProperties,
+        required: Object.keys(comparableProperties),
       },
     },
-    warnings: {
-      type: "array",
-      maxItems: 5,
-      items: { type: "string" },
-    },
+    warnings: { type: "array", maxItems: 5, items: { type: "string" } },
   },
   required: ["querySummary", "comparables", "warnings"],
 };
 
 const systemPrompt = `
-Jsi asistent autobazaru pro orientační tržní porovnání ojetých vozidel v České republice.
+Jsi analytik českého trhu ojetých vozidel. Tvým jediným úkolem je dohledat skutečné, aktuální a přímo otevřitelné inzeráty pro zadané vozidlo. Cenu neurčuješ; vracíš ověřená vstupní data pro následný deterministický výpočet.
 
-Použij webové vyhledávání výhradně na doméně sauto.cz a najdi nejvýše 10 aktuálních, co nejbližších nabídek k zadanému vozidlu.
-
-Pravidla:
-- Značka, model a modelová varianta musí odpovídat. Prodlouženou variantu nikdy nezaměň za základní variantu.
-- Renault Scenic a Renault Grand Scenic jsou odlišná vozidla. Pro Scenic nikdy nevracej Grand Scenic a pro Grand Scenic nikdy nevracej běžný Scenic.
-- Nejprve hledej rok výroby v rozsahu ±1 rok. Například pro rok 2018 začni roky 2017 až 2019.
-- Nejprve hledej nájezd v rozsahu ±35 000 km. Pokud nenajdeš alespoň 5 vhodných vozů, rozšiř nájezd na ±70 000 km. Teprve pokud ani potom není vzorek dostatečný, použij rok ±2 a nájezd ±100 000 km.
-- Ve warnings vždy uveď, pokud bylo nutné rozsah roku nebo nájezdu rozšířit.
-- Uvnitř povoleného rozsahu upřednostni stejnou generaci, motor, palivo, převodovku, karoserii a výkon.
-- Neber cenu z agregovaného přehledu, pokud není možné přiřadit konkrétní URL inzerátu.
-- Vyřaď duplicity, havarované vozy, náhradní díly, leasingové splátky vydávané za cenu, nové vozy a inzeráty bez jednoznačné celkové ceny.
-- Cena musí být celková nabídková cena vozidla v Kč jako číslo.
-- URL musí vést na konkrétní inzerát na sauto.cz, který byl skutečně nalezen webovým vyhledáváním.
-- Nevymýšlej chybějící hodnoty ani URL. Pokud není dostatek nabídek, vrať jich méně a vysvětli omezení ve warnings.
-- Seřaď výsledky od nejbližší shody k méně přesné, nikoli podle ceny.
-- Neurčuj medián, prodejní ani výkupní cenu. Ty vypočítá aplikace deterministicky.
-- Vrať pouze JSON podle zadaného schématu.
+Zásady:
+- Hledej pouze na určené doméně a vrať odkaz na detail konkrétního inzerátu, nikdy stránku výsledků.
+- Ověř, že inzerát je stále aktivní. Neaktivní výsledek označ active=false.
+- Značka, model a zásadní modelová varianta musí odpovídat. Grand Scénic není Scénic. Osobní a užitkové provedení nerozmělňuj bez upozornění.
+- Preferuj stejné palivo, převodovku, motor, výkon, karoserii, generaci a výbavový stupeň.
+- Začni rokem ±1 a nájezdem ±30 000 km; při malém vzorku lze postupně rozšířit až na rok ±3 a nájezd ±150 000 km.
+- Vyřaď nové vozy, havarované vozy, náhradní díly, aukce, leasingovou splátku místo celkové ceny a inzeráty bez jasné celkové ceny v Kč.
+- price je celková inzerovaná cena v Kč. Uveď, zda je možný odpočet DPH, ale cenu kvůli tomu sám nepřepočítávej.
+- Zkopíruj jen skutečně uvedené údaje. Neznámé hodnoty vrať jako null.
+- matchReason stručně vysvětluje shody i rozdíly vůči cílovému vozu.
+- Nevymýšlej URL ani technická data.
 `.trim();
 
 function jsonResponse(body: unknown, status = 200) {
@@ -76,135 +71,20 @@ function jsonResponse(body: unknown, status = 200) {
   });
 }
 
-function text(value: unknown, maxLength = 500) {
-  return value !== null && value !== undefined
-    ? String(value).trim().slice(0, maxLength)
-    : "";
+function text(value: unknown, maxLength = 600) {
+  return value === null || value === undefined ? "" : String(value).trim().slice(0, maxLength);
 }
 
-function getOpenAiErrorMessage(errorBody: string) {
-  try {
-    const parsed = JSON.parse(errorBody);
-    return text(parsed?.error?.message, 500);
-  } catch {
-    return "";
-  }
-}
-
-function isSautoUrl(value: unknown) {
-  try {
-    const url = new URL(text(value, 600));
-    return (
-      url.protocol === "https:" &&
-      (url.hostname === "sauto.cz" || url.hostname.endsWith(".sauto.cz"))
-    );
-  } catch {
-    return false;
-  }
-}
-
-function normalize(value: unknown) {
-  return text(value, 600)
-    .toLocaleLowerCase("cs-CZ")
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^a-z0-9]+/g, " ")
-    .trim();
-}
-
-function getYear(value: unknown) {
-  const match = text(value, 30).match(/(?:19|20)\d{2}/);
-  return match ? Number(match[0]) : null;
-}
-
-function positiveNumber(value: unknown) {
-  const number = Number(value);
-  return Number.isFinite(number) && number > 0 ? number : null;
-}
-
-function matchesModelVariant(
-  item: Record<string, unknown>,
-  vehicle: Record<string, unknown>
-) {
-  const model = normalize(vehicle.model);
-  if (!model) return true;
-  const source = normalize(`${item.title || ""} ${item.url || ""}`);
-  const targetDescriptor = normalize(
-    `${vehicle.brand || ""} ${vehicle.model || ""} ${vehicle.version || ""}`
-  );
-  if (!source.includes(model)) return false;
-
-  if (model.includes("scenic")) {
-    const targetIsGrand = targetDescriptor.includes("grand scenic");
-    const sourceIsGrand = source.includes("grand scenic");
-    if (targetIsGrand !== sourceIsGrand) return false;
-  }
-  return true;
-}
-
-function fitsComparisonLevel(
-  item: Record<string, unknown>,
-  vehicle: Record<string, unknown>,
-  level: { yearTolerance: number; mileageTolerance: number }
-) {
-  const targetYear = getYear(vehicle.year || vehicle.firstRegistration);
-  const itemYear = getYear(item.year);
-  if (targetYear && (!itemYear || Math.abs(itemYear - targetYear) > level.yearTolerance)) {
-    return false;
-  }
-
-  const targetMileage = positiveNumber(vehicle.mileage);
-  const itemMileage = positiveNumber(item.mileage);
-  if (
-    targetMileage &&
-    (!itemMileage || Math.abs(itemMileage - targetMileage) > level.mileageTolerance)
-  ) {
-    return false;
-  }
-  return true;
-}
-
-function selectComparables(
-  comparables: Record<string, unknown>[],
-  vehicle: Record<string, unknown>
-) {
-  const modelMatches = comparables.filter((item) =>
-    matchesModelVariant(item, vehicle)
-  );
-  let selected: Record<string, unknown>[] = [];
-  let selectedLevel = COMPARISON_LEVELS[COMPARISON_LEVELS.length - 1];
-
-  for (const level of COMPARISON_LEVELS) {
-    selectedLevel = level;
-    selected = modelMatches.filter((item) =>
-      fitsComparisonLevel(item, vehicle, level)
-    );
-    if (selected.length >= MIN_SUFFICIENT_SAMPLE) break;
-  }
-
-  return {
-    comparables: selected.slice(0, MAX_COMPARABLES),
-    excludedVariantCount: comparables.length - modelMatches.length,
-    selectedLevel,
-  };
-}
-
-function extractOutputText(response: Record<string, unknown>) {
+function outputText(response: Record<string, unknown>) {
   if (typeof response.output_text === "string") return response.output_text;
   const parts: string[] = [];
-  const output = Array.isArray(response.output) ? response.output : [];
-  for (const item of output) {
+  for (const item of Array.isArray(response.output) ? response.output : []) {
     if (!item || typeof item !== "object") continue;
-    const content = Array.isArray((item as Record<string, unknown>).content)
-      ? (item as Record<string, unknown>).content as unknown[]
-      : [];
-    for (const part of content) {
-      if (
-        part &&
-        typeof part === "object" &&
-        (part as Record<string, unknown>).type === "output_text" &&
-        typeof (part as Record<string, unknown>).text === "string"
-      ) {
+    for (const part of Array.isArray((item as Record<string, unknown>).content)
+      ? (item as Record<string, unknown>).content as unknown[] : []) {
+      if (part && typeof part === "object" &&
+          (part as Record<string, unknown>).type === "output_text" &&
+          typeof (part as Record<string, unknown>).text === "string") {
         parts.push((part as Record<string, unknown>).text as string);
       }
     }
@@ -212,215 +92,134 @@ function extractOutputText(response: Record<string, unknown>) {
   return parts.join("\n").trim();
 }
 
-function validateOutput(value: unknown, vehicle: Record<string, unknown>) {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    throw new Error("AI odpověď není platný objekt.");
-  }
-  const source = value as Record<string, unknown>;
-  const seenUrls = new Set<string>();
-  const validatedComparables = (Array.isArray(source.comparables) ? source.comparables : [])
-    .filter((item) => item && typeof item === "object" && !Array.isArray(item))
-    .map((item) => {
-      const comparable = item as Record<string, unknown>;
-      const price = Number(comparable.price);
-      const mileage = comparable.mileage === null ? null : Number(comparable.mileage);
-      return {
-        title: text(comparable.title, 180),
-        url: text(comparable.url, 600),
-        price,
-        year: text(comparable.year, 20),
-        mileage: Number.isFinite(mileage) && mileage > 0 ? mileage : null,
-        matchReason: text(comparable.matchReason, 300),
-      };
-    })
-    .filter((item) => {
-      if (
-        !item.title ||
-        !isSautoUrl(item.url) ||
-        !Number.isFinite(item.price) ||
-        item.price <= 0 ||
-        seenUrls.has(item.url)
-      ) {
-        return false;
-      }
-      seenUrls.add(item.url);
-      return true;
-    });
-  const selection = selectComparables(validatedComparables, vehicle);
-  const warnings = (Array.isArray(source.warnings) ? source.warnings : [])
-    .map((warning) => text(warning, 300))
-    .filter(Boolean)
-    .filter((warning) => !normalize(warning).includes("grand scenic"))
-    .slice(0, 5);
-  if (selection.excludedVariantCount > 0) {
-    warnings.push(
-      `Vyřazeno ${selection.excludedVariantCount} nabídek jiné modelové varianty.`
-    );
-  }
+function validDomain(value: unknown, domain: string) {
+  try {
+    const host = new URL(text(value)).hostname.toLowerCase();
+    return host === domain || host.endsWith(`.${domain}`);
+  } catch { return false; }
+}
 
+function normalizeResult(value: unknown, domain: string) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new Error("Vyhledávač nevrátil platný objekt.");
+  }
+  const result = value as Record<string, unknown>;
+  const comparables = (Array.isArray(result.comparables) ? result.comparables : [])
+    .filter((item) => item && typeof item === "object" && !Array.isArray(item))
+    .map((item) => item as Record<string, unknown>)
+    .filter((item) => validDomain(item.url, domain) && Number(item.price) > 0 && item.active !== false)
+    .slice(0, MAX_PER_MARKET);
   return {
-    querySummary: text(source.querySummary, 500),
-    comparables: selection.comparables,
-    warnings,
+    querySummary: text(result.querySummary),
+    comparables,
+    warnings: (Array.isArray(result.warnings) ? result.warnings : []).map((item) => text(item, 300)).filter(Boolean),
   };
 }
 
-Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders });
+async function searchMarketplace({
+  apiKey, domain, label, vehicle, signal,
+}: {
+  apiKey: string;
+  domain: string;
+  label: string;
+  vehicle: Record<string, unknown>;
+  signal: AbortSignal;
+}) {
+  const response = await fetch("https://api.openai.com/v1/responses", {
+    method: "POST",
+    signal,
+    headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model: MODEL,
+      input: [
+        { role: "system", content: systemPrompt },
+        {
+          role: "user",
+          content: `Prohledej výhradně site:${domain} a najdi až ${MAX_PER_MARKET} aktivních nabídek co nejbližších tomuto vozu. Tržiště: ${label}.\n${JSON.stringify(vehicle)}`,
+        },
+      ],
+      tools: [{ type: "web_search", search_context_size: "high" }],
+      tool_choice: "required",
+      include: ["web_search_call.action.sources"],
+      max_output_tokens: 3200,
+      text: {
+        format: {
+          type: "json_schema",
+          name: `vehicle_market_${label.toLowerCase()}`,
+          strict: true,
+          schema: outputSchema,
+        },
+      },
+    }),
+  });
+  if (!response.ok) {
+    const requestId = response.headers.get("x-request-id") || "";
+    console.error(`${label} search failed`, { status: response.status, requestId });
+    throw new Error(`${label} nevrátilo použitelné výsledky.`);
   }
-  if (req.method !== "POST") {
-    return jsonResponse({ code: "invalid-request", error: "Method not allowed" }, 405);
-  }
-  if (!req.headers.get("authorization")?.startsWith("Bearer ")) {
-    return jsonResponse(
-      { code: "unauthorized", error: "Chybí přihlášení uživatele." },
-      401
-    );
+  const parsed = JSON.parse(outputText(await response.json()) || "{}");
+  return normalizeResult(parsed, domain);
+}
+
+Deno.serve(async (request) => {
+  if (request.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+  if (request.method !== "POST") return jsonResponse({ code: "invalid-request", error: "Method not allowed" }, 405);
+  if (!request.headers.get("authorization")?.startsWith("Bearer ")) {
+    return jsonResponse({ code: "unauthorized", error: "Chybí přihlášení uživatele." }, 401);
   }
 
   try {
     const apiKey = Deno.env.get("OPENAI_API_KEY");
-    if (!apiKey) {
-      return jsonResponse(
-        { code: "unavailable", error: "OPENAI_API_KEY není nakonfigurován." },
-        503
-      );
-    }
-
-    const body = await req.json();
+    if (!apiKey) return jsonResponse({ code: "unavailable", error: "OPENAI_API_KEY není nakonfigurován." }, 503);
+    const body = await request.json();
     const vehicle = body?.vehicle;
-    if (!vehicle || typeof vehicle !== "object") {
-      return jsonResponse(
-        { code: "invalid-request", error: "Chybí technický profil vozidla." },
-        400
-      );
+    if (!vehicle || typeof vehicle !== "object" || Array.isArray(vehicle)) {
+      return jsonResponse({ code: "invalid-request", error: "Chybí technický profil vozidla." }, 400);
     }
     if (!text(vehicle.brand, 100) || !text(vehicle.model, 100)) {
-      return jsonResponse(
-        { code: "invalid-request", error: "Značka a model jsou povinné." },
-        400
-      );
+      return jsonResponse({ code: "invalid-request", error: "Značka a model jsou povinné." }, 400);
     }
     if (!text(vehicle.year, 20) && !text(vehicle.firstRegistration, 30)) {
-      return jsonResponse(
-        { code: "invalid-request", error: "Rok nebo první registrace jsou povinné." },
-        400
-      );
+      return jsonResponse({ code: "invalid-request", error: "Rok nebo první registrace jsou povinné." }, 400);
     }
-
-    const serializedVehicle = JSON.stringify(vehicle);
-    if (serializedVehicle.length > MAX_INPUT_LENGTH) {
-      return jsonResponse(
-        { code: "invalid-request", error: "Profil vozidla je příliš rozsáhlý." },
-        413
-      );
+    if (JSON.stringify(vehicle).length > MAX_INPUT_LENGTH) {
+      return jsonResponse({ code: "invalid-request", error: "Profil vozidla je příliš rozsáhlý." }, 413);
     }
 
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), OPENAI_TIMEOUT_MS);
-    let openAiResponse: Response;
+    const timeoutId = setTimeout(() => controller.abort(), TIMEOUT_MS);
+    let settled;
     try {
-      openAiResponse = await fetch("https://api.openai.com/v1/responses", {
-        method: "POST",
-        signal: controller.signal,
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model: MODEL,
-          input: [
-            { role: "system", content: systemPrompt },
-            {
-              role: "user",
-              content: `Vyhledej pomocí dotazu site:sauto.cz porovnatelné aktivní nabídky pro toto vozidlo:\n${serializedVehicle}`,
-            },
-          ],
-          tools: [
-            {
-              type: "web_search",
-              search_context_size: "high",
-            },
-          ],
-          tool_choice: "required",
-          include: ["web_search_call.action.sources"],
-          max_output_tokens: 3000,
-          text: {
-            format: {
-              type: "json_schema",
-              name: "vehicle_market_comparables",
-              description: "Porovnatelné aktivní nabídky ojetého vozidla na Sauto",
-              strict: true,
-              schema: outputSchema,
-            },
-          },
-        }),
-      });
-    } catch (error) {
-      if (error instanceof DOMException && error.name === "AbortError") {
-        return jsonResponse(
-          { code: "timeout", error: "Vyhledání nabídek překročilo časový limit." },
-          504
-        );
-      }
-      throw error;
+      settled = await Promise.allSettled([
+        searchMarketplace({ apiKey, domain: "sauto.cz", label: "Sauto", vehicle, signal: controller.signal }),
+        searchMarketplace({ apiKey, domain: "tipcars.com", label: "TipCars", vehicle, signal: controller.signal }),
+      ]);
     } finally {
       clearTimeout(timeoutId);
     }
 
-    if (!openAiResponse.ok) {
-      const errorBody = await openAiResponse.text();
-      const requestId = openAiResponse.headers.get("x-request-id") || "";
-      const openAiError = getOpenAiErrorMessage(errorBody);
-      console.error("OpenAI price recommendation failed", {
-        status: openAiResponse.status,
-        requestId,
-        body: errorBody.slice(0, 1000),
-      });
-      return jsonResponse(
-        {
-          code: "unavailable",
-          error: "Vyhledání porovnatelných nabídek selhalo.",
-          detail:
-            openAiError ||
-            (requestId
-              ? `Technický identifikátor požadavku: ${requestId}`
-              : "OpenAI služba nevrátila podrobnosti chyby."),
-        },
-        502
-      );
+    const successful = settled.filter((item) => item.status === "fulfilled").map((item) => item.value);
+    if (!successful.length) {
+      return jsonResponse({ code: "unavailable", error: "Vyhledání na Sauto i TipCars selhalo." }, 502);
     }
-
-    const openAiResult = await openAiResponse.json();
-    const outputText = extractOutputText(openAiResult);
-    if (!outputText) {
-      return jsonResponse(
-        { code: "invalid-response", error: "AI nevrátila strukturovaný výsledek." },
-        502
-      );
-    }
-
-    let parsed: unknown;
-    try {
-      parsed = JSON.parse(outputText);
-    } catch {
-      return jsonResponse(
-        { code: "invalid-response", error: "Výsledek nacenění není platný JSON." },
-        502
-      );
-    }
-
-    return jsonResponse({ output: validateOutput(parsed, vehicle) });
-  } catch (error) {
-    console.error("estimate-vehicle-market-price failed", error);
-    return jsonResponse(
-      {
-        code: "unavailable",
-        error: "Nacenění se nepodařilo dokončit.",
-        detail: error instanceof Error ? error.message : "Neznámá chyba.",
+    const failedLabels = settled.flatMap((item, index) => item.status === "rejected" ? [index === 0 ? "Sauto" : "TipCars"] : []);
+    return jsonResponse({
+      output: {
+        querySummary: successful.map((item) => item.querySummary).filter(Boolean).join(" | "),
+        comparables: successful.flatMap((item) => item.comparables),
+        warnings: [
+          ...successful.flatMap((item) => item.warnings),
+          ...(failedLabels.length ? [`Bez výsledků z: ${failedLabels.join(", ")}.`] : []),
+        ],
       },
-      500
-    );
+    });
+  } catch (error) {
+    const timeout = error instanceof DOMException && error.name === "AbortError";
+    console.error("estimate-vehicle-market-price failed", error);
+    return jsonResponse({
+      code: timeout ? "timeout" : "unavailable",
+      error: timeout ? "Vyhledání nabídek překročilo časový limit." : "Nacenění se nepodařilo dokončit.",
+      detail: error instanceof Error ? error.message : "Neznámá chyba.",
+    }, timeout ? 504 : 500);
   }
 });

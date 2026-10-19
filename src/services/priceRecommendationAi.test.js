@@ -90,11 +90,12 @@ describe("AI nacenění podle trhu", () => {
       17000
     );
 
-    assert.equal(result.medianPrice, 255000);
-    assert.equal(result.recommendedSalePrice, 255000);
+    assert.equal(result.medianPrice, 250000);
+    assert.equal(result.recommendedSalePrice, 250000);
     assert.equal(result.minimumMargin, 30000);
     assert.equal(result.preparationCosts, 17000);
-    assert.equal(result.recommendedPurchasePrice, 208000);
+    assert.equal(result.riskReserve, 10000);
+    assert.equal(result.recommendedPurchasePrice, 193000);
   });
 
   test("payload používá jen technické údaje a součet přípravy", () => {
@@ -132,10 +133,14 @@ describe("AI nacenění podle trhu", () => {
     );
   });
 
-  test("propustí nejvýše 10 unikátních Sauto inzerátů", () => {
-    const items = Array.from({ length: 12 }, (_, index) =>
+  test("propustí nejvýše 16 unikátních inzerátů ze Sauto a TipCars", () => {
+    const items = Array.from({ length: 18 }, (_, index) =>
       comparable(index + 1, 220000 + index * 5000)
     );
+    items[1] = {
+      ...items[1],
+      url: "https://www.tipcars.com/dacia-dokker/osobni/benzin/123456",
+    };
     items.push(items[0]);
     items.push({ ...comparable(99, 250000), url: "https://example.com/auto" });
 
@@ -144,10 +149,11 @@ describe("AI nacenění podle trhu", () => {
       10000
     );
 
-    assert.equal(result.comparables.length, 10);
-    assert.equal(new Set(result.comparables.map((item) => item.url)).size, 10);
-    assert.ok(result.comparables.every((item) => item.url.includes("sauto.cz")));
-    assert.equal(result.confidence, "high");
+    assert.equal(result.comparables.length, 16);
+    assert.equal(new Set(result.comparables.map((item) => item.url)).size, 16);
+    assert.ok(result.comparables.every((item) => /sauto\.cz|tipcars\.com/.test(item.url)));
+    assert.ok(result.sourceCounts.sauto > 0);
+    assert.ok(result.sourceCounts.tipcars > 0);
   });
 
   test("běžný Scenic nikdy nesmíchá s Grand Scenic", () => {
@@ -169,7 +175,7 @@ describe("AI nacenění podle trhu", () => {
     assert.equal(result.comparables.length, 5);
     assert.equal(result.excludedVariantCount, 1);
     assert.ok(result.comparables.every((item) => !item.title.includes("Grand")));
-    assert.equal(result.selection.mileageTolerance, 35000);
+    assert.equal(result.selection.mileageTolerance, 30000);
     assert.equal(result.selection.expanded, false);
   });
 
@@ -194,15 +200,15 @@ describe("AI nacenění podle trhu", () => {
     assert.equal(result.excludedVariantCount, 1);
   });
 
-  test("začne na roku ±1 a nájezdu ±35 000 km", () => {
+  test("začne na roku ±1 a nájezdu ±30 000 km", () => {
     const input = [
-      scenicComparable(1, { year: 2017, mileage: 146635 }),
+      scenicComparable(1, { year: 2017, mileage: 151635 }),
       scenicComparable(2, { year: 2018, mileage: 181635 }),
-      scenicComparable(3, { year: 2019, mileage: 216635 }),
+      scenicComparable(3, { year: 2019, mileage: 211635 }),
       scenicComparable(4, { year: 2018, mileage: 180000 }),
       scenicComparable(5, { year: 2017, mileage: 190000 }),
       scenicComparable(6, { year: 2016, mileage: 181635 }),
-      scenicComparable(7, { year: 2018, mileage: 216636 }),
+      scenicComparable(7, { year: 2018, mileage: 211636 }),
     ];
     const result = selectComparableVehicles(input, {
       brand: "Renault",
@@ -212,12 +218,12 @@ describe("AI nacenění podle trhu", () => {
     });
 
     assert.deepEqual(
-      result.comparables.map((item) => item.url),
-      input.slice(0, 5).map((item) => item.url)
+      result.comparables.map((item) => item.url).sort(),
+      input.slice(0, 5).map((item) => item.url).sort()
     );
     assert.deepEqual(result.selection, {
       yearTolerance: 1,
-      mileageTolerance: 35000,
+      mileageTolerance: 30000,
       expanded: false,
       sufficientSample: true,
     });
@@ -240,7 +246,7 @@ describe("AI nacenění podle trhu", () => {
 
     assert.equal(result.comparables.length, 5);
     assert.equal(result.selection.yearTolerance, 1);
-    assert.equal(result.selection.mileageTolerance, 70000);
+    assert.equal(result.selection.mileageTolerance, 60000);
     assert.equal(result.selection.expanded, true);
   });
 
@@ -275,7 +281,7 @@ describe("AI nacenění podle trhu", () => {
 
     assert.equal(receivedPayload.preparationCosts, 17000);
     assert.equal(result.output.recommendedSalePrice, 250000);
-    assert.equal(result.output.recommendedPurchasePrice, 203000);
+    assert.equal(result.output.recommendedPurchasePrice, 193000);
     assert.deepEqual(result.proposedChanges, []);
     assert.deepEqual(context, original);
   });

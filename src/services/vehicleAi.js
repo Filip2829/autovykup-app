@@ -388,6 +388,7 @@ export function createVehicleAiService({
         "profile.technical",
         "internal.purchaseEconomy.totalCosts",
         "Sauto.cz",
+        "TipCars.com",
       ],
       missingData: [],
       warnings: output.warnings || [],

@@ -1075,6 +1075,25 @@ textarea::placeholder {
   border-top: 1px solid rgba(148, 163, 184, 0.2);
 }
 
+.marketplaceBadge {
+  display: inline-flex;
+  margin-left: 9px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 900;
+  vertical-align: middle;
+  color: #dbeafe;
+  background: rgba(37, 99, 235, 0.2);
+  border: 1px solid rgba(96, 165, 250, 0.4);
+}
+
+.marketplaceBadge.marketplace-tipcars {
+  color: #fed7aa;
+  background: rgba(194, 65, 12, 0.18);
+  border-color: rgba(251, 146, 60, 0.4);
+}
+
 .priceComparableList article {
   display: flex;
   align-items: flex-start;
