@@ -18,6 +18,7 @@ import {
   loadAuctionVehicles,
   updateAuctionDecision,
 } from "../../services/auctionVehicles.js";
+import { analyzeAuctionListing, applyAuctionAnalysisToForm } from "../../services/auctionListingAnalysis.js";
 import "./auctionRadar.css";
 
 const decisionOptions = [
@@ -39,6 +40,7 @@ export default function AuctionRadar({ onBack }) {
   const [formErrors, setFormErrors] = useState({});
   const [saveMessage, setSaveMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [filters, setFilters] = useState({
     query: "", brand: "all", decision: "all", urgency: "all", sort: "deadline", maxPriceCzk: auctionRadarCriteria.maxPriceCzk,
   });
@@ -98,6 +100,20 @@ export default function AuctionRadar({ onBack }) {
     setForm((current) => ({ ...current, [field]: value }));
     setFormErrors((current) => ({ ...current, [field]: undefined }));
     setSaveMessage("");
+  }
+
+  async function analyzeSourceText() {
+    setIsAnalyzing(true);
+    setErrorMessage("");
+    try {
+      const report = await analyzeAuctionListing(form.sourceText);
+      setForm((current) => applyAuctionAnalysisToForm(current, report));
+      setSaveMessage(`Čtečka našla ${report.facts.length} doložených údajů. Zkontrolujte předvyplněná pole.`);
+    } catch (error) {
+      setErrorMessage(error.message);
+    } finally {
+      setIsAnalyzing(false);
+    }
   }
 
   async function saveVehicle(event) {
@@ -173,6 +189,25 @@ export default function AuctionRadar({ onBack }) {
             <span>Povinné údaje jsou označené *</span>
           </div>
           <div className="auctionFormGrid">
+            <div className="auctionListingReader auctionFormWide">
+              <div>
+                <strong>Čtečka aukčního inzerátu</strong>
+                <p>Vložte zkopírovaný text celé nabídky. Zpracování proběhne přímo v aplikaci a každý vytěžený údaj zůstane spojený s důkazem.</p>
+              </div>
+              <textarea value={form.sourceText} onChange={(event) => updateForm("sourceText", event.target.value)} maxLength="30000" placeholder="Sem vložte celý text nabídky včetně technických údajů, výbavy, poškození, ceny a termínu…" />
+              <div className="auctionReaderActions">
+                <small>{form.sourceText.length.toLocaleString("cs-CZ")} / 30 000 znaků</small>
+                <button className="primary" type="button" disabled={isAnalyzing} onClick={analyzeSourceText}><Search size={17} /> {isAnalyzing ? "Čtu inzerát…" : "Načíst údaje z inzerátu"}</button>
+              </div>
+            </div>
+            {form.extractionReport && (
+              <div className="auctionExtractionReport auctionFormWide">
+                <div className="auctionExtractionHeader"><strong>Výsledek čtení</strong><span className={`confidence-${form.extractionReport.overallConfidence}`}>{form.extractionReport.overallConfidence === "high" ? "Vysoká jistota" : form.extractionReport.overallConfidence === "medium" ? "Střední jistota" : "Nízká jistota"}</span></div>
+                <p>{form.extractionReport.confidenceReason}</p>
+                <div className="auctionExtractedFacts">{form.extractionReport.facts.slice(0, 16).map((fact, index) => <span key={`${fact.label}-${index}`} title={`Důkaz: ${fact.evidence}`}><small>{fact.label}</small>{fact.value}</span>)}</div>
+                {form.extractionReport.missingCritical.length > 0 && <p className="auctionMissing"><strong>Chybí ověřit:</strong> {form.extractionReport.missingCritical.join(" · ")}</p>}
+              </div>
+            )}
             <label>Značka *
               <select value={form.brand} onChange={(event) => updateForm("brand", event.target.value)}>
                 <option value="Renault">Renault</option><option value="Dacia">Dacia</option>
@@ -342,6 +377,13 @@ export default function AuctionRadar({ onBack }) {
                 </div>
               )}
               <p className="auctionSummary">{vehicle.summary}</p>
+              {vehicle.extractionReport?.facts?.length > 0 && (
+                <details className="auctionCardExtraction">
+                  <summary>Vytěžené informace z inzerátu ({vehicle.extractionReport.facts.length})</summary>
+                  <div className="auctionExtractedFacts">{vehicle.extractionReport.facts.slice(0, 24).map((fact, index) => <span key={`${fact.label}-${index}`} title={`Důkaz: ${fact.evidence}`}><small>{fact.label}</small>{fact.value}</span>)}</div>
+                  {vehicle.extractionReport.missingCritical?.length > 0 && <p className="auctionMissing"><strong>Chybí ověřit:</strong> {vehicle.extractionReport.missingCritical.join(" · ")}</p>}
+                </details>
+              )}
               <div className="auctionProsCons">
                 <div><strong>Klady</strong><ul>{vehicle.positives.map((item) => <li key={item}>{item}</li>)}</ul></div>
                 <div><strong>Rizika / chybí ověřit</strong><ul>{vehicle.negatives.map((item) => <li key={item}>{item}</li>)}</ul></div>

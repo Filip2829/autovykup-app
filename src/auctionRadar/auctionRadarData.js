@@ -17,6 +17,8 @@ export const auctionRadarCriteria = {
 };
 
 export const emptyAuctionVehicleForm = {
+  sourceText: "",
+  extractionReport: null,
   brand: "Renault",
   model: "",
   trim: "",
@@ -119,6 +121,8 @@ export function buildVerifiedAuctionVehicle(form, id = crypto.randomUUID()) {
       transportCostCzk: toNullableNumber(form.transportCostCzk) || 0,
       preparationCostCzk: toNullableNumber(form.preparationCostCzk) || 0,
       targetProfitCzk: toNullableNumber(form.targetProfitCzk) || 30000,
+      sourceSnapshot: form.sourceText?.trim() || null,
+      extractionReport: form.extractionReport || null,
       firstRegistration: null,
       summary: form.summary.trim(),
       positives: splitLines(form.positives),
