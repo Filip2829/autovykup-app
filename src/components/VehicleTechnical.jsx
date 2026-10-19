@@ -1,5 +1,9 @@
 import { useEffect, useState } from "react";
 import { validateVehicleTechnicalIdentity } from "../utils/vehicleTechnicalValidation.js";
+import {
+  getEquipmentLevelStatus,
+  getVehicleEquipmentHighlights,
+} from "../utils/vehicleEquipmentHighlights.js";
 
 export default function VehicleTechnical({
   selectedCar,
@@ -25,6 +29,14 @@ export default function VehicleTechnical({
     setTechnicalParams((current) => ({
       ...current,
       [key]: value,
+      ...(key === "equipmentLevel"
+        ? {
+            equipmentLevelSource: "manual",
+            equipmentLevelVerified: false,
+            equipmentLevelConfidence: null,
+            equipmentLevelReferences: [],
+          }
+        : {}),
     }));
     setValidationError("");
     setSuccessMessage("");
@@ -33,6 +45,18 @@ export default function VehicleTechnical({
   function getTechnicalParam(key) {
     return technicalParams?.[key] || "";
   }
+
+  const equipmentHighlights = getVehicleEquipmentHighlights(technicalParams);
+  const equipmentLevelStatus = getEquipmentLevelStatus(technicalParams);
+  const equipmentLevelReferences = Array.isArray(
+    technicalParams?.equipmentLevelReferences
+  )
+    ? technicalParams.equipmentLevelReferences.filter(
+        (reference) =>
+          typeof reference?.url === "string" &&
+          reference.url.startsWith("https://")
+      )
+    : [];
 
   async function saveTechnicalParams() {
     if (!selectedCar || isSaving) return;
@@ -79,6 +103,55 @@ export default function VehicleTechnical({
           ? "Doplňuji technická data..."
           : "Automaticky doplnit technická data"}
       </button>
+
+      {(equipmentHighlights.length > 0 || equipmentLevelStatus) && (
+        <div className="equipmentHighlightsPanel">
+          <div className="equipmentHighlightsHeader">
+            <div>
+              <p className="label">Důležitá výbava z podkladů</p>
+              <h3>Ověřené prvky výbavy</h3>
+            </div>
+            {equipmentLevelStatus && (
+              <span
+                className={`equipmentSourceBadge ${equipmentLevelStatus.tone}`}
+              >
+                {equipmentLevelStatus.label}
+              </span>
+            )}
+          </div>
+
+          {equipmentHighlights.length > 0 && (
+            <div className="equipmentHighlightChips">
+              {equipmentHighlights.map((item) => (
+                <span
+                  className="equipmentHighlightChip"
+                  key={`${item.name}-${item.source}`}
+                  title={item.note || `${item.name} – ${item.sourceLabel}`}
+                >
+                  <strong>{item.name}</strong>
+                  <small>{item.sourceLabel}</small>
+                </span>
+              ))}
+            </div>
+          )}
+
+          {equipmentLevelReferences.length > 0 && (
+            <div className="equipmentReferences">
+              <span>Porovnáno s reálnými vozy:</span>
+              {equipmentLevelReferences.slice(0, 3).map((reference, index) => (
+                <a
+                  href={reference.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  key={`${reference.url}-${index}`}
+                >
+                  {reference.title || `Zdroj ${index + 1}`}
+                </a>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {selectedCar.aiDocumentReport && (
         <div className="aiReport">
@@ -131,9 +204,9 @@ export default function VehicleTechnical({
         </div>
 
         <div>
-          <p className="label">Výbava</p>
+          <p className="label">Název výbavy</p>
           <input
-            placeholder="Výbava"
+            placeholder="Např. Ambition, Style, Intens"
             value={getTechnicalParam("equipmentLevel")}
             onChange={(event) =>
               updateTechnicalParam("equipmentLevel", event.target.value)

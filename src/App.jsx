@@ -91,6 +91,7 @@ const equipmentItems = [
   "Android Auto",
   "Apple CarPlay",
   "Asistent jízdy v pruzích",
+  "Automatická převodovka",
   "Automatická klimatizace",
   "Bezklíčové odemykání",
   "Bezklíčové startování",
@@ -1702,6 +1703,7 @@ const remainingEquipment = equipmentItems.filter(
 
     try {
       const vin = String(selectedCar.vin || "").trim().toUpperCase();
+      const vehiclePhotos = (selectedCar.photos || []).slice(0, 12);
       let inputDocumentUrls = [];
       let documentPreparationError = "";
 
@@ -1731,9 +1733,9 @@ const remainingEquipment = equipmentItems.filter(
           error instanceof Error ? error.message : "Dokumenty se nepodařilo připravit.";
       }
 
-      if (!vin && inputDocumentUrls.length === 0) {
+      if (!vin && inputDocumentUrls.length === 0 && vehiclePhotos.length === 0) {
         alert(
-          "Doplňte VIN nebo nahrajte CEBIA či fotografie technického průkazu v Administrativě."
+          "Doplňte VIN nebo nahrajte CEBIA, technický průkaz či fotografie vozu."
         );
         return;
       }
@@ -1755,7 +1757,7 @@ const remainingEquipment = equipmentItems.filter(
 
       let documentData = null;
       let documentError = documentPreparationError;
-      if (inputDocumentUrls.length > 0) {
+      if (inputDocumentUrls.length > 0 || vehiclePhotos.length > 0) {
         const { data, error } = await supabase.functions.invoke(
           "analyze-vehicle-technical-data",
           {
@@ -1763,6 +1765,7 @@ const remainingEquipment = equipmentItems.filter(
               car: selectedCar,
               technicalCardPhotos: inputDocumentUrls,
               cebiaFiles: [],
+              vehiclePhotos,
             },
           }
         );
