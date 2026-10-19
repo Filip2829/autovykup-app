@@ -114,11 +114,13 @@ describe("buildVehicleAiContext", () => {
       technical_card_photos: ["legacy-tp.jpg", "legacy-tp.jpg"],
       cebia_files: ["legacy-cebia.pdf"],
       buy_estimate: 200000,
+      buy_estimate_max: 215000,
     });
 
     assert.equal(context.profile.identity.brand, "Dacia");
     assert.equal(context.profile.identity.model, "Dokker");
     assert.equal(context.internal.valuation.buyEstimate, 200000);
+    assert.equal(context.internal.valuation.buyEstimateMax, 215000);
     assert.equal(context.sources.documents.length, 2);
   });
 

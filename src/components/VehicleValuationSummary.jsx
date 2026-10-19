@@ -1,4 +1,5 @@
 import { buildVehicleProfile } from "../utils/buildVehicleProfile.js";
+import { formatVehiclePriceRange } from "../utils/vehiclePriceRange.js";
 
 function hasValue(value) {
   return value !== null && value !== undefined && String(value).trim() !== "";
@@ -6,11 +7,6 @@ function hasValue(value) {
 
 function displayValue(value) {
   return hasValue(value) ? String(value) : "Neověřeno";
-}
-
-function formatCurrency(value) {
-  if (!hasValue(value) || !Number.isFinite(Number(value))) return "Neověřeno";
-  return `${Math.round(Number(value)).toLocaleString("cs-CZ")} Kč`;
 }
 
 function formatMileage(value) {
@@ -148,10 +144,10 @@ export default function VehicleValuationSummary({
         <section>
           <h3>Cenové údaje</h3>
           <div className="summaryFacts">
-            <p><span>Představa zákazníka</span><strong>{formatCurrency(selectedCar.customerExpectedPrice)}</strong></p>
-            <p><span>Návrh výkupní ceny</span><strong>{formatCurrency(selectedCar.buyEstimate)}</strong></p>
-            <p><span>Návrh prodejní ceny</span><strong>{formatCurrency(selectedCar.saleEstimate)}</strong></p>
-            <p><span>Potvrzená výkupní cena</span><strong>{formatCurrency(selectedCar.approvedPrice)}</strong></p>
+            <p><span>Představa zákazníka</span><strong>{formatVehiclePriceRange(selectedCar.customerExpectedPrice, selectedCar.customerExpectedPriceMax)}</strong></p>
+            <p><span>Návrh výkupní ceny</span><strong>{formatVehiclePriceRange(selectedCar.buyEstimate, selectedCar.buyEstimateMax)}</strong></p>
+            <p><span>Návrh prodejní ceny</span><strong>{formatVehiclePriceRange(selectedCar.saleEstimate, selectedCar.saleEstimateMax)}</strong></p>
+            <p><span>Potvrzená výkupní cena</span><strong>{formatVehiclePriceRange(selectedCar.approvedPrice, selectedCar.approvedPriceMax)}</strong></p>
           </div>
         </section>
       </div>

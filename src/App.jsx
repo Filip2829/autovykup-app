@@ -448,9 +448,13 @@ function prepareCar(car) {
         : {},
     valuationDate: car.valuation_date ?? "",
     saleEstimate: car.sale_estimate ?? "",
+    saleEstimateMax: car.sale_estimate_max ?? "",
     buyEstimate: car.buy_estimate ?? "",
+    buyEstimateMax: car.buy_estimate_max ?? "",
     customerExpectedPrice: car.customer_expected_price ?? "",
+    customerExpectedPriceMax: car.customer_expected_price_max ?? "",
     approvedPrice: car.approved_price ?? "",
+    approvedPriceMax: car.approved_price_max ?? "",
     dealType: car.deal_type || "buyout",
     tradeInSource: car.trade_in_source || "",
     commissionNotes: car.commission_notes || "",
@@ -1150,11 +1154,17 @@ const remainingEquipment = equipmentItems.filter(
         cebia_files: updatedWithUser.cebiaFiles || [],
         valuation_date: updatedWithUser.valuationDate || null,
         sale_estimate: toNullableNumber(updatedWithUser.saleEstimate),
+        sale_estimate_max: toNullableNumber(updatedWithUser.saleEstimateMax),
         buy_estimate: toNullableNumber(updatedWithUser.buyEstimate),
+        buy_estimate_max: toNullableNumber(updatedWithUser.buyEstimateMax),
         customer_expected_price: toNullableNumber(
           updatedWithUser.customerExpectedPrice
         ),
+        customer_expected_price_max: toNullableNumber(
+          updatedWithUser.customerExpectedPriceMax
+        ),
         approved_price: toNullableNumber(updatedWithUser.approvedPrice),
+        approved_price_max: toNullableNumber(updatedWithUser.approvedPriceMax),
         deal_type: updatedWithUser.dealType || null,
         trade_in_source: updatedWithUser.tradeInSource || null,
         commission_notes: updatedWithUser.commissionNotes || null,
@@ -1211,9 +1221,13 @@ const remainingEquipment = equipmentItems.filter(
       cebia_files: [],
       valuation_date: null,
       sale_estimate: null,
+      sale_estimate_max: null,
       buy_estimate: null,
+      buy_estimate_max: null,
       customer_expected_price: null,
+      customer_expected_price_max: null,
       approved_price: null,
+      approved_price_max: null,
       deal_type: "buyout",
       trade_in_source: null,
       commission_notes: null,
@@ -2774,7 +2788,6 @@ const remainingEquipment = equipmentItems.filter(
               setCars={setCars}
               supabase={supabase}
               prepareCar={prepareCar}
-              toNullableNumber={toNullableNumber}
               currentUsername={currentUsername}
               moduleContentRef={moduleContentRef}
               onSaved={synchronizeVehicleMatches}

@@ -176,6 +176,10 @@ export function buildVehicleProfile(
     car.expected_sale_price
   );
   const saleEstimate = firstDefined(car.saleEstimate, car.sale_estimate);
+  const saleEstimateMax = firstDefined(
+    car.saleEstimateMax,
+    car.sale_estimate_max
+  );
   const effectiveSalePrice = firstPositiveNumber(
     car.expectedSalePrice,
     car.expected_sale_price,
@@ -271,6 +275,7 @@ export function buildVehicleProfile(
     pricing: {
       expectedSalePrice: expectedSalePrice ?? null,
       saleEstimate: saleEstimate ?? null,
+      saleEstimateMax: saleEstimateMax ?? null,
       effectiveSalePrice,
     },
     history: {

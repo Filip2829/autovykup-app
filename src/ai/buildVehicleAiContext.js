@@ -106,9 +106,14 @@ export function buildVehicleAiContext(
     valuationDate: car.valuationDate ?? car.valuation_date ?? "",
     customerExpectedPrice:
       car.customerExpectedPrice ?? car.customer_expected_price ?? null,
+    customerExpectedPriceMax:
+      car.customerExpectedPriceMax ?? car.customer_expected_price_max ?? null,
     buyEstimate: car.buyEstimate ?? car.buy_estimate ?? null,
+    buyEstimateMax: car.buyEstimateMax ?? car.buy_estimate_max ?? null,
     saleEstimate: car.saleEstimate ?? car.sale_estimate ?? null,
+    saleEstimateMax: car.saleEstimateMax ?? car.sale_estimate_max ?? null,
     approvedPrice: car.approvedPrice ?? car.approved_price ?? null,
+    approvedPriceMax: car.approvedPriceMax ?? car.approved_price_max ?? null,
     purchasePrice: car.purchasePrice ?? car.purchase_price ?? null,
     expectedSalePrice:
       car.expectedSalePrice ?? car.expected_sale_price ?? null,

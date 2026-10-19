@@ -1,12 +1,24 @@
 import { useEffect, useMemo, useState } from "react";
+import {
+  buildVehiclePriceRangePayload,
+  readPriceRange,
+  validateVehiclePriceRanges,
+  vehiclePriceRangeFields,
+} from "../utils/vehiclePriceRange.js";
 
 function getPricingForm(car) {
+  const priceValues = Object.fromEntries(
+    vehiclePriceRangeFields.flatMap((field) => {
+      const range = readPriceRange(car, field);
+      return [
+        [field.key, range.min ?? ""],
+        [field.maxKey, range.max ?? ""],
+      ];
+    })
+  );
   return {
-    valuationDate: car?.valuationDate ?? "",
-    customerExpectedPrice: car?.customerExpectedPrice ?? "",
-    buyEstimate: car?.buyEstimate ?? "",
-    saleEstimate: car?.saleEstimate ?? "",
-    approvedPrice: car?.approvedPrice ?? "",
+    valuationDate: car?.valuationDate ?? car?.valuation_date ?? "",
+    ...priceValues,
   };
 }
 
@@ -16,7 +28,6 @@ export default function VehiclePricing({
   setCars,
   supabase,
   prepareCar,
-  toNullableNumber,
   currentUsername,
   moduleContentRef,
   onSaved,
@@ -38,9 +49,13 @@ export default function VehiclePricing({
     selectedCar?.id,
     selectedCar?.valuationDate,
     selectedCar?.customerExpectedPrice,
+    selectedCar?.customerExpectedPriceMax,
     selectedCar?.buyEstimate,
+    selectedCar?.buyEstimateMax,
     selectedCar?.saleEstimate,
+    selectedCar?.saleEstimateMax,
     selectedCar?.approvedPrice,
+    selectedCar?.approvedPriceMax,
   ]);
 
   const hasUnsavedChanges = useMemo(
@@ -57,38 +72,37 @@ export default function VehiclePricing({
     setErrorMessage("");
   }
 
-  function updatePricingPrice(key, value) {
-    updatePricingField(key, value);
-  }
-
   async function savePricing() {
     if (!selectedCar) return;
     if (validateBeforeSave && !validateBeforeSave(selectedCar)) return;
+
+    const validationError = validateVehiclePriceRanges(form);
+    if (validationError) {
+      setErrorMessage(validationError);
+      setSuccessMessage("");
+      return;
+    }
 
     setIsSaving(true);
     setSuccessMessage("");
     setErrorMessage("");
 
     const valuationDate = form.valuationDate || "";
-    const customerExpectedPrice = toNullableNumber(form.customerExpectedPrice);
-    const buyEstimate = toNullableNumber(form.buyEstimate);
-    const saleEstimate = toNullableNumber(form.saleEstimate);
-    const approvedPrice = toNullableNumber(form.approvedPrice);
+    const pricePayload = buildVehiclePriceRangePayload(form);
 
     const updatedCar = {
       ...selectedCar,
       valuationDate,
-      customerExpectedPrice: customerExpectedPrice ?? "",
-      buyEstimate: buyEstimate ?? "",
-      saleEstimate: saleEstimate ?? "",
-      approvedPrice: approvedPrice ?? "",
+      ...Object.fromEntries(
+        vehiclePriceRangeFields.flatMap((field) => [
+          [field.key, pricePayload[field.dbKey] ?? ""],
+          [field.maxKey, pricePayload[field.dbMaxKey] ?? ""],
+        ])
+      ),
     };
     const pricingPayload = {
       valuation_date: valuationDate || null,
-      customer_expected_price: customerExpectedPrice,
-      buy_estimate: buyEstimate,
-      sale_estimate: saleEstimate,
-      approved_price: approvedPrice,
+      ...pricePayload,
       updated_by: currentUsername,
       updated_at: new Date().toISOString(),
     };
@@ -145,65 +159,41 @@ export default function VehiclePricing({
           />
         </div>
 
-        <div>
-          <p className="label">Návrh výkupní ceny</p>
-          <input
-            type="number"
-            min="0"
-            step="1"
-            placeholder="Návrh výkupní ceny"
-            value={form.buyEstimate ?? ""}
-            onChange={(event) =>
-              updatePricingPrice("buyEstimate", event.target.value)
-            }
-            style={{ width: "100%" }}
-          />
-        </div>
-
-        <div>
-          <p className="label">Představa zákazníka</p>
-          <input
-            type="number"
-            min="0"
-            step="1"
-            placeholder="Představa zákazníka"
-            value={form.customerExpectedPrice ?? ""}
-            onChange={(event) =>
-              updatePricingPrice("customerExpectedPrice", event.target.value)
-            }
-            style={{ width: "100%" }}
-          />
-        </div>
-
-        <div>
-          <p className="label">Návrh prodejní ceny</p>
-          <input
-            type="number"
-            min="0"
-            step="1"
-            placeholder="Návrh prodejní ceny"
-            value={form.saleEstimate ?? ""}
-            onChange={(event) =>
-              updatePricingPrice("saleEstimate", event.target.value)
-            }
-            style={{ width: "100%" }}
-          />
-        </div>
-
-        <div>
-          <p className="label">Potvrzená výkupní cena</p>
-          <input
-            type="number"
-            min="0"
-            step="1"
-            placeholder="Potvrzená výkupní cena"
-            value={form.approvedPrice ?? ""}
-            onChange={(event) =>
-              updatePricingPrice("approvedPrice", event.target.value)
-            }
-            style={{ width: "100%" }}
-          />
-        </div>
+        {vehiclePriceRangeFields.map((field) => (
+          <div key={field.key}>
+            <p className="label">{field.label}</p>
+            <div className="priceRangeInputs">
+              <label>
+                <span>Od</span>
+                <input
+                  type="number"
+                  min="0"
+                  step="1"
+                  placeholder="Jedna cena nebo od"
+                  value={form[field.key] ?? ""}
+                  onChange={(event) =>
+                    updatePricingField(field.key, event.target.value)
+                  }
+                />
+              </label>
+              <span className="priceRangeSeparator">–</span>
+              <label>
+                <span>Do <small>(volitelné)</small></span>
+                <input
+                  type="number"
+                  min={form[field.key] || "0"}
+                  step="1"
+                  placeholder="Horní hranice"
+                  value={form[field.maxKey] ?? ""}
+                  onChange={(event) =>
+                    updatePricingField(field.maxKey, event.target.value)
+                  }
+                />
+              </label>
+              <span className="priceRangeCurrency">Kč</span>
+            </div>
+          </div>
+        ))}
       </div>
 
       {hasUnsavedChanges && (

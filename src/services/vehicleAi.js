@@ -15,6 +15,7 @@ import {
   buildPriceRecommendationPayload,
   invokePriceRecommendationAi,
 } from "./priceRecommendationAi.js";
+import { formatVehiclePriceRange } from "../utils/vehiclePriceRange.js";
 
 function hasValue(value) {
   return value !== null && value !== undefined && String(value).trim() !== "";
@@ -64,16 +65,26 @@ function getPricingLines(context) {
     context.lifecycleSection === "valuation" ||
     context.lifecycleSection === "approved_purchase"
   ) {
-    addLine(lines, "Představa zákazníka", valuation.customerExpectedPrice, formatCurrency);
-    addLine(lines, "Návrh výkupní ceny", valuation.buyEstimate, formatCurrency);
-    addLine(lines, "Návrh prodejní ceny", valuation.saleEstimate, formatCurrency);
-    addLine(lines, "Potvrzená výkupní cena", valuation.approvedPrice, formatCurrency);
+    addLine(lines, "Představa zákazníka", valuation.customerExpectedPrice, (value) =>
+      formatVehiclePriceRange(value, valuation.customerExpectedPriceMax)
+    );
+    addLine(lines, "Návrh výkupní ceny", valuation.buyEstimate, (value) =>
+      formatVehiclePriceRange(value, valuation.buyEstimateMax)
+    );
+    addLine(lines, "Návrh prodejní ceny", valuation.saleEstimate, (value) =>
+      formatVehiclePriceRange(value, valuation.saleEstimateMax)
+    );
+    addLine(lines, "Potvrzená výkupní cena", valuation.approvedPrice, (value) =>
+      formatVehiclePriceRange(value, valuation.approvedPriceMax)
+    );
     return lines;
   }
 
   addLine(lines, "Výkupní cena", valuation.purchasePrice, formatCurrency);
   addLine(lines, "Plánovaná prodejní cena", valuation.expectedSalePrice, formatCurrency);
-  addLine(lines, "Návrh prodejní ceny", valuation.saleEstimate, formatCurrency);
+  addLine(lines, "Návrh prodejní ceny", valuation.saleEstimate, (value) =>
+    formatVehiclePriceRange(value, valuation.saleEstimateMax)
+  );
 
   if (context.lifecycleSection === "sold") {
     addLine(lines, "Prodejní cena", valuation.soldPrice, formatCurrency);
