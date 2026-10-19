@@ -5,9 +5,11 @@ import {
   AUCTION_DECISION,
   auctionRadarCriteria,
   buildVerifiedAuctionVehicle,
+  calculateAuctionEconomics,
   demoAuctionVehicles,
   emptyAuctionVehicleForm,
   filterAuctionVehicles,
+  getAuctionUrgency,
   validateAuctionVehicleForm,
 } from "./auctionRadarData.js";
 
@@ -100,4 +102,52 @@ test("builds a verified Czech Renault offer with its original link", () => {
   assert.equal(vehicle.priceCzk, 499000);
   assert.equal(vehicle.originalAuctionUrl, "https://example.com/auction/123");
   assert.deepEqual(vehicle.positives, ["Nízký nájezd", "Český původ"]);
+});
+
+test("calculates complete auction economics and a safe maximum bid", () => {
+  const result = calculateAuctionEconomics({
+    priceCzk: 300000,
+    expectedSalePriceCzk: 390000,
+    auctionFeeCzk: 8000,
+    transportCostCzk: 5000,
+    preparationCostCzk: 17000,
+    targetProfitCzk: 30000,
+  });
+
+  assert.equal(result.totalCost, 330000);
+  assert.equal(result.expectedProfit, 60000);
+  assert.equal(result.recommendedMaxBid, 330000);
+  assert.equal(Math.round(result.marginPercent * 10) / 10, 15.4);
+});
+
+test("labels auction deadlines and orders the nearest deadline first", () => {
+  const now = new Date("2026-10-19T10:00:00Z");
+  assert.equal(getAuctionUrgency("2026-10-19T13:00:00Z", now).key, "critical");
+  assert.equal(getAuctionUrgency("2026-10-20T06:00:00Z", now).key, "soon");
+  assert.equal(getAuctionUrgency("2026-10-18T10:00:00Z", now).key, "ended");
+
+  const ordered = filterAuctionVehicles([
+    { ...demoAuctionVehicles[0], id: "later", auctionEndsAt: "2026-10-21T10:00:00Z" },
+    { ...demoAuctionVehicles[1], id: "sooner", auctionEndsAt: "2026-10-20T10:00:00Z" },
+  ], { ...defaultFilters, sort: "deadline" });
+  assert.deepEqual(ordered.map(({ id }) => id), ["sooner", "later"]);
+});
+
+test("rejects an invalid VIN and negative operating costs", () => {
+  const errors = validateAuctionVehicleForm({
+    ...emptyAuctionVehicleForm,
+    model: "Captur",
+    year: "2022",
+    mileageKm: "20000",
+    priceCzk: "300000",
+    locationCity: "Praha",
+    sourceName: "Aukce",
+    originalAuctionUrl: "https://example.com/offer/1",
+    summary: "Ověřeno",
+    vin: "INVALID",
+    auctionFeeCzk: "-1",
+    verificationConfirmed: true,
+  });
+  assert.ok(errors.vin);
+  assert.ok(errors.auctionFeeCzk);
 });

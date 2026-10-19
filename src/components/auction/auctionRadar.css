@@ -15,6 +15,7 @@
 .auctionRadarActions { display: flex; align-items: center; justify-content: space-between; gap: 18px; padding: 18px 20px; border-radius: 18px; background: rgba(15,23,42,.78); border: 1px solid rgba(148,163,184,.15); }
 .auctionRadarActions p { margin: 4px 0 0; color: #94a3b8; }
 .auctionSaveMessage { display: flex; align-items: center; gap: 8px; padding: 13px 16px; border-radius: 14px; color: #86efac; background: rgba(34,197,94,.1); border: 1px solid rgba(34,197,94,.3); font-weight: 700; }
+.auctionErrorMessage { display: flex; align-items: center; gap: 8px; padding: 13px 16px; border-radius: 14px; color: #fca5a5; background: rgba(239,68,68,.1); border: 1px solid rgba(239,68,68,.3); font-weight: 700; }
 .auctionVehicleForm { padding: 22px; border-radius: 22px; background: linear-gradient(180deg,rgba(15,23,42,.98),rgba(2,6,23,.98)); border: 1px solid rgba(96,165,250,.3); box-shadow: 0 20px 60px rgba(0,0,0,.35); }
 .auctionFormHeader { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 18px; }
 .auctionFormHeader h3 { margin: 0; color: #fff; font-size: 22px; }
@@ -26,6 +27,7 @@
 .auctionFormGrid input:focus, .auctionFormGrid select:focus, .auctionFormGrid textarea:focus { outline: none; border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59,130,246,.16); }
 .auctionFormGrid label > small, .auctionFormError { margin: 0; color: #fca5a5; font-size: 12px; font-weight: 700; }
 .auctionFormWide { grid-column: 1/-1; }
+.auctionFormSectionTitle { grid-column: 1/-1; display: flex; align-items: center; gap: 7px; margin-top: 7px; padding-top: 17px; color: #dbeafe; border-top: 1px solid rgba(148,163,184,.15); font-weight: 900; }
 .auctionVerificationCheck { display: flex; align-items: flex-start; gap: 10px; margin-top: 18px; color: #dbeafe; font-weight: 700; }
 .auctionVerificationCheck input { width: 18px; height: 18px; flex: 0 0 auto; accent-color: #2563eb; }
 .auctionFormActions { display: flex; justify-content: flex-end; align-items: center; gap: 10px; margin-top: 18px; }
@@ -37,6 +39,7 @@
 .auctionRadarSearch { display: flex; align-items: center; gap: 9px; min-height: 45px; padding: 0 13px; border-radius: 13px; color: #64748b; background: rgba(255,255,255,.035); border: 1px solid rgba(255,255,255,.09); }
 .auctionRadarSearch input { width: 100%; min-width: 0; border: 0; outline: 0; color: #fff; background: transparent; }
 .auctionRadarSelects { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
+.auctionRadarSelectsExpanded { grid-template-columns: repeat(2,minmax(0,1fr)); }
 .auctionRadarSelects label { display: grid; gap: 5px; color: #94a3b8; font-size: 12px; font-weight: 700; }
 .auctionRadarSelects select { min-width: 0; padding: 10px; border-radius: 12px; color: #f8fafc; background: #111827; border: 1px solid rgba(148,163,184,.2); }
 .auctionRadarResultsTop { display: flex; justify-content: space-between; gap: 16px; align-items: center; color: #94a3b8; }
@@ -55,6 +58,15 @@
 .auctionFacts span { padding: 12px; color: #e2e8f0; background: #0b1220; font-weight: 800; font-size: 13px; }
 .auctionFacts small, .auctionSource small { display: block; margin-bottom: 4px; color: #64748b; font-size: 10px; text-transform: uppercase; letter-spacing: .06em; }
 .auctionLocation { display: flex; align-items: center; gap: 6px; margin: 16px 20px 8px; color: #93c5fd; font-weight: 700; }
+.auctionUrgency { display: inline-flex; align-items: center; gap: 6px; margin: 0 20px 12px; padding: 6px 9px; border-radius: 999px; color: #cbd5e1; background: rgba(148,163,184,.1); font-size: 12px; font-weight: 800; }
+.auctionUrgency.urgency-critical, .auctionUrgency.urgency-ended { color: #fca5a5; background: rgba(239,68,68,.12); }
+.auctionUrgency.urgency-soon { color: #fde68a; background: rgba(245,158,11,.12); }
+.auctionUrgency.urgency-open { color: #86efac; background: rgba(34,197,94,.1); }
+.auctionEconomics { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 1px; margin: 0 20px 16px; overflow: hidden; border-radius: 14px; background: rgba(148,163,184,.13); }
+.auctionEconomics span { min-width: 0; padding: 11px; color: #e2e8f0; background: #0b1220; font-size: 13px; font-weight: 900; }
+.auctionEconomics small { display: block; margin-bottom: 5px; color: #64748b; font-size: 10px; text-transform: uppercase; }
+.auctionEconomics .isPositive { color: #86efac; }
+.auctionEconomics .isRisky { color: #fca5a5; }
 .auctionSummary { margin: 0 20px 16px; color: #cbd5e1; line-height: 1.55; }
 .auctionProsCons { display: grid; grid-template-columns: 1fr 1fr; gap: 11px; margin: 0 20px 16px; }
 .auctionProsCons > div { padding: 13px; border-radius: 14px; background: rgba(15,23,42,.85); border: 1px solid rgba(148,163,184,.14); }
@@ -68,10 +80,11 @@
 .auctionDecision > span { display: block; margin-bottom: 9px; color: #94a3b8; font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: .05em; }
 .auctionDecision > div { display: flex; flex-wrap: wrap; gap: 7px; }
 .auctionDecision button { display: inline-flex; align-items: center; gap: 5px; padding: 8px 10px; border-radius: 11px; color: #94a3b8; background: rgba(148,163,184,.07); border: 1px solid rgba(148,163,184,.18); font-size: 12px; font-weight: 800; }
+.auctionDecision button:disabled { cursor: not-allowed; opacity: .45; }
 .auctionDecision button.isActive.decision-suitable { color: #86efac; border-color: rgba(34,197,94,.5); background: rgba(34,197,94,.12); }
 .auctionDecision button.isActive.decision-watchlist { color: #fde68a; border-color: rgba(245,158,11,.5); background: rgba(245,158,11,.12); }
 .auctionDecision button.isActive.decision-rejected { color: #fca5a5; border-color: rgba(239,68,68,.5); background: rgba(239,68,68,.12); }
 .auctionDecision .auctionDeleteButton { margin-top: 10px; color: #fca5a5; border-color: rgba(239,68,68,.25); background: transparent; }
 .auctionRadarEmpty { padding: 40px; border-radius: 20px; color: #94a3b8; text-align: center; border: 1px dashed rgba(148,163,184,.25); }
 @media (max-width: 1200px) { .auctionRadarFilters { grid-template-columns: 1fr 1fr; } .auctionVehicleGrid { grid-template-columns: 1fr; } }
-@media (max-width: 760px) { .auctionRadarHero { grid-template-columns: 1fr; justify-items: start; } .auctionRadarHero > div:nth-child(2) { text-align: left; } .auctionRadarMode { width: 100%; min-width: 0; } .auctionRadarActions, .auctionFormHeader, .auctionFormActions { align-items: stretch; flex-direction: column; } .auctionRadarActions .primary, .auctionFormActions button { width: 100%; } .auctionFormGrid, .auctionRadarFilters { grid-template-columns: 1fr; } .auctionFormWide { grid-column: auto; } .auctionRadarSelects { grid-template-columns: 1fr; } .auctionFacts { grid-template-columns: repeat(2,1fr); } .auctionProsCons { grid-template-columns: 1fr; } .auctionVehicleCard > header, .auctionSource, .auctionRadarResultsTop { align-items: flex-start; flex-direction: column; } .auctionLinkUnavailable { max-width: none; text-align: left; } }
+@media (max-width: 760px) { .auctionRadarHero { grid-template-columns: 1fr; justify-items: start; } .auctionRadarHero > div:nth-child(2) { text-align: left; } .auctionRadarMode { width: 100%; min-width: 0; } .auctionRadarActions, .auctionFormHeader, .auctionFormActions { align-items: stretch; flex-direction: column; } .auctionRadarActions .primary, .auctionFormActions button { width: 100%; } .auctionFormGrid, .auctionRadarFilters { grid-template-columns: 1fr; } .auctionFormWide, .auctionFormSectionTitle { grid-column: auto; } .auctionRadarSelects { grid-template-columns: 1fr; } .auctionFacts, .auctionEconomics { grid-template-columns: repeat(2,1fr); } .auctionProsCons { grid-template-columns: 1fr; } .auctionVehicleCard > header, .auctionSource, .auctionRadarResultsTop { align-items: flex-start; flex-direction: column; } .auctionLinkUnavailable { max-width: none; text-align: left; } }

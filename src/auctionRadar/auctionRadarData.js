@@ -28,6 +28,13 @@ export const emptyAuctionVehicleForm = {
   priceCzk: "",
   sourceName: "",
   originalAuctionUrl: "",
+  vin: "",
+  auctionEndsAt: "",
+  expectedSalePriceCzk: "",
+  auctionFeeCzk: "",
+  transportCostCzk: "",
+  preparationCostCzk: "",
+  targetProfitCzk: "30000",
   summary: "",
   positives: "",
   negatives: "",
@@ -46,6 +53,7 @@ export function validateAuctionVehicleForm(form) {
   const year = Number(form.year);
   const mileageKm = Number(form.mileageKm);
   const priceCzk = Number(form.priceCzk);
+  const expectedSalePriceCzk = Number(form.expectedSalePriceCzk);
   const currentYear = new Date().getFullYear();
 
   if (!auctionRadarCriteria.brands.includes(form.brand)) errors.brand = "Povolený je pouze Renault nebo Dacia.";
@@ -65,6 +73,18 @@ export function validateAuctionVehicleForm(form) {
   }
 
   if (!form.summary.trim()) errors.summary = "Doplňte stručné ověřené shrnutí.";
+  const vin = String(form.vin || "").trim().toUpperCase();
+  if (vin && !/^[A-HJ-NPR-Z0-9]{17}$/.test(vin)) errors.vin = "VIN musí mít 17 platných znaků.";
+  if (form.auctionEndsAt && Number.isNaN(new Date(form.auctionEndsAt).getTime())) errors.auctionEndsAt = "Zadejte platný konec aukce.";
+  for (const field of ["auctionFeeCzk", "transportCostCzk", "preparationCostCzk", "targetProfitCzk"]) {
+    const rawValue = form[field];
+    if (rawValue !== "" && (!Number.isFinite(Number(rawValue)) || Number(rawValue) < 0)) {
+      errors[field] = "Částka nesmí být záporná.";
+    }
+  }
+  if (form.expectedSalePriceCzk !== "" && (!Number.isFinite(expectedSalePriceCzk) || expectedSalePriceCzk <= 0)) {
+    errors.expectedSalePriceCzk = "Zadejte platnou očekávanou prodejní cenu.";
+  }
   if (!form.verificationConfirmed) errors.verificationConfirmed = "Potvrďte ruční kontrolu údajů proti zdroji.";
   return errors;
 }
@@ -74,6 +94,7 @@ export function buildVerifiedAuctionVehicle(form, id = crypto.randomUUID()) {
   if (Object.keys(errors).length) return { vehicle: null, errors };
 
   const now = new Date().toISOString();
+  const vin = String(form.vin || "").trim().toUpperCase();
   return {
     errors: {},
     vehicle: {
@@ -82,6 +103,7 @@ export function buildVerifiedAuctionVehicle(form, id = crypto.randomUUID()) {
       sourceName: form.sourceName.trim(),
       sourceUrl: new URL(form.originalAuctionUrl).origin,
       originalAuctionUrl: form.originalAuctionUrl.trim(),
+      vin: vin || null,
       brand: form.brand,
       model: form.model.trim(),
       trim: form.trim.trim(),
@@ -91,8 +113,12 @@ export function buildVerifiedAuctionVehicle(form, id = crypto.randomUUID()) {
       transmission: form.transmission,
       location: `${form.locationCity.trim()}, ČR`,
       priceCzk: Number(form.priceCzk),
-      auctionEndsAt: null,
-      vin: null,
+      auctionEndsAt: form.auctionEndsAt ? new Date(form.auctionEndsAt).toISOString() : null,
+      expectedSalePriceCzk: toNullableNumber(form.expectedSalePriceCzk),
+      auctionFeeCzk: toNullableNumber(form.auctionFeeCzk) || 0,
+      transportCostCzk: toNullableNumber(form.transportCostCzk) || 0,
+      preparationCostCzk: toNullableNumber(form.preparationCostCzk) || 0,
+      targetProfitCzk: toNullableNumber(form.targetProfitCzk) || 30000,
       firstRegistration: null,
       summary: form.summary.trim(),
       positives: splitLines(form.positives),
@@ -106,6 +132,40 @@ export function buildVerifiedAuctionVehicle(form, id = crypto.randomUUID()) {
       createdManually: true,
     },
   };
+}
+
+function toNullableNumber(value) {
+  if (value === "" || value === null || value === undefined) return null;
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
+}
+
+export function calculateAuctionEconomics(vehicle = {}) {
+  const bid = Number(vehicle.priceCzk) || 0;
+  const fee = Number(vehicle.auctionFeeCzk) || 0;
+  const transport = Number(vehicle.transportCostCzk) || 0;
+  const preparation = Number(vehicle.preparationCostCzk) || 0;
+  const expectedSale = Number(vehicle.expectedSalePriceCzk) || 0;
+  const targetProfit = Number(vehicle.targetProfitCzk) || 30000;
+  const extraCosts = fee + transport + preparation;
+  const totalCost = bid + extraCosts;
+  const expectedProfit = expectedSale > 0 ? expectedSale - totalCost : null;
+  const marginPercent = expectedSale > 0 ? (expectedProfit / expectedSale) * 100 : null;
+  const recommendedMaxBid = expectedSale > 0
+    ? Math.max(0, expectedSale - extraCosts - targetProfit)
+    : null;
+
+  return { totalCost, expectedProfit, marginPercent, recommendedMaxBid, targetProfit };
+}
+
+export function getAuctionUrgency(auctionEndsAt, now = new Date()) {
+  if (!auctionEndsAt) return { key: "unknown", label: "Termín neuveden", hoursLeft: null };
+  const hoursLeft = (new Date(auctionEndsAt).getTime() - now.getTime()) / 3600000;
+  if (!Number.isFinite(hoursLeft)) return { key: "unknown", label: "Termín neuveden", hoursLeft: null };
+  if (hoursLeft <= 0) return { key: "ended", label: "Aukce skončila", hoursLeft };
+  if (hoursLeft <= 6) return { key: "critical", label: "Končí do 6 hodin", hoursLeft };
+  if (hoursLeft <= 24) return { key: "soon", label: "Končí dnes", hoursLeft };
+  return { key: "open", label: "Aukce probíhá", hoursLeft };
 }
 
 export const demoAuctionVehicles = [
@@ -186,7 +246,7 @@ export const demoAuctionVehicles = [
 export function filterAuctionVehicles(vehicles, filters) {
   const normalizedQuery = filters.query.trim().toLocaleLowerCase("cs");
 
-  return vehicles.filter((vehicle) => {
+  const filtered = vehicles.filter((vehicle) => {
     const matchesBrand = filters.brand === "all" || vehicle.brand === filters.brand;
     const matchesPrice = vehicle.priceCzk <= filters.maxPriceCzk;
     const matchesDecision = filters.decision === "all" ||
@@ -198,6 +258,19 @@ export function filterAuctionVehicles(vehicles, filters) {
         .toLocaleLowerCase("cs")
         .includes(normalizedQuery);
 
-    return matchesBrand && matchesPrice && matchesDecision && matchesQuery;
+    const urgency = getAuctionUrgency(vehicle.auctionEndsAt).key;
+    const matchesUrgency = !filters.urgency || filters.urgency === "all" || urgency === filters.urgency;
+    return matchesBrand && matchesPrice && matchesDecision && matchesQuery && matchesUrgency;
+  });
+
+  return filtered.sort((left, right) => {
+    if (filters.sort === "profit") {
+      return (calculateAuctionEconomics(right).expectedProfit ?? -Infinity) -
+        (calculateAuctionEconomics(left).expectedProfit ?? -Infinity);
+    }
+    if (filters.sort === "price") return left.priceCzk - right.priceCzk;
+    const leftEnd = left.auctionEndsAt ? new Date(left.auctionEndsAt).getTime() : Infinity;
+    const rightEnd = right.auctionEndsAt ? new Date(right.auctionEndsAt).getTime() : Infinity;
+    return leftEnd - rightEnd;
   });
 }

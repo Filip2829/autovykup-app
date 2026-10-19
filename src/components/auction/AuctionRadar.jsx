@@ -1,37 +1,30 @@
-import { useMemo, useState } from "react";
-import { ArrowLeft, BadgeCheck, Ban, Check, ExternalLink, Eye, Filter, MapPin, Plus, Radar, Search, Trash2, X } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { ArrowLeft, BadgeCheck, Ban, Calculator, Check, Clock3, ExternalLink, Eye, Filter, MapPin, Plus, Radar, Search, Trash2, X } from "lucide-react";
 import {
   AUCTION_DATA_STATUS,
   AUCTION_DECISION,
   auctionRadarCriteria,
   buildVerifiedAuctionVehicle,
+  calculateAuctionEconomics,
   demoAuctionVehicles,
   emptyAuctionVehicleForm,
   filterAuctionVehicles,
+  getAuctionUrgency,
 } from "../../auctionRadar/auctionRadarData.js";
+import {
+  createAuctionVehicle,
+  deleteAuctionVehicle,
+  importLegacyAuctionVehicles,
+  loadAuctionVehicles,
+  updateAuctionDecision,
+} from "../../services/auctionVehicles.js";
 import "./auctionRadar.css";
 
-const STORAGE_KEY = "autovykup.auction-radar.decisions.v1";
-const VEHICLES_STORAGE_KEY = "autovykup.auction-radar.vehicles.v1";
 const decisionOptions = [
   { value: AUCTION_DECISION.SUITABLE, label: "Vhodné k výkupu", icon: Check },
   { value: AUCTION_DECISION.WATCHLIST, label: "Sledovat", icon: Eye },
   { value: AUCTION_DECISION.REJECTED, label: "Nevhodné", icon: Ban },
 ];
-
-function readDecisions() {
-  try { return JSON.parse(window.localStorage.getItem(STORAGE_KEY)) || {}; }
-  catch { return {}; }
-}
-
-function readCustomVehicles() {
-  try {
-    const value = JSON.parse(window.localStorage.getItem(VEHICLES_STORAGE_KEY));
-    return Array.isArray(value) ? value : [];
-  } catch {
-    return [];
-  }
-}
 
 const formatPrice = (value) => new Intl.NumberFormat("cs-CZ", {
   style: "currency", currency: "CZK", maximumFractionDigits: 0,
@@ -39,25 +32,66 @@ const formatPrice = (value) => new Intl.NumberFormat("cs-CZ", {
 const formatNumber = (value) => new Intl.NumberFormat("cs-CZ").format(value);
 
 export default function AuctionRadar({ onBack }) {
-  const [decisions, setDecisions] = useState(readDecisions);
-  const [customVehicles, setCustomVehicles] = useState(readCustomVehicles);
+  const [customVehicles, setCustomVehicles] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [form, setForm] = useState({ ...emptyAuctionVehicleForm });
   const [formErrors, setFormErrors] = useState({});
   const [saveMessage, setSaveMessage] = useState("");
+  const [errorMessage, setErrorMessage] = useState("");
   const [filters, setFilters] = useState({
-    query: "", brand: "all", decision: "all", maxPriceCzk: auctionRadarCriteria.maxPriceCzk,
+    query: "", brand: "all", decision: "all", urgency: "all", sort: "deadline", maxPriceCzk: auctionRadarCriteria.maxPriceCzk,
   });
+  const decisions = useMemo(
+    () => Object.fromEntries(customVehicles.map((vehicle) => [vehicle.id, vehicle.decision])),
+    [customVehicles],
+  );
   const allVehicles = useMemo(() => [...customVehicles, ...demoAuctionVehicles], [customVehicles]);
   const visibleVehicles = useMemo(
     () => filterAuctionVehicles(allVehicles, { ...filters, decisions }),
     [allVehicles, filters, decisions],
   );
 
-  function setDecision(vehicleId, decision) {
-    const next = { ...decisions, [vehicleId]: decision };
-    setDecisions(next);
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+  useEffect(() => {
+    let active = true;
+    let legacyVehicles = [];
+    try {
+      const savedVehicles = JSON.parse(window.localStorage.getItem("autovykup.auction-radar.vehicles.v1"));
+      const savedDecisions = JSON.parse(window.localStorage.getItem("autovykup.auction-radar.decisions.v1")) || {};
+      if (Array.isArray(savedVehicles)) {
+        legacyVehicles = savedVehicles.map((vehicle) => ({
+          ...vehicle,
+          decision: savedDecisions[vehicle.id] || AUCTION_DECISION.UNDECIDED,
+        }));
+      }
+    } catch {
+      legacyVehicles = [];
+    }
+
+    importLegacyAuctionVehicles(legacyVehicles)
+      .then(() => {
+        if (legacyVehicles.length) {
+          window.localStorage.removeItem("autovykup.auction-radar.vehicles.v1");
+          window.localStorage.removeItem("autovykup.auction-radar.decisions.v1");
+        }
+      })
+      .then(loadAuctionVehicles)
+      .then((vehicles) => { if (active) setCustomVehicles(vehicles); })
+      .catch((error) => { if (active) setErrorMessage(error.message); })
+      .finally(() => { if (active) setIsLoading(false); });
+    return () => { active = false; };
+  }, []);
+
+  async function setDecision(vehicleId, decision) {
+    const previous = customVehicles;
+    setCustomVehicles((current) => current.map((item) => item.id === vehicleId ? { ...item, decision } : item));
+    try {
+      const updated = await updateAuctionDecision(vehicleId, decision);
+      setCustomVehicles((current) => current.map((item) => item.id === vehicleId ? updated : item));
+    } catch (error) {
+      setCustomVehicles(previous);
+      setErrorMessage(error.message);
+    }
   }
 
   function updateForm(field, value) {
@@ -66,29 +100,32 @@ export default function AuctionRadar({ onBack }) {
     setSaveMessage("");
   }
 
-  function saveVehicle(event) {
+  async function saveVehicle(event) {
     event.preventDefault();
     const { vehicle, errors } = buildVerifiedAuctionVehicle(form);
     setFormErrors(errors);
     if (!vehicle) return;
 
-    const next = [vehicle, ...customVehicles];
-    setCustomVehicles(next);
-    window.localStorage.setItem(VEHICLES_STORAGE_KEY, JSON.stringify(next));
-    setForm({ ...emptyAuctionVehicleForm });
-    setIsFormOpen(false);
-    setSaveMessage(`${vehicle.brand} ${vehicle.model} byl uložen jako ručně ověřený záznam.`);
+    try {
+      const savedVehicle = await createAuctionVehicle(vehicle);
+      setCustomVehicles((current) => [savedVehicle, ...current]);
+      setForm({ ...emptyAuctionVehicleForm });
+      setIsFormOpen(false);
+      setErrorMessage("");
+      setSaveMessage(`${vehicle.brand} ${vehicle.model} byl uložen pro celý tým.`);
+    } catch (error) {
+      setErrorMessage(error.message);
+    }
   }
 
-  function removeVehicle(vehicle) {
+  async function removeVehicle(vehicle) {
     if (!window.confirm(`Odstranit z radaru ${vehicle.brand} ${vehicle.model}?`)) return;
-    const nextVehicles = customVehicles.filter((item) => item.id !== vehicle.id);
-    const nextDecisions = { ...decisions };
-    delete nextDecisions[vehicle.id];
-    setCustomVehicles(nextVehicles);
-    setDecisions(nextDecisions);
-    window.localStorage.setItem(VEHICLES_STORAGE_KEY, JSON.stringify(nextVehicles));
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(nextDecisions));
+    try {
+      await deleteAuctionVehicle(vehicle.id);
+      setCustomVehicles((current) => current.filter((item) => item.id !== vehicle.id));
+    } catch (error) {
+      setErrorMessage(error.message);
+    }
   }
 
   return (
@@ -117,8 +154,8 @@ export default function AuctionRadar({ onBack }) {
 
       <div className="auctionRadarActions">
         <div>
-          <strong>Vlastní ověřené nabídky</strong>
-          <p>Údaje se v této první verzi ukládají pouze do tohoto prohlížeče.</p>
+          <strong>Společné ověřené nabídky</strong>
+          <p>Nabídky i rozhodnutí se bezpečně sdílejí mezi všemi registrovanými uživateli.</p>
         </div>
         <button className="primary" type="button" onClick={() => setIsFormOpen((value) => !value)}>
           {isFormOpen ? <X size={18} /> : <Plus size={18} />}
@@ -127,6 +164,7 @@ export default function AuctionRadar({ onBack }) {
       </div>
 
       {saveMessage && <div className="auctionSaveMessage" role="status"><Check size={18} /> {saveMessage}</div>}
+      {errorMessage && <div className="auctionErrorMessage" role="alert"><Ban size={18} /> {errorMessage}</div>}
 
       {isFormOpen && (
         <form className="auctionVehicleForm" onSubmit={saveVehicle} noValidate>
@@ -181,6 +219,35 @@ export default function AuctionRadar({ onBack }) {
               <input type="url" value={form.originalAuctionUrl} onChange={(event) => updateForm("originalAuctionUrl", event.target.value)} placeholder="https://…" />
               {formErrors.originalAuctionUrl && <small>{formErrors.originalAuctionUrl}</small>}
             </label>
+            <label>VIN
+              <input value={form.vin} onChange={(event) => updateForm("vin", event.target.value.toUpperCase())} maxLength="17" placeholder="17 znaků" />
+              {formErrors.vin && <small>{formErrors.vin}</small>}
+            </label>
+            <label>Konec aukce
+              <input type="datetime-local" value={form.auctionEndsAt} onChange={(event) => updateForm("auctionEndsAt", event.target.value)} />
+              {formErrors.auctionEndsAt && <small>{formErrors.auctionEndsAt}</small>}
+            </label>
+            <div className="auctionFormSectionTitle"><Calculator size={17} /> Ekonomika obchodu</div>
+            <label>Očekávaná prodejní cena
+              <input type="number" min="1" value={form.expectedSalePriceCzk} onChange={(event) => updateForm("expectedSalePriceCzk", event.target.value)} placeholder="např. 390000" />
+              {formErrors.expectedSalePriceCzk && <small>{formErrors.expectedSalePriceCzk}</small>}
+            </label>
+            <label>Aukční poplatek
+              <input type="number" min="0" value={form.auctionFeeCzk} onChange={(event) => updateForm("auctionFeeCzk", event.target.value)} placeholder="0" />
+              {formErrors.auctionFeeCzk && <small>{formErrors.auctionFeeCzk}</small>}
+            </label>
+            <label>Doprava
+              <input type="number" min="0" value={form.transportCostCzk} onChange={(event) => updateForm("transportCostCzk", event.target.value)} placeholder="0" />
+              {formErrors.transportCostCzk && <small>{formErrors.transportCostCzk}</small>}
+            </label>
+            <label>Příprava vozu
+              <input type="number" min="0" value={form.preparationCostCzk} onChange={(event) => updateForm("preparationCostCzk", event.target.value)} placeholder="0" />
+              {formErrors.preparationCostCzk && <small>{formErrors.preparationCostCzk}</small>}
+            </label>
+            <label>Cílový zisk
+              <input type="number" min="0" value={form.targetProfitCzk} onChange={(event) => updateForm("targetProfitCzk", event.target.value)} />
+              {formErrors.targetProfitCzk && <small>{formErrors.targetProfitCzk}</small>}
+            </label>
             <label className="auctionFormWide">Stručné ověřené informace *
               <textarea value={form.summary} onChange={(event) => updateForm("summary", event.target.value)} placeholder="Co bylo ověřeno přímo v aukční nabídce?" />
               {formErrors.summary && <small>{formErrors.summary}</small>}
@@ -211,7 +278,7 @@ export default function AuctionRadar({ onBack }) {
           <Search size={18} />
           <input value={filters.query} onChange={(event) => setFilters({ ...filters, query: event.target.value })} placeholder="Hledat model, lokalitu nebo zdroj" />
         </label>
-        <div className="auctionRadarSelects">
+        <div className="auctionRadarSelects auctionRadarSelectsExpanded">
           <label>Značka
             <select value={filters.brand} onChange={(event) => setFilters({ ...filters, brand: event.target.value })}>
               <option value="all">Renault i Dacia</option><option value="Renault">Renault</option><option value="Dacia">Dacia</option>
@@ -226,6 +293,16 @@ export default function AuctionRadar({ onBack }) {
               <option value={AUCTION_DECISION.REJECTED}>Nevhodné</option>
             </select>
           </label>
+          <label>Termín
+            <select value={filters.urgency} onChange={(event) => setFilters({ ...filters, urgency: event.target.value })}>
+              <option value="all">Všechny termíny</option><option value="critical">Do 6 hodin</option><option value="soon">Dnes</option><option value="open">Později</option><option value="ended">Ukončené</option><option value="unknown">Bez termínu</option>
+            </select>
+          </label>
+          <label>Řazení
+            <select value={filters.sort} onChange={(event) => setFilters({ ...filters, sort: event.target.value })}>
+              <option value="deadline">Nejdříve končící</option><option value="profit">Nejvyšší zisk</option><option value="price">Nejnižší cena</option>
+            </select>
+          </label>
         </div>
       </div>
 
@@ -234,10 +311,13 @@ export default function AuctionRadar({ onBack }) {
         <span>Automatické přihazování je vypnuto</span>
       </div>
 
+      {isLoading && <div className="auctionRadarEmpty">Načítám společné aukční nabídky…</div>}
       <div className="auctionVehicleGrid">
         {visibleVehicles.map((vehicle) => {
           const decision = decisions[vehicle.id] || AUCTION_DECISION.UNDECIDED;
           const isVerified = vehicle.dataStatus === AUCTION_DATA_STATUS.VERIFIED;
+          const economics = calculateAuctionEconomics(vehicle);
+          const urgency = getAuctionUrgency(vehicle.auctionEndsAt);
           return (
             <article className="auctionVehicleCard" key={vehicle.id}>
               <header>
@@ -252,6 +332,15 @@ export default function AuctionRadar({ onBack }) {
                 <span><small>Palivo</small>{vehicle.fuel}</span><span><small>Převodovka</small>{vehicle.transmission}</span>
               </div>
               <p className="auctionLocation"><MapPin size={16} /> {vehicle.location}</p>
+              <div className={`auctionUrgency urgency-${urgency.key}`}><Clock3 size={15} /> {urgency.label}</div>
+              {economics.expectedProfit !== null && (
+                <div className="auctionEconomics">
+                  <span><small>Celkem náklady</small>{formatPrice(economics.totalCost)}</span>
+                  <span className={economics.expectedProfit >= economics.targetProfit ? "isPositive" : "isRisky"}><small>Očekávaný zisk</small>{formatPrice(economics.expectedProfit)}</span>
+                  <span><small>Marže</small>{economics.marginPercent.toLocaleString("cs-CZ", { maximumFractionDigits: 1 })} %</span>
+                  <span><small>Max. bezpečná nabídka</small>{formatPrice(economics.recommendedMaxBid)}</span>
+                </div>
+              )}
               <p className="auctionSummary">{vehicle.summary}</p>
               <div className="auctionProsCons">
                 <div><strong>Klady</strong><ul>{vehicle.positives.map((item) => <li key={item}>{item}</li>)}</ul></div>
@@ -264,9 +353,11 @@ export default function AuctionRadar({ onBack }) {
                 ) : <span className="auctionLinkUnavailable">Odkaz bude dostupný u ověřeného záznamu</span>}
               </div>
               <div className="auctionDecision">
-                <span>Moje rozhodnutí</span>
+                <span>Týmové rozhodnutí</span>
                 <div>{decisionOptions.map(({ value, label, icon: Icon }) => (
                   <button type="button" className={decision === value ? `isActive decision-${value}` : ""} key={value}
+                    disabled={!isVerified}
+                    title={!isVerified ? "Rozhodnutí lze uložit jen u ověřené nabídky." : ""}
                     onClick={() => setDecision(vehicle.id, decision === value ? AUCTION_DECISION.UNDECIDED : value)}>
                     <Icon size={16} /> {label}
                   </button>
@@ -281,7 +372,7 @@ export default function AuctionRadar({ onBack }) {
           );
         })}
       </div>
-      {visibleVehicles.length === 0 && <div className="auctionRadarEmpty">Tomuto filtru neodpovídá žádný kandidát.</div>}
+      {!isLoading && visibleVehicles.length === 0 && <div className="auctionRadarEmpty">Tomuto filtru neodpovídá žádný kandidát.</div>}
     </section>
   );
 }
