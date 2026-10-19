@@ -1701,60 +1701,104 @@ const remainingEquipment = equipmentItems.filter(
     setTechnicalAiLoading(true);
 
     try {
-      const inputDocumentUrls = await buildVehicleAnalysisDocumentUrls({
-        vehicleDocuments,
-        technicalCardPhotos: selectedCar.technicalCardPhotos || [],
-        cebiaFiles: selectedCar.cebiaFiles || [],
-        createSignedUrl: async (filePath, document) => {
-          const { data, error } = await supabase.storage
-            .from("vehicle-documents")
-            .createSignedUrl(filePath, 600);
+      const vin = String(selectedCar.vin || "").trim().toUpperCase();
+      let inputDocumentUrls = [];
+      let documentPreparationError = "";
 
-          if (error) {
-            const documentName =
-              document.fileName || document.title || filePath;
-            throw new Error(
-              `Dokument „${documentName}“ se nepodařilo připravit pro AI: ${error.message}`
-            );
-          }
+      try {
+        inputDocumentUrls = await buildVehicleAnalysisDocumentUrls({
+          vehicleDocuments,
+          technicalCardPhotos: selectedCar.technicalCardPhotos || [],
+          cebiaFiles: selectedCar.cebiaFiles || [],
+          createSignedUrl: async (filePath, document) => {
+            const { data, error } = await supabase.storage
+              .from("vehicle-documents")
+              .createSignedUrl(filePath, 600);
 
-          return data?.signedUrl || "";
-        },
-      });
+            if (error) {
+              const documentName =
+                document.fileName || document.title || filePath;
+              throw new Error(
+                `Dokument „${documentName}“ se nepodařilo připravit: ${error.message}`
+              );
+            }
 
-      if (inputDocumentUrls.length === 0) {
+            return data?.signedUrl || "";
+          },
+        });
+      } catch (error) {
+        documentPreparationError =
+          error instanceof Error ? error.message : "Dokumenty se nepodařilo připravit.";
+      }
+
+      if (!vin && inputDocumentUrls.length === 0) {
         alert(
-          "Nejdříve nahrajte CEBIA nebo fotografie technického průkazu v Administrativě."
+          "Doplňte VIN nebo nahrajte CEBIA či fotografie technického průkazu v Administrativě."
         );
         return;
       }
 
-      const { data, error } = await supabase.functions.invoke(
-        "analyze-vehicle-technical-data",
-        {
-          body: {
-            car: selectedCar,
-            technicalCardPhotos: inputDocumentUrls,
-            cebiaFiles: [],
-          },
-        }
-      );
+      let registryData = null;
+      let registryError = "";
+      if (vin) {
+        const { data, error } = await supabase.functions.invoke(
+          "fetch-vehicle-registry-data",
+          { body: { vin } }
+        );
 
-      if (error || data?.error) {
-        console.error(error);
-        const detail = await getFunctionErrorDetail(error, data);
-        alert(`AI doplnění technických dat selhalo: ${detail}`);
+        if (error || data?.error) {
+          registryError = await getFunctionErrorDetail(error, data);
+        } else {
+          registryData = data;
+        }
+      }
+
+      let documentData = null;
+      let documentError = documentPreparationError;
+      if (inputDocumentUrls.length > 0) {
+        const { data, error } = await supabase.functions.invoke(
+          "analyze-vehicle-technical-data",
+          {
+            body: {
+              car: selectedCar,
+              technicalCardPhotos: inputDocumentUrls,
+              cebiaFiles: [],
+            },
+          }
+        );
+
+        if (error || data?.error) {
+          documentError = await getFunctionErrorDetail(error, data);
+        } else {
+          documentData = data;
+        }
+      }
+
+      if (!registryData && !documentData) {
+        const details = [registryError, documentError].filter(Boolean).join(" ");
+        alert(
+          `Automatické doplnění technických dat selhalo${
+            details ? `: ${details}` : "."
+          }`
+        );
         return;
       }
 
-      const extractedParams = data?.technicalParams || {};
-      const cebiaHistory = data?.cebiaHistory || {};
-      const extractedEquipment = Array.isArray(data?.equipment)
-        ? data.equipment
+      const extractedParams = {
+        ...(documentData?.technicalParams || {}),
+        ...(registryData?.technicalParams || {}),
+      };
+      const cebiaHistory = {
+        ...(documentData?.cebiaHistory || {}),
+        ...(registryData?.cebiaHistory || {}),
+      };
+      const extractedEquipment = Array.isArray(documentData?.equipment)
+        ? documentData.equipment
         : [];
 
-      const report =
-        data?.report || "AI zpracovala technické údaje bez textového výstupu.";
+      const report = [registryData?.report, documentData?.report]
+        .filter(Boolean)
+        .join("\n\n") || "Technické údaje byly automaticky doplněny.";
 
       const saved = await applyVehicleAnalysis({
         selectedCar,
@@ -1768,11 +1812,19 @@ const remainingEquipment = equipmentItems.filter(
 
       if (!saved) return;
 
-      alert("AI doplnila technická data. Prosím zkontroluj je.");
+      const warnings = [
+        registryError && `Registr: ${registryError}`,
+        documentError && `Dokumenty: ${documentError}`,
+      ].filter(Boolean);
+      alert(
+        `Technická data byla automaticky doplněna. Prosím zkontroluj je.${
+          warnings.length ? `\n\n${warnings.join("\n")}` : ""
+        }`
+      );
     } catch (err) {
       console.error(err);
       alert(
-        `Chyba při AI doplnění technických dat: ${
+        `Chyba při automatickém doplnění technických dat: ${
           err instanceof Error ? err.message : "Neznámá chyba."
         }`
       );

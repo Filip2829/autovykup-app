@@ -76,8 +76,8 @@ export default function VehicleTechnical({
         disabled={technicalAiLoading}
       >
         {technicalAiLoading
-          ? "AI doplňuje technická data..."
-          : "AI doplnit technická data"}
+          ? "Doplňuji technická data..."
+          : "Automaticky doplnit technická data"}
       </button>
 
       {selectedCar.aiDocumentReport && (
@@ -261,6 +261,17 @@ export default function VehicleTechnical({
         </div>
 
         <div>
+          <p className="label">První registrace v ČR</p>
+          <input
+            type="date"
+            value={getTechnicalParam("registrationInCzechia")}
+            onChange={(event) =>
+              updateTechnicalParam("registrationInCzechia", event.target.value)
+            }
+          />
+        </div>
+
+        <div>
           <p className="label">Rok výroby</p>
           <input
             placeholder="Rok výroby"
@@ -279,6 +290,43 @@ export default function VehicleTechnical({
             value={getTechnicalParam("stkValidUntil")}
             onChange={(event) =>
               updateTechnicalParam("stkValidUntil", event.target.value)
+            }
+          />
+        </div>
+
+        <div>
+          <p className="label">Počet vlastníků</p>
+          <input
+            type="number"
+            min="0"
+            placeholder="Počet vlastníků"
+            value={getTechnicalParam("ownersCount")}
+            onChange={(event) =>
+              updateTechnicalParam("ownersCount", event.target.value)
+            }
+          />
+        </div>
+
+        <div>
+          <p className="label">Počet provozovatelů</p>
+          <input
+            type="number"
+            min="0"
+            placeholder="Počet provozovatelů"
+            value={getTechnicalParam("operatorsCount")}
+            onChange={(event) =>
+              updateTechnicalParam("operatorsCount", event.target.value)
+            }
+          />
+        </div>
+
+        <div>
+          <p className="label">Status v registru</p>
+          <input
+            placeholder="Status v registru"
+            value={getTechnicalParam("vehicleStatus")}
+            onChange={(event) =>
+              updateTechnicalParam("vehicleStatus", event.target.value)
             }
           />
         </div>
