@@ -10,6 +10,7 @@ import {
   selectComparableVehicles,
   validatePriceRecommendationOutput,
 } from "./priceRecommendationAi.js";
+import { createPriceRecommendationInputHash } from "./priceRecommendationSnapshots.js";
 
 const car = {
   id: 69,
@@ -118,7 +119,7 @@ describe("AI nacenění podle trhu", () => {
         buildPriceRecommendationPayload(
           buildVehicleAiContext({ id: 1, status: "valuation" })
         ),
-      /značku a model/i
+      /Značka.*Model/i
     );
     assert.throws(
       () =>
@@ -129,7 +130,7 @@ describe("AI nacenění podle trhu", () => {
             technicalParams: { brand: "Dacia", model: "Dokker" },
           })
         ),
-      /rok výroby nebo první registraci/i
+      /rok výroby nebo první registrac/i
     );
   });
 
@@ -255,6 +256,14 @@ describe("AI nacenění podle trhu", () => {
     const original = structuredClone(context);
     let receivedPayload;
     const service = createVehicleAiService({
+      priceRecommendationStore: {
+        findFresh: async () => null,
+        save: async (_vehicleId, _payload, output) => ({
+          output,
+          generatedAt: "2026-09-24T12:00:00.000Z",
+          expiresAt: "2026-09-25T00:00:00.000Z",
+        }),
+      },
       priceRecommendationInvoker: async (payload) => {
         receivedPayload = payload;
         return validatePriceRecommendationOutput(
@@ -284,5 +293,85 @@ describe("AI nacenění podle trhu", () => {
     assert.equal(result.output.recommendedPurchasePrice, 193000);
     assert.deepEqual(result.proposedChanges, []);
     assert.deepEqual(context, original);
+  });
+
+  test("stejný technický vstup má stabilní hash bez ohledu na pořadí klíčů", () => {
+    assert.equal(
+      createPriceRecommendationInputHash({ vehicle: { model: "Dokker", year: 2019 }, preparationCosts: 0 }),
+      createPriceRecommendationInputHash({ preparationCosts: 0, vehicle: { year: 2019, model: "Dokker" } })
+    );
+  });
+
+  test("12hodinová mezipaměť přeskočí placené vyhledání", async () => {
+    const context = buildVehicleAiContext(car);
+    let invocations = 0;
+    const cachedOutput = {
+      recommendedSalePrice: 250000,
+      recommendedPurchasePrice: 193000,
+      warnings: [],
+      comparables: [],
+    };
+    const service = createVehicleAiService({
+      priceRecommendationInvoker: async () => {
+        invocations += 1;
+        return cachedOutput;
+      },
+      priceRecommendationStore: {
+        findFresh: async () => ({
+          output: cachedOutput,
+          generatedAt: "2026-10-19T08:00:00.000Z",
+          expiresAt: "2026-10-19T20:00:00.000Z",
+        }),
+        save: async () => null,
+      },
+    });
+
+    const result = await service.runModule({
+      moduleId: "price-recommendation",
+      vehicleId: 69,
+      context,
+    });
+
+    assert.equal(invocations, 0);
+    assert.equal(result.cache.hit, true);
+    assert.equal(result.output.recommendedSalePrice, 250000);
+  });
+
+  test("vynucený přepočet obejde cache a uloží nový snímek", async () => {
+    const context = buildVehicleAiContext(car);
+    let cacheReads = 0;
+    let saves = 0;
+    const freshOutput = {
+      recommendedSalePrice: 260000,
+      recommendedPurchasePrice: 203000,
+      warnings: [],
+      comparables: [],
+    };
+    const service = createVehicleAiService({
+      priceRecommendationInvoker: async () => freshOutput,
+      priceRecommendationStore: {
+        findFresh: async () => { cacheReads += 1; return null; },
+        save: async (_vehicleId, _payload, output) => {
+          saves += 1;
+          return {
+            output,
+            generatedAt: "2026-10-19T09:00:00.000Z",
+            expiresAt: "2026-10-19T21:00:00.000Z",
+          };
+        },
+      },
+    });
+
+    const result = await service.runModule({
+      moduleId: "price-recommendation",
+      vehicleId: 69,
+      context,
+      options: { forceRefresh: true },
+    });
+
+    assert.equal(cacheReads, 0);
+    assert.equal(saves, 1);
+    assert.equal(result.cache.hit, false);
+    assert.equal(result.output.recommendedSalePrice, 260000);
   });
 });

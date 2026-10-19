@@ -15,6 +15,7 @@ import {
   buildPriceRecommendationPayload,
   invokePriceRecommendationAi,
 } from "./priceRecommendationAi.js";
+import { priceRecommendationSnapshots } from "./priceRecommendationSnapshots.js";
 import { formatVehiclePriceRange } from "../utils/vehiclePriceRange.js";
 
 function hasValue(value) {
@@ -317,6 +318,7 @@ function canUsePurchaseInspectionFallback(error) {
 export function createVehicleAiService({
   purchaseInspectionInvoker = invokePurchaseInspectionAi,
   priceRecommendationInvoker = invokePriceRecommendationAi,
+  priceRecommendationStore = priceRecommendationSnapshots,
 } = {}) {
   async function runModule({ moduleId, vehicleId, context, options = {} }) {
   const moduleDefinition = getAiModule(moduleId);
@@ -376,12 +378,35 @@ export function createVehicleAiService({
 
   if (moduleId === "price-recommendation") {
     const payload = buildPriceRecommendationPayload(sanitizedContext);
+    if (!options.forceRefresh) {
+      try {
+        const cached = await priceRecommendationStore.findFresh(vehicleId, payload);
+        if (cached?.output) {
+          const cachedResponse = createVehicleAiResponse({
+            moduleId,
+            generatedAt: cached.generatedAt,
+            output: cached.output,
+            sourceReferences: ["Sauto.cz", "TipCars.com", "vehicle_price_recommendations"],
+            warnings: cached.output.warnings || [],
+          });
+          return { ...cachedResponse, cache: { hit: true, expiresAt: cached.expiresAt } };
+        }
+      } catch (cacheError) {
+        console.warn("Price recommendation cache lookup failed", cacheError);
+      }
+    }
     const output = await priceRecommendationInvoker(payload, {
       timeoutMs: options.timeoutMs,
     });
-    return createVehicleAiResponse({
+    let savedSnapshot = null;
+    try {
+      savedSnapshot = await priceRecommendationStore.save(vehicleId, payload, output);
+    } catch (snapshotError) {
+      console.warn("Price recommendation snapshot save failed", snapshotError);
+    }
+    const response = createVehicleAiResponse({
       moduleId,
-      generatedAt: options.generatedAt,
+      generatedAt: savedSnapshot?.generatedAt || options.generatedAt,
       output,
       sourceReferences: [
         "profile.identity",
@@ -394,6 +419,10 @@ export function createVehicleAiService({
       warnings: output.warnings || [],
       proposedChanges: [],
     });
+    return {
+      ...response,
+      cache: { hit: false, expiresAt: savedSnapshot?.expiresAt || null },
+    };
   }
 
   throw new Error("AI modul zatím nemá implementovaný backend.");

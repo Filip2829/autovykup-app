@@ -1075,6 +1075,58 @@ textarea::placeholder {
   border-top: 1px solid rgba(148, 163, 184, 0.2);
 }
 
+.priceRecommendationReadinessHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.priceRecommendationReadinessBar {
+  height: 8px;
+  margin: 10px 0;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--surface-muted, #e5e7eb);
+}
+
+.priceRecommendationReadinessBar span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--primary, #2563eb);
+}
+
+.priceRecommendationCacheNotice {
+  margin-bottom: 12px;
+}
+
+.priceRecommendationHistoryList {
+  display: grid;
+  gap: 8px;
+}
+
+.priceRecommendationHistoryList > div {
+  display: grid;
+  grid-template-columns: minmax(130px, 0.8fr) minmax(120px, 0.6fr) minmax(220px, 1.4fr);
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--border, #e5e7eb);
+  border-radius: 10px;
+}
+
+.priceRecommendationHistoryList small {
+  color: var(--text-muted, #64748b);
+}
+
+@media (max-width: 720px) {
+  .priceRecommendationHistoryList > div {
+    grid-template-columns: 1fr;
+    gap: 3px;
+  }
+}
+
 .marketplaceBadge {
   display: inline-flex;
   margin-left: 9px;

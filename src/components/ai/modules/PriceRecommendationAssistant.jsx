@@ -1,4 +1,7 @@
+import { useEffect, useState } from "react";
 import AiMissingData from "../AiMissingData.jsx";
+import { getPriceRecommendationReadiness } from "../../../services/priceRecommendationAi.js";
+import { priceRecommendationSnapshots } from "../../../services/priceRecommendationSnapshots.js";
 
 const confidenceLabels = {
   high: "Vysoká vypovídací hodnota",
@@ -29,6 +32,13 @@ function formatRange(from, to) {
     return formatCurrency(from);
   }
   return `${formatCurrency(from)} – ${formatCurrency(to)}`;
+}
+
+function formatDate(value) {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime())
+    ? ""
+    : date.toLocaleString("cs-CZ", { dateStyle: "short", timeStyle: "short" });
 }
 
 function InputSummary({ context }) {
@@ -70,14 +80,25 @@ export default function PriceRecommendationAssistant({
   capabilities,
   aiState,
 }) {
-  const runRecommendation = () =>
+  const [history, setHistory] = useState([]);
+  const readiness = getPriceRecommendationReadiness(context);
+  const canRun = capabilities.canRun && readiness.canRun;
+  const runRecommendation = (forceRefresh = false) =>
     aiState.run({
       moduleId: moduleDefinition.id,
       vehicleId: context.vehicleId,
       context,
-      options: {},
+      options: { forceRefresh },
     });
   const output = aiState.result?.output;
+
+  useEffect(() => {
+    let active = true;
+    priceRecommendationSnapshots.list(context.vehicleId, 6)
+      .then((items) => { if (active) setHistory(items); })
+      .catch(() => { if (active) setHistory([]); });
+    return () => { active = false; };
+  }, [context.vehicleId, aiState.result?.generatedAt]);
 
   return (
     <div className="aiModulePanel priceRecommendationModule">
@@ -93,14 +114,29 @@ export default function PriceRecommendationAssistant({
         <button
           type="button"
           className="primary"
-          onClick={runRecommendation}
-          disabled={aiState.loading || !capabilities.canRun}
+          onClick={() => runRecommendation(false)}
+          disabled={aiState.loading || !canRun}
         >
           {aiState.loading ? "Porovnávám oba trhy…" : "Přesně nacenit podle trhu"}
         </button>
       </div>
 
       <InputSummary context={context} />
+      <section className="aiAssistantSection priceRecommendationReadiness">
+        <div className="priceRecommendationReadinessHeader">
+          <h3>Připravenost podkladů</h3>
+          <strong>{readiness.percent} %</strong>
+        </div>
+        <div className="priceRecommendationReadinessBar" aria-label={`Připravenost ${readiness.percent} %`}>
+          <span style={{ width: `${readiness.percent}%` }} />
+        </div>
+        {readiness.missingRequired.length > 0 && (
+          <p className="badText">Před spuštěním doplňte: {readiness.missingRequired.join(", ")}.</p>
+        )}
+        {readiness.missingRecommended.length > 0 && (
+          <p className="mutedText">Pro přesnější výsledek doporučujeme doplnit: {readiness.missingRecommended.join(", ")}.</p>
+        )}
+      </section>
       <AiMissingData
         title="Doplňte před naceněním"
         items={capabilities.missingRequiredSources}
@@ -109,6 +145,11 @@ export default function PriceRecommendationAssistant({
 
       {output && (
         <div className="priceRecommendationResult">
+          {aiState.result?.cache?.hit && (
+            <div className="aiResultWarning priceRecommendationCacheNotice">
+              <p>Použit poslední shodný výpočet z {formatDate(aiState.result.generatedAt)}. Platnost mezipaměti: 12 hodin.</p>
+            </div>
+          )}
           <section className="aiAssistantSection priceRecommendationPrices">
             <div>
               <span>Doporučená prodejní cena</span>
@@ -188,13 +229,28 @@ export default function PriceRecommendationAssistant({
             <button
               type="button"
               className="primary outline"
-              onClick={runRecommendation}
+              onClick={() => runRecommendation(true)}
               disabled={aiState.loading}
             >
               Přepočítat podle aktuálních nabídek
             </button>
           </div>
         </div>
+      )}
+
+      {history.length > 0 && (
+        <section className="aiAssistantSection priceRecommendationHistory">
+          <h3>Historie nacenění</h3>
+          <div className="priceRecommendationHistoryList">
+            {history.map((snapshot) => (
+              <div key={snapshot.id}>
+                <span>{formatDate(snapshot.generatedAt)}</span>
+                <strong>{formatCurrency(snapshot.output?.recommendedSalePrice)}</strong>
+                <small>výkup {formatCurrency(snapshot.output?.recommendedPurchasePrice)} · {snapshot.output?.sampleSize || 0} nabídek</small>
+              </div>
+            ))}
+          </div>
+        </section>
       )}
     </div>
   );

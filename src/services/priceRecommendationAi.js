@@ -17,12 +17,55 @@ export {
 const FUNCTION_NAME = "estimate-vehicle-market-price";
 const DEFAULT_TIMEOUT_MS = 75000;
 
+const readinessFields = [
+  ["Značka", (profile) => profile.identity?.brand],
+  ["Model", (profile) => profile.identity?.model],
+  ["Rok výroby nebo první registrace", (profile) => profile.technical?.productionYear || profile.technical?.year || profile.technical?.firstRegistration],
+  ["Nájezd", (profile) => profile.technical?.mileage],
+  ["Palivo", (profile) => profile.technical?.fuel],
+];
+
+const qualityFields = [
+  ["Verze nebo motorizace", (profile) => profile.identity?.version || profile.technical?.version || profile.technical?.engine],
+  ["Výkon", (profile) => profile.technical?.powerKw],
+  ["Převodovka", (profile) => profile.technical?.transmission],
+  ["Karoserie", (profile) => profile.technical?.bodyType],
+  ["Počet sedadel", (profile) => profile.technical?.seats],
+];
+
 const positiveNumber = (value) => {
   const number = Number(value);
   return Number.isFinite(number) && number > 0 ? number : null;
 };
 
+const hasValue = (value) =>
+  value !== null && value !== undefined && String(value).trim() !== "";
+
+export function getPriceRecommendationReadiness(context) {
+  const profile = context?.profile || {};
+  const missingRequired = readinessFields
+    .filter(([, read]) => !hasValue(read(profile)))
+    .map(([label]) => label);
+  const missingRecommended = qualityFields
+    .filter(([, read]) => !hasValue(read(profile)))
+    .map(([label]) => label);
+  const completed = readinessFields.length + qualityFields.length - missingRequired.length - missingRecommended.length;
+  return {
+    canRun: missingRequired.length === 0,
+    missingRequired,
+    missingRecommended,
+    percent: Math.round(completed / (readinessFields.length + qualityFields.length) * 100),
+  };
+}
+
 export function buildPriceRecommendationPayload(context) {
+  const readiness = getPriceRecommendationReadiness(context);
+  if (!readiness.canRun) {
+    throw new PriceRecommendationAiError(
+      "missing-data",
+      `Pro přesné nacenění doplňte: ${readiness.missingRequired.join(", ")}.`
+    );
+  }
   const profile = context?.profile || {};
   const identity = profile.identity || {};
   const technical = profile.technical || {};
@@ -61,12 +104,6 @@ export function buildPriceRecommendationPayload(context) {
     },
     preparationCosts: Math.max(0, costs),
   };
-  if (!payload.vehicle.brand || !payload.vehicle.model) {
-    throw new PriceRecommendationAiError("missing-data", "Pro nacenění doplňte značku a model vozidla.");
-  }
-  if (!payload.vehicle.year && !payload.vehicle.firstRegistration) {
-    throw new PriceRecommendationAiError("missing-data", "Pro nacenění doplňte rok výroby nebo první registraci.");
-  }
   return payload;
 }
 
