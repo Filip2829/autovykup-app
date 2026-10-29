@@ -45,6 +45,7 @@ import AuctionRadar from "./components/auction/AuctionRadar.jsx";
 import ValuationInbox, { ValuationMenuCard } from "./onlineValuation/ValuationInbox.jsx";
 import {
   createCustomer as createCrmCustomer,
+  deleteCustomer as deleteCrmCustomer,
   loadCustomers as loadCrmCustomers,
   updateCustomer as updateCrmCustomer,
 } from "./services/customers.js";
@@ -980,6 +981,22 @@ const remainingEquipment = equipmentItems.filter(
     });
     setSelectedCustomer(savedCustomer);
     setView("customerDetail");
+  }
+
+  async function removeCustomer(customer) {
+    setCustomersLoading(true);
+    setCustomersError("");
+
+    try {
+      await deleteCrmCustomer(customer.id);
+      setCustomers((current) => current.filter((item) => item.id !== customer.id));
+      if (selectedCustomer?.id === customer.id) setSelectedCustomer(null);
+      await refreshNewMatchCount();
+    } catch (error) {
+      setCustomersError(error.message || "Zákazníka se nepodařilo smazat.");
+    } finally {
+      setCustomersLoading(false);
+    }
   }
 
   const currentUsername = getUsername(user) || username;
@@ -2120,6 +2137,7 @@ const remainingEquipment = equipmentItems.filter(
           onBack={() => setView("home")}
           onNew={openNewCustomer}
           onSelect={openCustomerDetail}
+          onDelete={removeCustomer}
         />
       )}
 

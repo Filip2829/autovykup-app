@@ -3,6 +3,7 @@ import { describe, test } from "node:test";
 
 import {
   filterCustomers,
+  formatCustomerCreator,
   mapCustomerChangesToPayload,
   mapCustomerRow,
   validateCustomer,
@@ -41,6 +42,8 @@ describe("customers – mapování", () => {
         demand_date: "2026-08-04",
         last_contact_at: "2026-07-20T10:00:00.000Z",
         next_contact_at: null,
+        created_by: "user-1",
+        created_by_label: "sekanina",
         created_at: "2026-07-01T10:00:00.000Z",
         updated_at: "2026-07-02T10:00:00.000Z",
       }),
@@ -55,6 +58,8 @@ describe("customers – mapování", () => {
         demandDate: "2026-08-04",
         lastContactAt: "2026-07-20T10:00:00.000Z",
         nextContactAt: null,
+        createdBy: "user-1",
+        createdByLabel: "sekanina",
         createdAt: "2026-07-01T10:00:00.000Z",
         updatedAt: "2026-07-02T10:00:00.000Z",
       }
@@ -88,6 +93,11 @@ describe("customers – mapování", () => {
 
   test("starší zákazník bez data poptávky zůstává kompatibilní", () => {
     assert.equal(mapCustomerRow({ id: "customer-old" }).demandDate, null);
+  });
+
+  test("zobrazí uloženého autora a u starého záznamu pravdivý fallback", () => {
+    assert.equal(formatCustomerCreator({ createdByLabel: "sekanina" }), "sekanina");
+    assert.equal(formatCustomerCreator({}), "Neznámý (starší záznam)");
   });
 });
 

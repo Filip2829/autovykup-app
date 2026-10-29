@@ -53,6 +53,8 @@ export function mapCustomerRow(row = {}) {
     demandDate: row.demand_date ?? null,
     lastContactAt: row.last_contact_at ?? null,
     nextContactAt: row.next_contact_at ?? null,
+    createdBy: row.created_by ?? null,
+    createdByLabel: row.created_by_label ?? "",
     createdAt: row.created_at ?? null,
     updatedAt: row.updated_at ?? null,
   };
@@ -113,6 +115,10 @@ export function validateCustomer(customer = {}) {
   }
 
   return { valid: true, error: "" };
+}
+
+export function formatCustomerCreator(customer = {}) {
+  return trimText(customer.createdByLabel) || "Neznámý (starší záznam)";
 }
 
 function customerSearchText(customer) {
@@ -191,7 +197,15 @@ export async function updateCustomer(id, changes) {
 }
 
 export async function deleteCustomer(id) {
-  const { error } = await supabase.from("customers").delete().eq("id", id);
+  if (!id) throw new Error("Smazání zákazníka se nepodařilo: chybí identifikace.");
+
+  const { data, error } = await supabase
+    .from("customers")
+    .delete()
+    .eq("id", id)
+    .select("id")
+    .single();
 
   if (error) throw customerServiceError("Smazání zákazníka", error);
+  return data.id;
 }

@@ -1,5 +1,9 @@
 import { useMemo, useState } from "react"
-import { customerStatuses, filterCustomers } from "../../services/customers"
+import {
+  customerStatuses,
+  filterCustomers,
+  formatCustomerCreator,
+} from "../../services/customers"
 import "./customers.css"
 
 const statusLabels = {
@@ -44,6 +48,7 @@ export default function CustomerList({
   onBack,
   onNew,
   onSelect,
+  onDelete,
 }) {
   const [query, setQuery] = useState("")
   const [status, setStatus] = useState("active")
@@ -52,6 +57,14 @@ export default function CustomerList({
     () => filterCustomers(customers, { query, status }),
     [customers, query, status],
   )
+
+  async function confirmDelete(customer) {
+    const name = getCustomerName(customer)
+    const confirmed = window.confirm(
+      `Opravdu smazat zákazníka „${name}“? Smažou se také jeho poptávky a uložené shody. Tuto akci nelze vrátit.`,
+    )
+    if (confirmed) await onDelete(customer)
+  }
 
   return (
     <section className="crmPage" aria-labelledby="crmCustomerListTitle">
@@ -116,37 +129,47 @@ export default function CustomerList({
       ) : (
         <div className="crmCustomerList">
           {filteredCustomers.map((customer) => (
-            <button
-              key={customer.id}
-              type="button"
-              className="crmCustomerCard"
-              onClick={() => onSelect(customer)}
-            >
-              <span className="crmCustomerIdentity">
-                <strong>{getCustomerName(customer)}</strong>
-                <span>{customer.email || "E-mail neuveden"}</span>
-                <span>{customer.phone || "Telefon neuveden"}</span>
-              </span>
+            <article key={customer.id} className="crmCustomerCard">
+              <button
+                type="button"
+                className="crmCustomerOpen"
+                onClick={() => onSelect(customer)}
+              >
+                <span className="crmCustomerIdentity">
+                  <strong>{getCustomerName(customer)}</strong>
+                  <span>{customer.email || "E-mail neuveden"}</span>
+                  <span>{customer.phone || "Telefon neuveden"}</span>
+                  <span>Přidal: {formatCustomerCreator(customer)}</span>
+                </span>
 
-              <span className={`crmStatusBadge crmStatusBadge-${customer.status}`}>
-                {statusLabels[customer.status] || customer.status}
-              </span>
+                <span className={`crmStatusBadge crmStatusBadge-${customer.status}`}>
+                  {statusLabels[customer.status] || customer.status}
+                </span>
 
-              <span className="crmCustomerDates">
-                <span>
-                  <small>Poslední kontakt</small>
-                  {formatContactDate(customer.lastContactAt)}
+                <span className="crmCustomerDates">
+                  <span>
+                    <small>Poslední kontakt</small>
+                    {formatContactDate(customer.lastContactAt)}
+                  </span>
+                  <span>
+                    <small>Kontaktovat znovu</small>
+                    {formatContactDate(customer.nextContactAt)}
+                  </span>
+                  <span>
+                    <small>Vytvořeno</small>
+                    {formatDate(customer.createdAt)}
+                  </span>
                 </span>
-                <span>
-                  <small>Kontaktovat znovu</small>
-                  {formatContactDate(customer.nextContactAt)}
-                </span>
-                <span>
-                  <small>Vytvořeno</small>
-                  {formatDate(customer.createdAt)}
-                </span>
-              </span>
-            </button>
+              </button>
+              <button
+                type="button"
+                className="crmCustomerDelete"
+                onClick={() => confirmDelete(customer)}
+                aria-label={`Smazat zákazníka ${getCustomerName(customer)}`}
+              >
+                Smazat
+              </button>
+            </article>
           ))}
         </div>
       )}
