@@ -7,6 +7,7 @@ export const customerStatuses = [
 ];
 
 const customerFields = {
+  companyName: "company_name",
   firstName: "first_name",
   lastName: "last_name",
   phone: "phone",
@@ -44,6 +45,7 @@ function nullableDateOnly(value) {
 export function mapCustomerRow(row = {}) {
   return {
     id: row.id ?? null,
+    companyName: row.company_name ?? "",
     firstName: row.first_name ?? "",
     lastName: row.last_name ?? "",
     phone: row.phone ?? "",
@@ -88,15 +90,16 @@ export function mapCustomerChangesToPayload(changes = {}) {
 }
 
 export function validateCustomer(customer = {}) {
+  const companyName = trimText(customer.companyName);
   const firstName = trimText(customer.firstName);
   const lastName = trimText(customer.lastName);
   const phone = trimText(customer.phone);
   const email = trimText(customer.email);
 
-  if (!firstName && !lastName && !phone && !email) {
+  if (!companyName && !firstName && !lastName && !phone && !email) {
     return {
       valid: false,
-      error: "Vyplňte alespoň jméno, příjmení, telefon nebo e-mail.",
+      error: "Vyplňte alespoň firmu, jméno, příjmení, telefon nebo e-mail.",
     };
   }
 
@@ -125,6 +128,7 @@ function customerSearchText(customer) {
   return [
     customer.firstName,
     customer.lastName,
+    customer.companyName,
     customer.phone,
     customer.email,
   ]

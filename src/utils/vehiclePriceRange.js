@@ -35,8 +35,12 @@ function hasValue(value) {
 
 export function toNullablePrice(value) {
   if (!hasValue(value)) return null;
-  const number = Number(value);
+  const number = Number(String(value).replace(/\s+/gu, ""));
   return Number.isFinite(number) ? number : null;
+}
+
+function isInvalidPrice(value) {
+  return hasValue(value) && toNullablePrice(value) === null;
 }
 
 export function readPriceRange(car, field) {
@@ -63,6 +67,13 @@ export function formatVehiclePriceRange(
 
 export function validateVehiclePriceRanges(values) {
   for (const field of vehiclePriceRangeFields) {
+    if (
+      isInvalidPrice(values?.[field.key]) ||
+      isInvalidPrice(values?.[field.maxKey])
+    ) {
+      return `${field.label}: zadejte částku pouze čísly; mezery jsou povolené.`;
+    }
+
     const min = toNullablePrice(values?.[field.key]);
     const max = toNullablePrice(values?.[field.maxKey]);
 

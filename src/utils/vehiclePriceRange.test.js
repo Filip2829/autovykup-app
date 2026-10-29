@@ -38,6 +38,26 @@ describe("cenové rozmezí vozidla", () => {
     assert.equal(payload.customer_expected_price_max, null);
   });
 
+  test("částky mohou obsahovat běžné i nezalomitelné mezery", () => {
+    const payload = buildVehiclePriceRangePayload({
+      buyEstimate: "300 000",
+      buyEstimateMax: "310\u00a0000",
+    });
+    assert.equal(payload.buy_estimate, 300000);
+    assert.equal(payload.buy_estimate_max, 310000);
+    assert.equal(
+      validateVehiclePriceRanges({ buyEstimate: "300 000", buyEstimateMax: "310 000" }),
+      ""
+    );
+  });
+
+  test("neplatný text se neuloží jako prázdná cena", () => {
+    assert.match(
+      validateVehiclePriceRanges({ buyEstimate: "300 tisíc" }),
+      /pouze čísly/
+    );
+  });
+
   test("uložené rozmezí se po znovunačtení obnoví", () => {
     const payload = buildVehiclePriceRangePayload({
       saleEstimate: "420000",

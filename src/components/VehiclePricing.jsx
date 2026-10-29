@@ -166,9 +166,9 @@ export default function VehiclePricing({
               <label>
                 <span>Od</span>
                 <input
-                  type="number"
-                  min="0"
-                  step="1"
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9\s]*"
                   placeholder="Jedna cena nebo od"
                   value={form[field.key] ?? ""}
                   onChange={(event) =>
@@ -180,9 +180,9 @@ export default function VehiclePricing({
               <label>
                 <span>Do <small>(volitelné)</small></span>
                 <input
-                  type="number"
-                  min={form[field.key] || "0"}
-                  step="1"
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9\s]*"
                   placeholder="Horní hranice"
                   value={form[field.maxKey] ?? ""}
                   onChange={(event) =>

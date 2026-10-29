@@ -2,6 +2,7 @@ import { useState } from "react"
 import { validateCustomer } from "../../services/customers"
 
 const emptyForm = {
+  companyName: "",
   firstName: "",
   lastName: "",
   phone: "",
@@ -15,6 +16,7 @@ function getInitialForm(customer) {
   if (!customer) return emptyForm
 
   return {
+    companyName: customer.companyName || "",
     firstName: customer.firstName || "",
     lastName: customer.lastName || "",
     phone: customer.phone || "",
@@ -72,6 +74,15 @@ export default function CustomerForm({ customer, onSave, onCancel }) {
 
       <form className="crmForm" onSubmit={handleSubmit}>
         <div className="crmFormGrid">
+          <label>
+            Název firmy
+            <input
+              value={form.companyName}
+              onChange={(event) => updateField("companyName", event.target.value)}
+              autoComplete="organization"
+            />
+          </label>
+
           <label>
             Jméno
             <input

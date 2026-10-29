@@ -33,6 +33,7 @@ describe("customers – mapování", () => {
     assert.deepEqual(
       mapCustomerRow({
         id: "customer-1",
+        company_name: " Auto Novák s.r.o. ",
         first_name: "Jan",
         last_name: "Novák",
         phone: null,
@@ -49,6 +50,7 @@ describe("customers – mapování", () => {
       }),
       {
         id: "customer-1",
+        companyName: " Auto Novák s.r.o. ",
         firstName: "Jan",
         lastName: "Novák",
         phone: "",
@@ -69,6 +71,7 @@ describe("customers – mapování", () => {
   test("mapuje a trimuje UI změny na snake_case payload", () => {
     assert.deepEqual(
       mapCustomerChangesToPayload({
+        companyName: " Auto Novák s.r.o. ",
         firstName: "  Jan ",
         lastName: " Novák  ",
         phone: " +420 777 123 456 ",
@@ -79,6 +82,7 @@ describe("customers – mapování", () => {
         lastContactAt: "",
       }),
       {
+        company_name: "Auto Novák s.r.o.",
         first_name: "Jan",
         last_name: "Novák",
         phone: "+420 777 123 456",
@@ -117,6 +121,19 @@ describe("customers – vyhledávání a filtrace", () => {
         query: "JAN.NOVAK@EXAMPLE.CZ",
         status: "all",
       }).map((customer) => customer.id),
+      ["1"]
+    );
+  });
+
+  test("vyhledává podle názvu firmy", () => {
+    const companyCustomers = [
+      { ...customers[0], companyName: "Auto Novák s.r.o." },
+      customers[1],
+    ];
+    assert.deepEqual(
+      filterCustomers(companyCustomers, { query: "auto novák", status: "all" }).map(
+        (customer) => customer.id
+      ),
       ["1"]
     );
   });
@@ -161,6 +178,20 @@ describe("customers – validace", () => {
         firstName: "",
         lastName: "",
         phone: "+420 777 123 456",
+        email: "",
+        status: "active",
+      }),
+      { valid: true, error: "" }
+    );
+  });
+
+  test("přijme firemního zákazníka pouze s názvem firmy", () => {
+    assert.deepEqual(
+      validateCustomer({
+        companyName: "Auto Novák s.r.o.",
+        firstName: "",
+        lastName: "",
+        phone: "",
         email: "",
         status: "active",
       }),

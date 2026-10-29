@@ -37,7 +37,7 @@ function formatContactDate(value) {
 
 function getCustomerName(customer) {
   const name = [customer.firstName, customer.lastName].filter(Boolean).join(" ").trim()
-  return name || "Bez jména"
+  return name || customer.companyName || "Bez jména"
 }
 
 export default function CustomerList({
@@ -89,7 +89,7 @@ export default function CustomerList({
             type="search"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            placeholder="Jméno, e-mail nebo telefon"
+            placeholder="Jméno, firma, e-mail nebo telefon"
           />
         </label>
 
@@ -137,6 +137,7 @@ export default function CustomerList({
               >
                 <span className="crmCustomerIdentity">
                   <strong>{getCustomerName(customer)}</strong>
+                  {customer.companyName && <span>{customer.companyName}</span>}
                   <span>{customer.email || "E-mail neuveden"}</span>
                   <span>{customer.phone || "Telefon neuveden"}</span>
                   <span>Přidal: {formatCustomerCreator(customer)}</span>

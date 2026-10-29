@@ -129,11 +129,8 @@ const vehicleDocumentCategories = [
   "Servisní knížka",
   "Faktura",
   "Servisní zakázka",
-  "Diagnostika",
-  "STK",
   "Technický průkaz",
   "CEBIA",
-  "Kupní smlouva",
   "Jiný dokument",
 ];
 
@@ -211,7 +208,11 @@ const vehicleStatusLabels = {
   [VEHICLE_STATUS.ARCHIVED]: "Archiv",
 };
 
-const vehicleStatusOptions = Object.values(VEHICLE_STATUS).map((value) => ({
+const vehicleStatusOptions = [
+  VEHICLE_STATUS.VALUATION,
+  VEHICLE_STATUS.APPROVED_FOR_PURCHASE,
+  VEHICLE_STATUS.ARCHIVED,
+].map((value) => ({
   value,
   label: vehicleStatusLabels[value],
 }));

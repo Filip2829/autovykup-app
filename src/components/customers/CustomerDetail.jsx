@@ -40,6 +40,7 @@ function formatContactDate(value) {
 
 function getCustomerName(customer) {
   return [customer.firstName, customer.lastName].filter(Boolean).join(" ").trim()
+    || customer.companyName
     || customer.email
     || customer.phone
     || "Zákazník bez jména"
@@ -89,6 +90,10 @@ export default function CustomerDetail({
       {activeTab === "overview" ? (
         <div className="crmOverview">
           <div className="crmOverviewGrid">
+            <div>
+              <small>Název firmy</small>
+              <strong>{customer.companyName || "Neuvedeno"}</strong>
+            </div>
             <div>
               <small>Jméno</small>
               <strong>{customer.firstName || "Neuvedeno"}</strong>
