@@ -42,6 +42,7 @@ import VehicleValuationSummary from "./components/VehicleValuationSummary.jsx";
 import VehicleAiAssistant from "./components/ai/VehicleAiAssistant.jsx";
 import TireInventory from "./components/tires/TireInventory.jsx";
 import AuctionRadar from "./components/auction/AuctionRadar.jsx";
+import ValuationInbox, { ValuationMenuCard } from "./onlineValuation/ValuationInbox.jsx";
 import {
   createCustomer as createCrmCustomer,
   loadCustomers as loadCrmCustomers,
@@ -693,7 +694,7 @@ export default function App() {
 const remainingEquipment = equipmentItems.filter(
   (item) => !selectedCar?.equipment?.[item]
 );
-  const [view, setView] = useState("home");
+  const [view, setView] = useState(() => (new URLSearchParams(window.location.search).has("valuation") || window.location.pathname.replace(/\/$/, "") === "/poptavky-naceneni") ? "onlineValuations" : "home");
   const [customers, setCustomers] = useState([]);
   const [selectedCustomer, setSelectedCustomer] = useState(null);
   const [customersLoading, setCustomersLoading] = useState(false);
@@ -2075,6 +2076,7 @@ const remainingEquipment = equipmentItems.filter(
                 <button onClick={() => setView("tires")}>Otevřít</button>
               </div>
 
+              <ValuationMenuCard onOpen={() => setView("onlineValuations")} />
               <div className="module auctionRadarMenuCard">
                 <Radar />
                 <h3>Aukční radar</h3>
@@ -2106,6 +2108,9 @@ const remainingEquipment = equipmentItems.filter(
         </section>
       )}
 
+      {view === "onlineValuations" && (
+        <ValuationInbox onBack={() => setView("home")} onConverted={loadCars} />
+      )}
       {view === "customers" && (
         <CustomerList
           customers={customers}

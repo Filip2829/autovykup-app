@@ -1,0 +1,21 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { approvedOffer, cleanPricing, cleanSubmission, offerText, validateVehicle } from '../../supabase/functions/_shared/onlineValuation.js';
+
+const valid={brand:'Morgan',model:'Plus Four',spz:'VETERAN 1',vin:'VF1FL000272669224',year:'',km:'',full_name:'Testovací zákazník',phone:'+420 777 000 000',email:'test@example.invalid',preferred_contact:'email'};
+test('všechny značky, ruční model a neobvyklá SPZ; neznámé technické údaje neblokují',()=>assert.deepEqual(validateVehicle(valid,true),[]));
+test('povinná identifikace a kontakty',()=>{for(const key of ['brand','model','spz','vin','full_name','phone','email'])assert.ok(validateVehicle({...valid,[key]:''},true).length,key);});
+test('ověří VIN a přijme správný formát',()=>{assert.deepEqual(validateVehicle({...valid,vin:'VF1FL000272669224'}),[]);for(const vin of ['123','IIIIIIIIIIIIIIIII','OOOOOOOOOOOOOOOOO'])assert.ok(validateVehicle({...valid,vin}).length);});
+test('odmítne chybný rok a nájezd',()=>{for(const year of ['abc',1800,3000,2020.5])assert.ok(validateVehicle({...valid,year}).length);for(const km of [-1,'abc',2.5,5000001])assert.ok(validateVehicle({...valid,km}).length);});
+test('odmítne nesmyslnou cenovou představu',()=>{for(const price of [-1,'abc',Infinity])assert.ok(validateVehicle({...valid,customer_expected_price:price}).length);});
+test('server ukládá jen povolená zákaznická data',()=>{const d=cleanSubmission({...valid,status:'accepted',pricing:{approved_price:1},converted_car_id:9,vat:'unknown',owner:'Firma'});assert.equal(d.status,undefined);assert.equal(d.pricing,undefined);assert.equal(d.converted_car_id,undefined);assert.equal(d.vat,'unknown');assert.equal(d.year,null);});
+test('firemní vlastnictví nepotvrzuje odpočet DPH ani marketingový souhlas',()=>{const d=cleanSubmission({...valid,owner:'Firma',marketing_consent:'true'});assert.equal(d.vat,'unknown');assert.equal(d.marketing_consent,false);});
+test('nacenění podporuje cenu i rozmezí',()=>{assert.equal(cleanPricing({approved_price:'300000'}).approved_price_max,null);assert.equal(cleanPricing({approved_price:300000,approved_price_max:310000}).approved_price_max,310000);});
+test('odmítne obrácené rozmezí, neplatnou cenu i horní hranici bez dolní',()=>{for(const p of [{approved_price:2,approved_price_max:1},{buy_estimate_max:100},{approved_price:-1},{sale_estimate:'abc'}])assert.throws(()=>cleanPricing(p));});
+test('veřejná nabídka neobsahuje interní kalkulace ani komentáře',()=>{const p=approvedOffer({approved_price:300000,approved_price_max:310000,sale_estimate:450000,preparation_cost:40000,comment:'tajná interní informace'},'Schválený text');assert.deepEqual(p,{min:300000,max:310000,body:'Schválený text'});assert.equal(JSON.stringify(p).includes('tajná'),false);});
+test('odeslat lze jen schválenou cenu a neprázdný text',()=>{assert.throws(()=>approvedOffer({buy_estimate:300000},'Nabídka'));assert.throws(()=>approvedOffer({approved_price:300000},''));});
+test('šablona e-mailu používá jen schválenou cenu a vysvětluje nezávaznost',()=>{const s=offerText(valid,{approved_price:300000,sale_estimate:999999,comment:'TAJNÉ'},'Testovací podpis');assert.ok(s.includes('300'));assert.ok(s.includes('po osobní prohlídce'));assert.ok(s.includes('nepředstavuje uzavření'));assert.ok(!s.includes('999'));assert.ok(!s.includes('TAJNÉ'));});
+const sql=readFileSync(new URL('../../supabase/migrations/20261027190000_online_valuations.sql',import.meta.url),'utf8');
+test('migrace omezuje RPC na service_role, soukromé fotografie a registrované pracovníky',()=>{assert.match(sql,/revoke all on function public\.valuation_action[\s\S]*from public,anon,authenticated/);assert.match(sql,/'valuation-photos','valuation-photos',false/);assert.match(sql,/enable row level security/);assert.match(sql,/for update skip locked/);});
+test('spotřeba tokenů, idempotentní podání, zámek převodu a ochrana souběhu jsou transakční',()=>{assert.match(sql,/t\.used_at is not null/);assert.match(sql,/t\.purpose='draft' and r\.submitted_at is not null/);assert.match(sql,/pg_advisory_xact_lock/);assert.match(sql,/r\.revision<>/);});
