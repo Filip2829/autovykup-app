@@ -2,6 +2,8 @@
 
 Modul je dostupný z rozcestníku. Obsahuje všechny skladové vozy včetně komise a rezervací; prodané a archivované vozy se nezobrazují. Výchozí filtr ukazuje nezainzerované vozy, připravené vozy čekající na inzerci jsou nahoře. Filtr „Všechny skladové“ zobrazí i zainzerované.
 
+Samostatná položka „Vozy skladem“ byla z rozcestníku odstraněna. Kliknutí na vůz v přípravě otevírá stejný kompletní detail se všemi dosavadními údaji a moduly. Tlačítko Zpět v detailu skladového vozu vrací do přípravy. Změna navigace nemění ani nemaže data vozidel.
+
 Fajfky se ukládají ihned. Poznámka má vlastní tlačítko Uložit a indikaci neuloženého textu. Pro načtení změn kolegy slouží Obnovit přehled. Obnovení a filtrování zachovává rozpracované poznámky; před opuštěním modulu je uložte.
 
 Data využívají existující JSONB `cars.checklist`. Čištění a mechanická kontrola sdílí stávající položky administrativy. Nové údaje jsou v `stockPreparation` (`ready`, `advertised`, `note`). SQL migrace ani změny oprávnění nejsou potřeba. Označení připravenosti a inzerce mění odpovídající stav vozu; rezervace zůstává zachovaná. Fajfky jsou nezávislé, dokončení čištění a kontroly se neodvozuje automaticky z inzerce.

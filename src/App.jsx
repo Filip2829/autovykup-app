@@ -2112,15 +2112,6 @@ const remainingEquipment = equipmentItems.filter(
               </div>
 
               <div className="module">
-                <ShieldCheck />
-                <h3>Vozy skladem</h3>
-                <p>{stockCars.length} záznamů</p>
-                <button onClick={() => openVehicleList("stock")}>
-                  Otevřít
-                </button>
-              </div>
-
-              <div className="module">
                 <ClipboardList />
                 <h3>Chystání vozů na bazar</h3>
                 <p>{cars.filter((car) => getVehicleLifecycleSection(car.status) === "stock" && !getStockPreparation(car).advertised).length} vozů čeká na zainzerování</p>
@@ -2367,7 +2358,7 @@ const remainingEquipment = equipmentItems.filter(
               status: getVehicleStatusLabel(selectedCar.status),
             }}
             statusClassName={getVehicleStatusClassName(selectedCar.status)}
-            onBack={() => setView("list")}
+            onBack={() => setView(listMode === "stock" ? "preparation" : "list")}
             onEdit={() => setEditMode(true)}
             onDelete={deleteCar}
             formatDate={formatDate}
