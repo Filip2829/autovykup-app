@@ -70,6 +70,7 @@ import {
   filterVehiclesByLifecycleSection,
   getVehicleLifecycleSection,
 } from "./utils/vehicleLifecycle.js";
+import { cleanupDeletedVehicleFiles, deleteVehicleEverywhere } from "./services/vehicleDeletion.js";
 import { applyVehicleAnalysis } from "./ai/applyVehicleAnalysis.js";
 
 const emptyChecklist = {
@@ -792,6 +793,10 @@ const remainingEquipment = equipmentItems.filter(
     if (user) refreshNewMatchCount();
   }, [user]);
 
+  useEffect(() => {
+    if (user?.id) cleanupDeletedVehicleFiles(supabase).catch(() => {});
+  }, [user?.id]);
+
   function createEmailFromUsername() {
     return `${username}@autovykup.local`;
   }
@@ -1395,27 +1400,25 @@ const remainingEquipment = equipmentItems.filter(
     if (!selectedCar) return;
 
     const confirmDelete = window.confirm(
-      `Opravdu chceš smazat záznam ${selectedCar.name}?`
+      `Trvale smazat vůz ${selectedCar.name} ze všech přehledů včetně původní online žádosti, fotografií, dokumentů, poznámek a historie? Tuto akci nelze vrátit.`
     );
 
     if (!confirmDelete) return;
 
-    const { error } = await supabase
-      .from("cars")
-      .delete()
-      .eq("id", selectedCar.id);
-
-    if (error) {
+    let result;
+    try {
+      result = await deleteVehicleEverywhere(supabase, selectedCar.id);
+    } catch (error) {
       alert(error.message);
       return;
     }
 
-    const remainingCars = cars.filter((car) => car.id !== selectedCar.id);
-
-    setCars(remainingCars);
-    setSelectedCar(remainingCars[0] || null);
+    setCars((current) => current.filter((car) => car.id !== result.deletedId));
+    setSelectedCar(null);
     setEditMode(false);
-    setView("list");
+    setView(listMode === "stock" ? "preparation" : "list");
+    await refreshNewMatchCount();
+    if (result.cleanupPending) alert("Vůz i navázaná žádost byly smazány. Některé soubory čekají na odstranění; aplikace to zopakuje při příštím načtení.");
   }
 
   async function uploadFile(file, folder = "vehicle-photos") {

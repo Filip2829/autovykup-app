@@ -57,3 +57,8 @@ entrypoint = "./functions/analyze-tire-set-photos/index.ts"
 enabled = true
 verify_jwt = true
 entrypoint = "./functions/fetch-vehicle-registry-data/index.ts"
+
+[functions.cleanup-vehicle-files]
+enabled = true
+verify_jwt = true
+entrypoint = "./functions/cleanup-vehicle-files/index.ts"
