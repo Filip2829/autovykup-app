@@ -110,7 +110,7 @@ export default function StockPreparation({ cars, onSave, onOpen, onBack, onRefre
       <button type="button" className="back bigBack" onClick={onBack}>← Zpět na rozcestník</button>
       <div className="card decision">
         <div className="preparationHeading">
-          <div><h2>Chystání vozů na bazar</h2><p>Od přípravy až po zveřejnění inzerátu. Fajfky se ukládají ihned, poznámku ulož tlačítkem.</p></div>
+          <div><h2>Vozy skladem</h2><p>Od přípravy až po zveřejnění inzerátu. Fajfky se ukládají ihned, poznámku ulož tlačítkem.</p></div>
           <button type="button" className="primary outline" disabled={refreshing} onClick={refresh}>{refreshing ? "Obnovuji…" : "Obnovit přehled"}</button>
         </div>
         <div className="preparationCounts">

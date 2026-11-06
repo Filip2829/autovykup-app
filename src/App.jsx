@@ -2113,7 +2113,7 @@ const remainingEquipment = equipmentItems.filter(
 
               <div className="module">
                 <ClipboardList />
-                <h3>Chystání vozů na bazar</h3>
+                <h3>Vozy skladem</h3>
                 <p>{cars.filter((car) => getVehicleLifecycleSection(car.status) === "stock" && !getStockPreparation(car).advertised).length} vozů čeká na zainzerování</p>
                 <button onClick={() => { setView("preparation"); }}>Otevřít</button>
               </div>

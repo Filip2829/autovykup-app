@@ -1,4 +1,4 @@
-# Chystání vozů na bazar
+# Vozy skladem
 
 Modul je dostupný z rozcestníku. Obsahuje všechny skladové vozy včetně komise a rezervací; prodané a archivované vozy se nezobrazují. Výchozí filtr ukazuje nezainzerované vozy, připravené vozy čekající na inzerci jsou nahoře. Filtr „Všechny skladové“ zobrazí i zainzerované.
 
@@ -14,7 +14,7 @@ Změněné soubory tohoto úkolu: `src/App.jsx`, nové `src/components/StockPrep
 
 ## Ruční ověření po přihlášení
 
-1. Na rozcestníku otevřít Chystání vozů na bazar. Ověřit skladové vozy, včetně komise, a nepřítomnost prodaných vozů.
+1. Na rozcestníku otevřít Vozy skladem. Ověřit skladové vozy, včetně komise, a nepřítomnost prodaných vozů.
 2. Změnit čištění a mechanickou kontrolu, obnovit stránku a ověřit trvalé uložení i v Administrativě vozu.
 3. Zaškrtnout Připraveno k inzerci. Vůz se zvýrazní jako čekající na zainzerování.
 4. Uložit poznámku, obnovit stránku a ověřit text. Ověřit také zrušení úpravy a zachování rozepsaného textu při filtrování a obnovení přehledu.
