@@ -215,10 +215,17 @@ const vehicleStatusLabels = {
 const vehicleStatusOptions = [
   VEHICLE_STATUS.VALUATION,
   VEHICLE_STATUS.APPROVED_FOR_PURCHASE,
+  VEHICLE_STATUS.PURCHASED,
+  VEHICLE_STATUS.SOLD,
   VEHICLE_STATUS.ARCHIVED,
 ].map((value) => ({
   value,
-  label: vehicleStatusLabels[value],
+  label:
+    value === VEHICLE_STATUS.PURCHASED
+      ? "Vozy skladem"
+      : value === VEHICLE_STATUS.SOLD
+        ? "Prodané vozy"
+        : vehicleStatusLabels[value],
 }));
 
 const legacyStatusMap = {
