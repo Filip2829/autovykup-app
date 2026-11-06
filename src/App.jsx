@@ -3,6 +3,7 @@ import {
   BellRing,
   CheckCircle,
   CircleDot,
+  ClipboardList,
   MessageCircle,
   Plus,
   Radar,
@@ -21,6 +22,8 @@ import VehicleHeader from "./components/VehicleHeader";
 import VehicleDamage from "./components/VehicleDamage";
 import VehiclePostPurchaseCosts from "./components/VehiclePostPurchaseCosts.jsx";
 import VehicleAdvertisingPrep from "./components/VehicleAdvertisingPrep.jsx";
+import StockPreparation from "./components/StockPreparation.jsx";
+import { buildStockPreparationUpdate, getStockPreparation } from "./utils/stockPreparation.js";
 import CustomerEmailText from "./components/CustomerEmailText.jsx";
 import OnlineListingText from "./components/OnlineListingText.jsx";
 import AdvertisingReadiness from "./components/AdvertisingReadiness.jsx";
@@ -861,7 +864,7 @@ const remainingEquipment = equipmentItems.filter(
 
     if (error) {
       console.error(error);
-      return;
+      return false;
     }
 
     const loadedCars = (data || []).map(prepareCar);
@@ -870,6 +873,7 @@ const remainingEquipment = equipmentItems.filter(
       if (!currentSelected) return loadedCars[0] || null;
       return loadedCars.find((car) => car.id === currentSelected.id) || loadedCars[0] || null;
     });
+    return true;
   }
 
   async function refreshCustomers() {
@@ -998,6 +1002,35 @@ const remainingEquipment = equipmentItems.filter(
     } finally {
       setCustomersLoading(false);
     }
+  }
+
+  async function saveStockPreparation(id, key, value, previousValue) {
+    const { data: latest, error: readError } = await supabase
+      .from("cars").select("*").eq("id", id).single();
+    if (readError) throw new Error("Vůz se nepodařilo načíst. Obnov přehled a zkus to znovu.");
+    if (getVehicleLifecycleSection(latest.status) !== "stock") {
+      throw new Error("Vůz již není skladem. Obnov přehled.");
+    }
+    const currentValue = getStockPreparation(latest)[key];
+    if (currentValue !== previousValue && currentValue !== value) {
+      throw new Error("Tento údaj mezitím změnil kolega. Obnov přehled a zkontroluj změnu před dalším uložením.");
+    }
+    const patch = buildStockPreparationUpdate(latest, key, value);
+    let request = supabase.from("cars").update({
+      ...patch,
+      updated_by: currentUsername,
+      updated_at: new Date().toISOString(),
+    }).eq("id", id).eq("status", latest.status);
+    // Only save against the version read above; never overwrite a concurrent checklist change.
+    request = latest.checklist === null
+      ? request.is("checklist", null)
+      : request.eq("checklist", JSON.stringify(latest.checklist));
+    const { data, error } = await request.select("*").single();
+    if (error) throw new Error("Změna se neuložila. Obnov přehled a zkus to znovu; vůz mohl mezitím upravit kolega.");
+    const saved = prepareCar(data);
+    setCars((current) => current.map((car) => car.id === id ? saved : car));
+    setSelectedCar((current) => current?.id === id ? saved : current);
+    await synchronizeVehicleMatches(prepareCar(latest), saved);
   }
 
   const currentUsername = getUsername(user) || username;
@@ -2088,6 +2121,13 @@ const remainingEquipment = equipmentItems.filter(
               </div>
 
               <div className="module">
+                <ClipboardList />
+                <h3>Chystání vozů na bazar</h3>
+                <p>{cars.filter((car) => getVehicleLifecycleSection(car.status) === "stock" && !getStockPreparation(car).advertised).length} vozů čeká na zainzerování</p>
+                <button onClick={() => { setView("preparation"); }}>Otevřít</button>
+              </div>
+
+              <div className="module">
                 <CircleDot />
                 <h3>Pneumatiky a kola</h3>
                 <p>Skladová evidence sad</p>
@@ -2177,6 +2217,16 @@ const remainingEquipment = equipmentItems.filter(
           onOpenCustomer={openCustomerDetail}
           onOpenVehicle={selectCar}
           onMatchesChanged={refreshNewMatchCount}
+        />
+      )}
+
+      {view === "preparation" && (
+        <StockPreparation
+          cars={cars.filter((car) => getVehicleLifecycleSection(car.status) === "stock")}
+          onSave={saveStockPreparation}
+          onOpen={(car) => { setListMode("stock"); selectCar(car); }}
+          onBack={() => setView("home")}
+          onRefresh={loadCars}
         />
       )}
 

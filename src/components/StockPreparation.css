@@ -1,0 +1,51 @@
+.preparationHeading, .preparationToolbar, .preparationCounts,
+.preparationToolbar > div, .preparationNoteActions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.preparationHeading { justify-content: space-between; }
+.preparationHeading h2 { margin-bottom: 8px; }
+.preparationHeading p, .preparationHint { color: #94a3b8; }
+.preparationCounts { margin: 20px 0; }
+.preparationCounts > span { padding: 12px 16px; border-radius: 12px; background: #0f172a; }
+.preparationCounts strong { font-size: 22px; margin-right: 6px; }
+.preparationAttention { color: #fbbf24; }
+.preparationToolbar > input { flex: 1 1 240px; min-width: 0; }
+.preparationToolbar > input { background: #0f172a; color: #f8fafc; border: 1px solid #334155; border-radius: 16px; padding: 14px; font: inherit; }
+.preparationTableWrap { overflow-x: auto; }
+.preparationTable { width: 100%; border-collapse: collapse; }
+.preparationTable caption { text-align: left; padding: 10px 0; }
+.preparationTable th, .preparationTable td { padding: 16px 10px; border-bottom: 1px solid #334155; vertical-align: top; }
+.preparationTable thead th { font-size: 13px; color: #cbd5e1; text-align: center; }
+.preparationTable thead th:first-child, .preparationTable thead th:last-child { text-align: left; }
+.preparationTable tbody th { text-align: left; min-width: 190px; max-width: 280px; overflow-wrap: anywhere; }
+.preparationTable td { text-align: center; }
+.preparationTable small { display: block; color: #94a3b8; font-size: 12px; margin-top: 8px; font-weight: 400; }
+.preparationTable input[type="checkbox"] { width: 24px; height: 24px; margin: 8px; accent-color: #22c55e; cursor: pointer; }
+.preparationTable .preparationNote { min-width: 250px; text-align: left; }
+.preparationNote textarea { width: 100%; min-height: 80px; resize: vertical; }
+.preparationCar { color: #93c5fd; padding: 0; text-align: left; font-size: 16px; }
+.preparationBadge { display: inline-block; margin-top: 12px; padding: 6px 10px; border-radius: 10px; background: #1e293b; color: #cbd5e1; font-size: 12px; }
+.preparationBadge.urgent { background: #78350f; color: #fde68a; }
+.preparationBadge.done { background: #14532d; color: #bbf7d0; }
+.preparationDone { background: rgba(34, 197, 94, 0.04); }
+.preparationError { color: #fca5a5; font-size: 14px; }
+.stockPreparation button:disabled { opacity: 0.55; cursor: default; }
+.stockPreparation :focus-visible { outline: 2px solid #60a5fa; outline-offset: 3px; }
+.preparationTable tr[hidden] { display: none; }
+@media (max-width: 800px) {
+  .preparationTable thead { display: none; }
+  .preparationTable, .preparationTable tbody, .preparationTable tr,
+  .preparationTable th, .preparationTable td { display: block; width: 100%; }
+  .preparationTable tr { margin-bottom: 18px; border: 1px solid #334155; border-radius: 14px; overflow: hidden; }
+  .preparationTable tbody th { max-width: none; min-width: 0; }
+  .preparationTable td { display: flex; align-items: center; justify-content: space-between; gap: 12px; text-align: left; }
+  .preparationTable td::before { content: attr(data-label); font-size: 14px; }
+  .preparationTable .preparationNote { display: block; min-width: 0; border-bottom: 0; }
+  .preparationNote textarea { margin-top: 10px; }
+  .preparationHeading > button, .preparationToolbar > input { width: 100%; }
+  .preparationToolbar > div { width: 100%; }
+  .preparationToolbar button { flex: 1 1 auto; }
+}
