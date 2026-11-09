@@ -6,6 +6,8 @@ Tento dokument je hlavní zdroj pravdy o projektu AutoVýkup. Před větší zm�
 
 ### Obchodní podklady pro další práci
 
+- [Sdílené nabídky vozidel](docs/VEHICLE_SHARING.md) – nabídky přes časově omezený odkaz pro AAA Auto a další zájemce; výběr fotografií, TP a Cebie z karty i zákaznické poptávky. Databázová změna byla uživatelem výslovně schválena a aplikována 9. 11. 2026.
+
 - [Přenos zákaznických poptávek do evidence](docs/VALUATION_CONVERSION.md) – rozdělení zákaznických údajů, cen, poznámek, fotografií vozu a soukromých dokumentů TP; opakování nedokončeného přenosu a ověření.
 
 - [Poznámky ze školení Renault ČR o ojetých vozech](docs/RENAULT_USED_CARS_TRAINING.md) – podklady od Filipa uložené 9. 11. 2026: orientační srovnání prodejců, výkup, bonusy, financování, příprava, inzerce, komise a smlouvy. Při souvisejících návrzích v dalších chatech z nich vycházet; jde o poznámky a témata k rozpracování, nikoli automaticky schválené změny aplikace.

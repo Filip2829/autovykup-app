@@ -1,4 +1,5 @@
 import { Edit, Trash2 } from "lucide-react";
+import ShareVehicleButton from '../sharing/ShareVehicleButton.jsx';
 
 export default function VehicleHeader({
   selectedCar,
@@ -62,6 +63,7 @@ export default function VehicleHeader({
           </div>
 
           <div className="heroActions">
+            <ShareVehicleButton key={selectedCar.id} sourceType="car" sourceId={selectedCar.id} />
             <button className="primary outline" onClick={onEdit}>
               <Edit size={18} />
               Upravit údaje

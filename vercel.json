@@ -1,6 +1,10 @@
 {
   "rewrites": [{ "source": "/((?!assets/).*)", "destination": "/index.html" }],
-  "headers": [{ "source": "/naceneni-vozu/:path*", "headers": [
+  "headers": [{ "source": "/nabidka-vozu/:path*", "headers": [
+    { "key": "Referrer-Policy", "value": "no-referrer" },
+    { "key": "X-Robots-Tag", "value": "noindex, nofollow" },
+    { "key": "Cache-Control", "value": "no-store" }
+  ] }, { "source": "/naceneni-vozu/:path*", "headers": [
     { "key": "Referrer-Policy", "value": "no-referrer" },
     { "key": "X-Robots-Tag", "value": "noindex, nofollow" },
     { "key": "Cache-Control", "value": "no-store" }
