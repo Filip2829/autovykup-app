@@ -107,8 +107,10 @@ export async function convertValuation(db, { id, actor, username, revision }, no
     const source = await checked(db.storage.from('valuation-photos').download(photo.path));
     const { error } = await db.storage.from(destination.bucket).upload(destination.path, source, { contentType: 'image/jpeg', upsert: false });
     if (error) {
-      if (String(error.statusCode) !== '409' && error.error !== 'Duplicate') throw error;
-      const existing = await checked(db.storage.from(destination.bucket).download(destination.path));
+      // Storage versions use different duplicate error codes. Accept a retry only
+      // when the destination can be read and its bytes match the original exactly.
+      const { data: existing, error: readError } = await db.storage.from(destination.bucket).download(destination.path);
+      if (readError || !existing) throw error;
       const [a, b] = await Promise.all([source.arrayBuffer(), existing.arrayBuffer()]);
       const bytes = new Uint8Array(a);
       const existingBytes = new Uint8Array(b);

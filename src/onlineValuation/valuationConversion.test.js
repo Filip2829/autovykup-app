@@ -37,7 +37,7 @@ function fakeDb({ failUploadOnce = false, race = false, testRequest = false, fai
         assert.equal(options.upsert, false);
         if (failUploadOnce && bucket === 'vehicle-documents') { failUploadOnce = false; return { error: new Error('Storage offline') }; }
         const key = `${bucket}/${path}`;
-        if (files.has(key)) return { error: { statusCode: '409' } };
+        if (files.has(key)) return { error: { statusCode: 'Duplicate', status: 400 } };
         files.set(key, blob); return { error: null };
       },
       getPublicUrl(path) { return { data: { publicUrl: `https://storage.example/${bucket}/${path}` } }; },
