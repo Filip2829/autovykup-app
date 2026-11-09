@@ -5,6 +5,7 @@ import {
   CircleDot,
   ClipboardList,
   MessageCircle,
+  Smartphone,
   Plus,
   Radar,
   Search,
@@ -46,6 +47,7 @@ import VehicleAiAssistant from "./components/ai/VehicleAiAssistant.jsx";
 import TireInventory from "./components/tires/TireInventory.jsx";
 import AuctionRadar from "./components/auction/AuctionRadar.jsx";
 import ValuationInbox, { ValuationMenuCard } from "./onlineValuation/ValuationInbox.jsx";
+import MobileInspection from "./mobileInspection/MobileInspection.jsx";
 import {
   createCustomer as createCrmCustomer,
   deleteCustomer as deleteCrmCustomer,
@@ -703,7 +705,7 @@ export default function App() {
 const remainingEquipment = equipmentItems.filter(
   (item) => !selectedCar?.equipment?.[item]
 );
-  const [view, setView] = useState(() => (new URLSearchParams(window.location.search).has("valuation") || window.location.pathname.replace(/\/$/, "") === "/poptavky-naceneni") ? "onlineValuations" : "home");
+  const [view, setView] = useState(() => new URLSearchParams(window.location.search).get("mobile-inspection") === "1" ? "mobileInspection" : (new URLSearchParams(window.location.search).has("valuation") || window.location.pathname.replace(/\/$/, "") === "/poptavky-naceneni") ? "onlineValuations" : "home");
   const [customers, setCustomers] = useState([]);
   const [selectedCustomer, setSelectedCustomer] = useState(null);
   const [customersLoading, setCustomersLoading] = useState(false);
@@ -882,6 +884,20 @@ const remainingEquipment = equipmentItems.filter(
       return loadedCars.find((car) => car.id === currentSelected.id) || loadedCars[0] || null;
     });
     return true;
+  }
+
+  async function handleMobileInspectionSaved(raw) {
+    const saved = prepareCar(raw);
+    const previous = cars.find((item) => item.id === saved.id);
+    setCars((current) => [saved, ...current.filter((item) => item.id !== saved.id)]);
+    setSelectedCar((current) => current?.id === saved.id ? saved : current);
+    await synchronizeVehicleMatches(previous, saved);
+  }
+
+  async function openMobileVehicle(id) {
+    const { data, error } = await supabase.from("cars").select("*").eq("id", id).single();
+    if (error || !data) { alert("Kartu vozu se nepodařilo načíst."); return; }
+    selectCar(prepareCar(data));
   }
 
   async function refreshCustomers() {
@@ -2075,6 +2091,12 @@ const remainingEquipment = equipmentItems.filter(
 
             <div className="grid">
               <div className="module">
+                <Smartphone />
+                <h3>Mobilní nacenění</h3>
+                <p>Údaje, TP, fotky a nacenění přímo u vozu</p>
+                <button onClick={() => setView("mobileInspection")}>Otevřít</button>
+              </div>
+              <div className="module">
                 <Plus />
                 <h3>Přidat nový výkup</h3>
                 <button onClick={() => setView("new")}>Otevřít</button>
@@ -2163,6 +2185,17 @@ const remainingEquipment = equipmentItems.filter(
         </section>
       )}
 
+      {view === "mobileInspection" && (
+        <MobileInspection
+          key={user.id}
+          userId={user.id}
+          username={currentUsername}
+          availableCars={cars}
+          onBack={() => setView("home")}
+          onSaved={handleMobileInspectionSaved}
+          onOpenVehicle={openMobileVehicle}
+        />
+      )}
       {view === "onlineValuations" && (
         <ValuationInbox onBack={() => setView("home")} onConverted={loadCars} />
       )}

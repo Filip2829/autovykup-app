@@ -6,6 +6,8 @@ Tento dokument je hlavní zdroj pravdy o projektu AutoVýkup. Před větší zm�
 
 ### Obchodní podklady pro další práci
 
+- [Mobilní nacenění vozidel](docs/MOBILE_INSPECTION.md) – první použitelná verze pro telefon: průběžné ukládání do běžné karty, TP, fotografie, poškození, poznámky a nacenění. Vstup z hlavního menu i přes `?mobile-inspection=1`; další úpravy rozhraní budou vycházet z provozní zpětné vazby.
+
 - [Sdílené nabídky vozidel](docs/VEHICLE_SHARING.md) – nabídky přes časově omezený odkaz pro AAA Auto a další zájemce; výběr fotografií, TP a Cebie z karty i zákaznické poptávky. Databázová změna byla uživatelem výslovně schválena a aplikována 9. 11. 2026.
 
 - [Přenos zákaznických poptávek do evidence](docs/VALUATION_CONVERSION.md) – rozdělení zákaznických údajů, cen, poznámek, fotografií vozu a soukromých dokumentů TP; opakování nedokončeného přenosu a ověření.
