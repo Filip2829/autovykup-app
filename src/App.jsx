@@ -21,10 +21,14 @@ import VehicleHeader from "./components/VehicleHeader";
 import VehicleDamage from "./components/VehicleDamage";
 import VehiclePostPurchaseCosts from "./components/VehiclePostPurchaseCosts.jsx";
 import VehicleAdvertisingPrep from "./components/VehicleAdvertisingPrep.jsx";
+import StockPreparation from "./components/StockPreparation.jsx";
+import { buildStockPreparationUpdate, getStockPreparation } from "./utils/stockPreparation.js";
+import { cleanupDeletedVehicleFiles, deleteVehicleEverywhere } from "./services/vehicleDeletion.js";
 import {
   buildMarketingVehicle,
   MarketingActions,
   MarketingReadinessScore,
+  OnlineAdvertisingAi,
   OpportunityClassic,
 } from "./marketing/index.js";
 import AppSelect from "./components/ui/AppSelect";
@@ -125,6 +129,10 @@ const emptyAdvertisingData = {
   repairs: "",
   listingNote: "",
   internalSaleNote: "",
+  customerSummary: "",
+  equipmentSummary: "",
+  suitableFor: "",
+  conditionSummary: "",
 };
 
 const LEGACY_STATUS = {
@@ -151,7 +159,7 @@ const vehicleStatusLabels = {
   [VEHICLE_STATUS.VALUATION]: "Nacenění",
   [VEHICLE_STATUS.APPROVED_FOR_PURCHASE]: "Schváleno k výkupu",
   [VEHICLE_STATUS.PURCHASED]: "Vykoupeno",
-  [VEHICLE_STATUS.COMMISSION]: "Příjem do komisního prodeje",
+  [VEHICLE_STATUS.COMMISSION]: "Příjem do komise",
   [VEHICLE_STATUS.PREPARATION]: "V přípravě",
   [VEHICLE_STATUS.READY_FOR_ADVERTISING]: "Připraveno k inzerci",
   [VEHICLE_STATUS.ADVERTISED]: "Inzerováno",
@@ -160,9 +168,16 @@ const vehicleStatusLabels = {
   [VEHICLE_STATUS.ARCHIVED]: "Archiv",
 };
 
-const vehicleStatusOptions = Object.values(VEHICLE_STATUS).map((value) => ({
+const vehicleStatusOptions = [
+  VEHICLE_STATUS.VALUATION,
+  VEHICLE_STATUS.APPROVED_FOR_PURCHASE,
+  VEHICLE_STATUS.PURCHASED,
+  VEHICLE_STATUS.COMMISSION,
+  VEHICLE_STATUS.SOLD,
+  VEHICLE_STATUS.ARCHIVED,
+].map((value) => ({
   value,
-  label: vehicleStatusLabels[value],
+  label: value === VEHICLE_STATUS.SOLD ? "Prodané vozy" : vehicleStatusLabels[value],
 }));
 
 const legacyStatusMap = {
@@ -341,6 +356,10 @@ function normalizeAdvertisingData(data = {}) {
     repairs: data.repairs || "",
     listingNote: data.listingNote || "",
     internalSaleNote: data.internalSaleNote || "",
+    customerSummary: data.customerSummary || "",
+    equipmentSummary: data.equipmentSummary || "",
+    suitableFor: data.suitableFor || "",
+    conditionSummary: data.conditionSummary || "",
   };
 }
 
@@ -619,6 +638,8 @@ export default function App() {
 
   const [cars, setCars] = useState([]);
   const [query, setQuery] = useState("");
+  const [isGlobalSearchOpen, setIsGlobalSearchOpen] = useState(false);
+  const [globalSearchQuery, setGlobalSearchQuery] = useState("");
   const [selectedCar, setSelectedCar] = useState(null);
   const selectedEquipment = equipmentItems.filter(
   (item) => selectedCar?.equipment?.[item]
@@ -712,6 +733,10 @@ const remainingEquipment = equipmentItems.filter(
     }
   }, [selectedCar?.id, view]);
 
+  useEffect(() => {
+    if (user?.id) cleanupDeletedVehicleFiles(supabase).catch(() => {});
+  }, [user?.id]);
+
   function createEmailFromUsername() {
     return `${username}@autovykup.local`;
   }
@@ -779,7 +804,7 @@ const remainingEquipment = equipmentItems.filter(
 
     if (error) {
       console.error(error);
-      return;
+      return false;
     }
 
     const loadedCars = (data || []).map(prepareCar);
@@ -788,9 +813,60 @@ const remainingEquipment = equipmentItems.filter(
       if (!currentSelected) return loadedCars[0] || null;
       return loadedCars.find((car) => car.id === currentSelected.id) || loadedCars[0] || null;
     });
+    return true;
+  }
+
+  async function saveStockPreparation(id, key, value, previousValue) {
+    const { data: latest, error: readError } = await supabase
+      .from("cars").select("*").eq("id", id).single();
+    if (readError) throw new Error("Vůz se nepodařilo načíst. Obnov přehled a zkus to znovu.");
+    if (!hasVehicleStatus(latest.status, stockStatusGroup)) {
+      throw new Error("Vůz již není skladem. Obnov přehled.");
+    }
+    const currentValue = getStockPreparation(latest)[key];
+    if (currentValue !== previousValue && currentValue !== value) {
+      throw new Error("Tento údaj mezitím změnil kolega. Obnov přehled a zkontroluj změnu před dalším uložením.");
+    }
+    const patch = buildStockPreparationUpdate(latest, key, value);
+    let request = supabase.from("cars").update({
+      ...patch,
+      updated_by: currentUsername,
+      updated_at: new Date().toISOString(),
+    }).eq("id", id).eq("status", latest.status);
+    // Only save against the version read above; never overwrite a concurrent checklist change.
+    request = latest.checklist === null
+      ? request.is("checklist", null)
+      : request.eq("checklist", JSON.stringify(latest.checklist));
+    const { data, error } = await request.select("*").single();
+    if (error) throw new Error("Změna se neuložila. Obnov přehled a zkus to znovu; vůz mohl mezitím upravit kolega.");
+    const saved = prepareCar(data);
+    setCars((current) => current.map((car) => car.id === id ? saved : car));
+    setSelectedCar((current) => current?.id === id ? saved : current);
   }
 
   const currentUsername = getUsername(user) || username;
+
+  const globalSearchResults = useMemo(() => {
+    const normalizedQuery = globalSearchQuery.trim().toLocaleLowerCase("cs-CZ");
+    if (!normalizedQuery) return [];
+
+    return cars.filter((car) =>
+      [
+        car.name,
+        car.vin,
+        car.spz,
+        car.year,
+        car.km,
+        getVehicleStatusLabel(car.status),
+        car.created_by,
+        car.updated_by,
+      ]
+        .filter((value) => value !== null && value !== undefined)
+        .join(" ")
+        .toLocaleLowerCase("cs-CZ")
+        .includes(normalizedQuery)
+    );
+  }, [cars, globalSearchQuery]);
 
   const filteredCars = useMemo(() => {
     return cars.filter((car) =>
@@ -888,6 +964,21 @@ const remainingEquipment = equipmentItems.filter(
     setVehicleDocumentForm({ ...emptyVehicleDocumentForm });
     setVehicleDocumentFile(null);
     setIsVehicleDocumentModalOpen(false);
+  }
+
+  function openGlobalSearch() {
+    setGlobalSearchQuery("");
+    setIsGlobalSearchOpen(true);
+  }
+
+  function closeGlobalSearch() {
+    setIsGlobalSearchOpen(false);
+    setGlobalSearchQuery("");
+  }
+
+  function selectCarFromGlobalSearch(car) {
+    closeGlobalSearch();
+    selectCar(car);
   }
 
   function validateRequiredCarFields(car) {
@@ -1124,27 +1215,24 @@ const remainingEquipment = equipmentItems.filter(
     if (!selectedCar) return;
 
     const confirmDelete = window.confirm(
-      `Opravdu chceš smazat záznam ${selectedCar.name}?`
+      `Trvale smazat vůz ${selectedCar.name} ze všech přehledů včetně původní online žádosti, fotografií, dokumentů, poznámek a historie? Tuto akci nelze vrátit.`
     );
 
     if (!confirmDelete) return;
 
-    const { error } = await supabase
-      .from("cars")
-      .delete()
-      .eq("id", selectedCar.id);
-
-    if (error) {
+    let result;
+    try {
+      result = await deleteVehicleEverywhere(supabase, selectedCar.id);
+    } catch (error) {
       alert(error.message);
       return;
     }
 
-    const remainingCars = cars.filter((car) => car.id !== selectedCar.id);
-
-    setCars(remainingCars);
-    setSelectedCar(remainingCars[0] || null);
+    setCars((current) => current.filter((car) => car.id !== result.deletedId));
+    setSelectedCar(null);
     setEditMode(false);
-    setView("list");
+    setView(listMode === "stock" ? "preparation" : "list");
+    if (result.cleanupPending) alert("Vůz i navázaná žádost byly smazány. Některé soubory čekají na odstranění; aplikace to zopakuje při příštím načtení.");
   }
 
   async function uploadFile(file, folder = "vehicle-photos") {
@@ -1692,6 +1780,16 @@ const remainingEquipment = equipmentItems.filter(
         </div>
 
         <div className="headerActions">
+          <button
+            type="button"
+            className="globalSearchButton"
+            onClick={openGlobalSearch}
+            aria-label="Hledat ve všech vozech"
+          >
+            <Search size={18} />
+            Hledat vůz
+          </button>
+
           <button className="primary" onClick={() => setView("new")}>
             <Plus size={18} />
             Nový výkup
@@ -1702,6 +1800,63 @@ const remainingEquipment = equipmentItems.filter(
           </button>
         </div>
       </header>
+
+      <AppModal
+        isOpen={isGlobalSearchOpen}
+        title="Hledat v celé evidenci"
+        onClose={closeGlobalSearch}
+      >
+        <div className="globalVehicleSearch">
+          <label className="globalVehicleSearchInput">
+            <Search size={20} aria-hidden="true" />
+            <input
+              autoFocus
+              type="search"
+              placeholder="Název, VIN, SPZ, rok, stav…"
+              value={globalSearchQuery}
+              onChange={(event) => setGlobalSearchQuery(event.target.value)}
+            />
+          </label>
+
+          {!globalSearchQuery.trim() && (
+            <p className="globalVehicleSearchHint">
+              Hledání zahrnuje aktuální vozy, sklad, prodané vozy i archiv.
+            </p>
+          )}
+
+          {globalSearchQuery.trim() && globalSearchResults.length === 0 && (
+            <p className="globalVehicleSearchEmpty">Žádný vůz nebyl nalezen.</p>
+          )}
+
+          {globalSearchResults.length > 0 && (
+            <div className="globalVehicleSearchResults">
+              <p className="globalVehicleSearchCount">
+                Nalezeno: {globalSearchResults.length}
+              </p>
+
+              {globalSearchResults.map((car) => (
+                <button
+                  key={car.id}
+                  type="button"
+                  className="globalVehicleSearchResult"
+                  onClick={() => selectCarFromGlobalSearch(car)}
+                >
+                  <span>
+                    <strong>{car.name || "Vůz bez názvu"}</strong>
+                    <small>
+                      {car.year || "Rok neuveden"} · {car.spz || "SPZ neuvedena"}
+                    </small>
+                    <small>VIN: {car.vin || "—"}</small>
+                  </span>
+                  <span className="globalVehicleSearchStatus">
+                    {getVehicleStatusLabel(car.status)}
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      </AppModal>
 
       {view === "home" && (
         <section className="homeMenu">
@@ -1742,21 +1897,19 @@ const remainingEquipment = equipmentItems.filter(
               </div>
 
               <div className="module">
-                <ShieldCheck />
-                <h3>Vozy skladem</h3>
-                <p>{stockCars.length} záznamů</p>
-                <button onClick={() => openVehicleList("stock")}>
-                  Otevřít
-                </button>
-              </div>
-
-              <div className="module">
                 <CheckCircle />
                 <h3>Prodané vozy</h3>
                 <p>{soldCars.length} záznamů</p>
                 <button onClick={() => openVehicleList("sold")}>
                   Otevřít
                 </button>
+              </div>
+
+              <div className="module">
+                <ClipboardList />
+                <h3>Vozy skladem</h3>
+                <p>{cars.filter((car) => hasVehicleStatus(car.status, stockStatusGroup) && !getStockPreparation(car).advertised).length} vozů čeká na zainzerování</p>
+                <button onClick={() => { setView("preparation"); }}>Otevřít</button>
               </div>
 
               <div className="module">
@@ -1771,6 +1924,16 @@ const remainingEquipment = equipmentItems.filter(
             </div>
           </div>
         </section>
+      )}
+
+      {view === "preparation" && (
+        <StockPreparation
+          cars={cars.filter((car) => hasVehicleStatus(car.status, stockStatusGroup))}
+          onSave={saveStockPreparation}
+          onOpen={(car) => { setListMode("stock"); selectCar(car); }}
+          onBack={() => setView("home")}
+          onRefresh={loadCars}
+        />
       )}
 
       {view === "new" && (
@@ -1910,7 +2073,7 @@ const remainingEquipment = equipmentItems.filter(
               status: getVehicleStatusLabel(selectedCar.status),
             }}
             statusClassName={getVehicleStatusClassName(selectedCar.status)}
-            onBack={() => setView("list")}
+            onBack={() => setView(listMode === "stock" ? "preparation" : "list")}
             onEdit={() => setEditMode(true)}
             onDelete={deleteCar}
             formatDate={formatDate}
@@ -2536,6 +2699,11 @@ const remainingEquipment = equipmentItems.filter(
               </div>
 
               <MarketingReadinessScore readiness={marketingVehicle.readiness} />
+
+              <OnlineAdvertisingAi
+                selectedCar={selectedCar}
+                updateCar={updateCar}
+              />
 
               <div className="marketingPreviewShell">
                 <OpportunityClassic

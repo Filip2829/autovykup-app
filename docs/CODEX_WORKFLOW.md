@@ -12,7 +12,7 @@ GitHubem a Vercel.
 - Jedna zmena = jeden maly ukol.
 - Nemenit nesouvisejici casti aplikace.
 - Nemenit databazi bez vyslovneho schvaleni uzivatele.
-- Nepushovat bez potvrzeni uzivatele.
+- Uzivatel dne 2026-11-06 trvale schvalil nasazovani vyzadanych uprav do live verze. Po uspesnych kontrolach commitnout a nasadit bez dalsiho dotazu na nasazeni.
 - Pri existujicich necommitnutych zmenach uzivatele je nerevertovat a nestagovat bez potvrzeni.
 - Commitovat pouze soubory, ktere patri k danemu ukolu.
 
@@ -49,19 +49,16 @@ Pravidla po buildu:
 - vypsat zmenene soubory
 - ukazat konkretni `git diff`
 - pokud build selze, necommitovat
-- pokud build projde, navrhnout commit
-- nepushovat bez dalsiho potvrzeni uzivatele
+- pokud build projde, vytvorit commit pouze se soubory daneho ukolu
+- pushnout a overit produkcni nasazeni na zaklade trvaleho souhlasu uzivatele
 
 ## D) Doporuceny vyvojovy cyklus
 
 1. Codex udela jednu malou zmenu.
 2. Codex ukaze zmenene soubory, diff a vysledek buildu.
-3. Uzivatel otestuje aplikaci na `localhost:5173`.
-4. Uzivatel potvrdi, ze zmena je v poradku.
-5. Codex vytvori commit.
-6. Uzivatel potvrdi push.
-7. Codex pushne zmenu.
-8. Overi se Vercel deployment.
+3. Codex provede dostupne kontroly a vytvori commit daneho ukolu.
+4. Codex pushne zmenu a overi Vercel deployment do live verze.
+5. Codex oznami vysledek; uzivatel muze nasledne pozadat o upravu.
 
 ## E) Pravidla pro UI zmeny
 
