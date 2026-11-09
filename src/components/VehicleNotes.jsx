@@ -19,7 +19,7 @@ export default function VehicleNotes({
       </button>
 
       {selectedCar.notes.map((note, index) => (
-        <p key={index}>• {note}</p>
+        <p key={index} style={{ whiteSpace: "pre-wrap" }}>• {note}</p>
       ))}
     </>
   );

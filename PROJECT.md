@@ -6,6 +6,8 @@ Tento dokument je hlavní zdroj pravdy o projektu AutoVýkup. Před větší zm�
 
 ### Obchodní podklady pro další práci
 
+- [Přenos zákaznických poptávek do evidence](docs/VALUATION_CONVERSION.md) – rozdělení zákaznických údajů, cen, poznámek, fotografií vozu a soukromých dokumentů TP; opakování nedokončeného přenosu a ověření.
+
 - [Poznámky ze školení Renault ČR o ojetých vozech](docs/RENAULT_USED_CARS_TRAINING.md) – podklady od Filipa uložené 9. 11. 2026: orientační srovnání prodejců, výkup, bonusy, financování, příprava, inzerce, komise a smlouvy. Při souvisejících návrzích v dalších chatech z nich vycházet; jde o poznámky a témata k rozpracování, nikoli automaticky schválené změny aplikace.
 
 AutoVýkup je interní webová aplikace pro evidenci a zpracování vozidel ve výkupním procesu. Aplikace umožňuje zakládat karty vozidel, doplňovat administrativní a technické údaje, nahrávat fotky a dokumenty, sledovat stav přípravy k nacenění a ukládat poznámky nebo AI výstupy.
