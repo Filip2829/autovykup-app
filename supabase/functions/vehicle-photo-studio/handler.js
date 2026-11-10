@@ -1,6 +1,8 @@
-import { editPrompt, validatePhoto } from '../../../src/photoStudio/model.js';
+import { backgroundReference, editPrompt, validatePhoto } from '../../../src/photoStudio/model.js';
+import { validatePlates } from '../../../src/photoStudio/plates.js';
+import { detectPlates } from './plateDetection.js';
 
-export function createPhotoStudioHandler({ db, apiKey, fetchImage = fetch }) {
+export function createPhotoStudioHandler({ db, apiKey, fetchImage = fetch, fetchBackground = fetch, fetchVision = fetch }) {
   const bucket = db.storage.from('car-photos');
   const checked = async (promise) => { const { data, error } = await promise; if (error) throw error; return data; };
   return async (req) => {
@@ -50,8 +52,17 @@ export function createPhotoStudioHandler({ db, apiKey, fetchImage = fetch }) {
       const id = form.get('id');
       if (!/^[a-f0-9-]{36}$/.test(id || '')) return reply({ error: 'Neplatná fotografie.' }, 400);
       const item = await readItem(id);
+      if (action === 'plate') {
+        if (!item.ready) return reply({ error: 'Nejprve upravte fotografii.' }, 400);
+        let plates;
+        try { plates = validatePlates(JSON.parse(form.get('plates') || 'null')); }
+        catch { return reply({ error: 'Označte správně čtyři rohy SPZ.' }, 400); }
+        item.plates = plates; item.plateVerified = true; item.plateStatus = 'verified'; item.approved = false;
+        await saveItem(item); return reply({ item: decorate(item) });
+      }
       if (action === 'approve') {
         if (!item.ready) return reply({ error: 'Nejprve upravte fotografii.' }, 400);
+        if (form.get('approved') === 'true' && !item.plateVerified) return reply({ error: 'Nejprve zkontrolujte a potvrďte zakrytí SPZ.' }, 400);
         item.approved = form.get('approved') === 'true'; await saveItem(item);
         return reply({ item: decorate(item) });
       }
@@ -70,14 +81,25 @@ export function createPhotoStudioHandler({ db, apiKey, fetchImage = fetch }) {
           item.ready = true; await saveItem(item); return reply({ item: decorate(item) });
         }
         const original = await checked(bucket.download(pathFor(id, 'original')));
+        const editingDeadline = AbortSignal.timeout(125000);
         const aiForm = new FormData();
         aiForm.set('model', 'gpt-image-1.5'); aiForm.set('image[]', original, `original.${item.mime === 'image/png' ? 'png' : item.mime === 'image/webp' ? 'webp' : 'jpg'}`);
+        const reference = backgroundReference(item.angle, item.background);
+        if (reference) {
+          // Only server-controlled preset paths are fetched, never URLs from the request.
+          const backdrop = await fetchBackground(`https://autovykup-app.vercel.app${reference}`, { signal: AbortSignal.any([editingDeadline, AbortSignal.timeout(15000)]), redirect: 'error' });
+          if (!backdrop.ok || !backdrop.headers.get('content-type')?.startsWith('image/png')) return reply({ error: 'Předlohu pozadí se nepodařilo načíst. Zkuste úpravu znovu za chvíli.' }, 502);
+          const image = await backdrop.blob();
+          if (image.size > 12 * 1024 * 1024) throw new Error('Předloha je příliš velká.');
+          aiForm.append('image[]', image, 'background.png');
+        }
         aiForm.set('prompt', editPrompt(item.angle, item.background)); aiForm.set('input_fidelity', 'high'); aiForm.set('quality', 'medium'); aiForm.set('size', '1536x1024'); aiForm.set('output_format', 'jpeg');
-        const response = await fetchImage('https://api.openai.com/v1/images/edits', { method: 'POST', headers: { Authorization: `Bearer ${apiKey}` }, body: aiForm, signal: AbortSignal.timeout(135000) });
+        const response = await fetchImage('https://api.openai.com/v1/images/edits', { method: 'POST', headers: { Authorization: `Bearer ${apiKey}` }, body: aiForm, signal: editingDeadline });
         if (!response.ok) return reply({ error: response.status === 429 ? 'AI je vytížená nebo je vyčerpaný kredit. Zkuste to později.' : 'AI úprava se nezdařila. Ověřte přístup k obrazovému modelu a kredit OpenAI.' }, 502);
         const result = await response.json();
         if (!result.data?.[0]?.b64_json) throw new Error('AI nevrátila fotografii.');
         const bytes = Uint8Array.from(atob(result.data[0].b64_json), c => c.charCodeAt(0));
+        Object.assign(item, await detectPlates(result.data[0].b64_json, apiKey, fetchVision));
         await checked(bucket.upload(pathFor(id, 'result.jpg'), bytes, { contentType: 'image/jpeg', upsert: true }));
         item.ready = true; item.approved = false; await saveItem(item);
         return reply({ item: decorate(item) });

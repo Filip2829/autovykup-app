@@ -7,6 +7,22 @@
 .studioControls { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
 .studioControls label { display: grid; gap: 8px; font-size: 14px; font-weight: 600; }
 .studioControls select { width: 100%; min-height: 44px; border: 1px solid #cbd5e1; border-radius: 10px; padding: 10px; background: #fff; color: #172b46; }
+.studioBackgrounds { border: 0; padding: 0; margin: 22px 0 12px; min-width: 0; }
+.studioBackgrounds legend { padding: 0 0 12px; font-weight: 600; }
+.studioBackgroundGrid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.studioBackgroundOption { display: flex; flex-direction: column; min-width: 0; border: 2px solid #334155; border-radius: 12px; overflow: hidden; cursor: pointer; background: #111c30; }
+.studioBackgroundOption[data-selected="true"] { border-color: #93c5fd; box-shadow: 0 0 0 2px #2563eb55; }
+.studioBackgroundOption:focus-within { outline: 3px solid #93c5fd; outline-offset: 3px; }
+.studioBackgroundOption img, .studioNeutralPreview { display: block; width: 100%; aspect-ratio: 3/2; object-fit: cover; }
+.studioNeutralPreview-gray { background: linear-gradient(180deg, #e5e7eb 0%, #f3f4f6 54%, #d1d5db 55%, #e5e7eb 100%); }
+.studioNeutralPreview-white { background: linear-gradient(180deg, #fff 0%, #fff 54%, #e5e7eb 55%, #f8fafc 100%); }
+.studioBackgroundCaption { display: grid; grid-template-columns: 18px 1fr; gap: 5px 8px; padding: 12px; }
+.studioBackgroundCaption input { width: 16px; height: 16px; margin: 2px 0 0; accent-color: #60a5fa; }
+.studioBackgroundCaption strong { font-size: 13px; color: #f8fafc; overflow-wrap: anywhere; }
+.studioBackgroundCaption small { grid-column: 2; font-size: 11px; line-height: 1.5; color: #b5c2d6; }
+.studioBackgroundLink { display: inline-block; color: #bfdbfe; font-size: 13px; margin: 0 0 18px; }
+.studioBackgrounds:disabled { opacity: .6; }
+@media(max-width: 650px) { .studioBackgroundGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .studioBackgroundCaption { padding: 9px; gap: 5px; } }
 .studioUpload { position: relative; display: flex; align-items: center; flex-direction: column; gap: 9px; padding: 30px 16px; border: 2px dashed #aebed4; border-radius: 14px; background: #f8fafc; color: #294c77; text-align: center; cursor: pointer; }
 .studioUpload input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
 .studioUpload:focus-within { outline: 3px solid #548dd0; outline-offset: 3px; }
@@ -26,5 +42,14 @@
 .studioPhotoBody { padding: 14px; display: grid; gap: 6px; }
 .studioPhotoBody small { color: #b5c2d6; }
 .studioPhotoActions { margin: 6px 0 0; }
+.studioPlatePending { display: grid; place-items: center; min-height: 180px; padding: 20px; color: #b5c2d6; }
+.studioPlateEditor { padding: 14px 0; border-top: 1px solid #334155; }
+.studioPhoto:has(.studioPlateEditor) { grid-column: 1 / -1; }
+.studioPlateViewport { overflow: auto; max-height: 600px; margin: 14px 0; }
+.studioPlateEditor h3 { margin: 10px 0; }
+.studioPlateEditor p { font-size: 12px; line-height: 1.6; }
+.studioPlateEditor canvas { display: block; width: 100%; height: auto; cursor: crosshair; touch-action: manipulation; border: 1px solid #475569; border-radius: 6px; }
+.studioNoPlate { display: flex; gap: 8px; align-items: flex-start; font-size: 13px; margin: 16px 0; }
+.studioNoPlate input { width: 16px; height: 16px; flex-shrink: 0; margin: 2px 0 0; }
 .studioEmpty { padding: 30px 15px; text-align: center; background: #f8fafc; border-radius: 12px; color: #64748b; }
 @media(max-width: 650px) { .studioControls, .studioGrid { grid-template-columns: 1fr; } .studioHeader { flex-wrap: wrap; } .studioToolbar { align-items: stretch; flex-direction: column; } .studioToolbar label { padding: 10px 0; } }
