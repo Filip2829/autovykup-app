@@ -1,0 +1,30 @@
+.photoStudio { margin-bottom: 24px; }
+.studioHeader { display: flex; justify-content: space-between; gap: 16px; align-items: flex-start; }
+.studioHeader h2 { display: flex; align-items: center; gap: 10px; }
+.studioHeader p { color: #b5c2d6; }
+.studioBadge { white-space: nowrap; border-radius: 20px; padding: 7px 12px; background: #edf4ff; color: #244f99; font-size: 12px; }
+.studioSteps { display: flex; flex-wrap: wrap; gap: 12px 24px; padding: 16px 0; color: #cbd5e1; font-size: 13px; }
+.studioControls { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+.studioControls label { display: grid; gap: 8px; font-size: 14px; font-weight: 600; }
+.studioControls select { width: 100%; min-height: 44px; border: 1px solid #cbd5e1; border-radius: 10px; padding: 10px; background: #fff; color: #172b46; }
+.studioUpload { position: relative; display: flex; align-items: center; flex-direction: column; gap: 9px; padding: 30px 16px; border: 2px dashed #aebed4; border-radius: 14px; background: #f8fafc; color: #294c77; text-align: center; cursor: pointer; }
+.studioUpload input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
+.studioUpload:focus-within { outline: 3px solid #548dd0; outline-offset: 3px; }
+.studioUpload span, .studioHint { font-size: 12px; color: #64748b; line-height: 1.6; }
+.photoStudio p.studioHint { color: #b5c2d6; }
+.studioDisabled { opacity: .55; }
+.studioChecklist { display: flex; flex-wrap: wrap; gap: 8px; margin: 16px 0; }
+.studioChecklist span { background: #f1f5f9; padding: 6px 10px; border-radius: 20px; font-size: 12px; color: #64748b; }
+.studioChecklist .studioCaptured { background: #e8f5ee; color: #216b44; }
+.studioToolbar, .studioPhotoActions { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin: 16px 0; }
+.studioToolbar label { display: flex; gap: 8px; align-items: center; font-size: 13px; }
+.studioToolbar input { width: auto; }
+.photoStudio button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 42px; }
+.studioGrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
+.studioPhoto { border: 1px solid #334155; border-radius: 12px; overflow: hidden; min-width: 0; }
+.studioPhoto img { display: block; width: 100%; aspect-ratio: 3/2; object-fit: contain; background: #f1f5f9; }
+.studioPhotoBody { padding: 14px; display: grid; gap: 6px; }
+.studioPhotoBody small { color: #b5c2d6; }
+.studioPhotoActions { margin: 6px 0 0; }
+.studioEmpty { padding: 30px 15px; text-align: center; background: #f8fafc; border-radius: 12px; color: #64748b; }
+@media(max-width: 650px) { .studioControls, .studioGrid { grid-template-columns: 1fr; } .studioHeader { flex-wrap: wrap; } .studioToolbar { align-items: stretch; flex-direction: column; } .studioToolbar label { padding: 10px 0; } }

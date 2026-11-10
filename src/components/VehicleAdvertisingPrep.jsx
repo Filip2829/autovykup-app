@@ -1,3 +1,5 @@
+import PhotoStudio from "../photoStudio/PhotoStudio.jsx";
+
 const advertisingFields = [
   {
     key: "highlights",
@@ -84,6 +86,8 @@ export default function VehicleAdvertisingPrep({
   }
 
   return (
+    <>
+    <PhotoStudio key={selectedCar.id} carId={selectedCar.id} carName={selectedCar.name} />
     <div className="card decision">
       <h2>Příprava inzerce</h2>
 
@@ -130,5 +134,6 @@ export default function VehicleAdvertisingPrep({
         ))}
       </div>
     </div>
+    </>
   );
 }

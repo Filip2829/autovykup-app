@@ -68,3 +68,8 @@ enabled = true
 # Viewing an offer uses a secret link; all management actions authenticate staff in the handler.
 verify_jwt = false
 entrypoint = "./functions/vehicle-sharing/index.ts"
+
+[functions.vehicle-photo-studio]
+enabled = true
+verify_jwt = true
+entrypoint = "./functions/vehicle-photo-studio/index.ts"
