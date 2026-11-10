@@ -1,10 +1,22 @@
 import { backgroundReference, editPrompt, validatePhoto } from '../../../src/photoStudio/model.js';
 import { validatePlates } from '../../../src/photoStudio/plates.js';
 import { detectPlates } from './plateDetection.js';
+import { Buffer } from 'node:buffer';
 
-export function createPhotoStudioHandler({ db, apiKey, fetchImage = fetch, fetchBackground = fetch, fetchVision = fetch }) {
+export function createPhotoStudioHandler({ db, apiKey, fetchImage = fetch, fetchBackground = fetch, fetchVision = fetch, renderMaskedJpeg }) {
   const bucket = db.storage.from('car-photos');
   const checked = async (promise) => { const { data, error } = await promise; if (error) throw error; return data; };
+  let logoBytes;
+  async function getLogo() {
+    if (!logoBytes) {
+      const response = await fetchBackground('https://autovykup-app.vercel.app/photo-studio/opportunity-logo.png', { signal: AbortSignal.timeout(10000), redirect: 'error' });
+      if (!response.ok || !response.headers.get('content-type')?.startsWith('image/png')) throw new Error('Logo nelze načíst.');
+      const bytes = new Uint8Array(await response.arrayBuffer());
+      if (bytes.length > 1024 * 1024) throw new Error('Logo je příliš velké.');
+      logoBytes = bytes;
+    }
+    return logoBytes;
+  }
   return async (req) => {
     const headers = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'authorization, apikey, content-type, x-client-info', 'Access-Control-Allow-Methods': 'POST, OPTIONS', 'Content-Type': 'application/json', 'Cache-Control': 'no-store' };
     const reply = (body, status = 200) => new Response(JSON.stringify(body), { status, headers });
@@ -31,7 +43,24 @@ export function createPhotoStudioHandler({ db, apiKey, fetchImage = fetch, fetch
       const pathFor = (id, suffix) => `${prefix}${id}-${suffix}`;
       const readItem = async (id) => JSON.parse(await (await checked(bucket.download(pathFor(id, 'meta.json')))).text());
       const saveItem = async (item) => checked(bucket.upload(pathFor(item.id, 'meta.json'), new Blob([JSON.stringify(item)], { type: 'application/json' }), { contentType: 'application/json', upsert: true }));
-      const decorate = (item) => ({ ...item, originalUrl: bucket.getPublicUrl(pathFor(item.id, 'original')).data.publicUrl, resultUrl: item.ready ? bucket.getPublicUrl(pathFor(item.id, 'result.jpg')).data.publicUrl : null });
+      const resultUrl = (item) => `${bucket.getPublicUrl(pathFor(item.id, 'result.jpg')).data.publicUrl}?v=${item.resultVersion || '1'}`;
+      const decorate = (item) => ({ ...item, originalUrl: bucket.getPublicUrl(pathFor(item.id, 'original')).data.publicUrl, resultUrl: item.ready ? resultUrl(item) : null, baseUrl: item.ready ? (item.hasBase ? bucket.getPublicUrl(pathFor(item.id, 'base.jpg')).data.publicUrl : resultUrl(item)) : null });
+      async function loadBase(item) {
+        const base = await bucket.download(pathFor(item.id, 'base.jpg'));
+        if (!base.error && base.data?.size) return new Uint8Array(await base.data.arrayBuffer());
+        if (item.hasBase) throw base.error || new Error('Chybí základ fotografie.');
+        const previous = await checked(bucket.download(pathFor(item.id, 'result.jpg')));
+        const bytes = new Uint8Array(await previous.arrayBuffer());
+        await checked(bucket.upload(pathFor(item.id, 'base.jpg'), bytes, { contentType: 'image/jpeg', upsert: true }));
+        return bytes;
+      }
+      async function finishPhoto(item, bytes, detection) {
+        const rendered = detection.plates.length ? await renderMaskedJpeg(bytes, detection.plates, await getLogo()) : bytes;
+        await checked(bucket.upload(pathFor(item.id, 'result.jpg'), rendered, { contentType: 'image/jpeg', cacheControl: '0', upsert: true }));
+        Object.assign(item, detection, { hasBase: true, plateRendered: detection.plateVerified, resultVersion: crypto.randomUUID(), ready: true, approved: false });
+        await saveItem(item);
+        return reply({ item: decorate(item) });
+      }
       if (action === 'list') {
         const entries = await checked(bucket.list('photo-studio', { search: `${carId}-`, limit: 1000 }));
         const items = await Promise.all(entries.filter(e => e.name.endsWith('-meta.json')).map(e => readItem(e.name.slice(String(carId).length + 1, -10))));
@@ -51,14 +80,25 @@ export function createPhotoStudioHandler({ db, apiKey, fetchImage = fetch, fetch
       }
       const id = form.get('id');
       if (!/^[a-f0-9-]{36}$/.test(id || '')) return reply({ error: 'Neplatná fotografie.' }, 400);
+      if (!['delete', 'plate', 'autoPlate', 'approve', 'process'].includes(action)) return reply({ error: 'Neznámá operace.' }, 400);
+      // All mutations share a lock: deleting in another tab cannot resurrect a completed job.
+      const lockPath = pathFor(id, 'lock');
+      const lock = await bucket.upload(lockPath, new Blob(['processing']), { upsert: false });
+      if (lock.error) return reply({ error: 'S fotografií se právě pracuje. Za chvíli obnovte seznam.' }, 409);
+      try {
+      if (action === 'delete') {
+        // Keep the manifest until asset removal succeeds, so failures remain retryable.
+        await checked(bucket.remove(['original', 'base.jpg', 'result.jpg'].map(suffix => pathFor(id, suffix))));
+        await checked(bucket.remove([pathFor(id, 'meta.json')]));
+        return reply({ deletedId: id });
+      }
       const item = await readItem(id);
       if (action === 'plate') {
         if (!item.ready) return reply({ error: 'Nejprve upravte fotografii.' }, 400);
         let plates;
         try { plates = validatePlates(JSON.parse(form.get('plates') || 'null')); }
         catch { return reply({ error: 'Označte správně čtyři rohy SPZ.' }, 400); }
-        item.plates = plates; item.plateVerified = true; item.plateStatus = 'verified'; item.approved = false;
-        await saveItem(item); return reply({ item: decorate(item) });
+        return await finishPhoto(item, await loadBase(item), { plates, plateVerified: true, plateStatus: 'verified' });
       }
       if (action === 'approve') {
         if (!item.ready) return reply({ error: 'Nejprve upravte fotografii.' }, 400);
@@ -66,19 +106,19 @@ export function createPhotoStudioHandler({ db, apiKey, fetchImage = fetch, fetch
         item.approved = form.get('approved') === 'true'; await saveItem(item);
         return reply({ item: decorate(item) });
       }
-      if (action !== 'process') return reply({ error: 'Neznámá operace.' }, 400);
-      if (item.ready) return reply({ item: decorate(item) });
+      if (action === 'process' && item.ready) return reply({ item: decorate(item) });
       if (!apiKey) return reply({ error: 'AI není nakonfigurovaná. Správce musí nastavit OPENAI_API_KEY.' }, 503);
-      // Atomic storage insert prevents a retry or another tab paying for the same image twice.
-      const lockPath = pathFor(id, 'lock');
-      const lock = await bucket.upload(lockPath, new Blob(['processing']), { upsert: false });
-      if (lock.error) return reply({ error: 'Fotografie se již zpracovává. Za chvíli obnovte seznam.' }, 409);
-      try {
-        const latest = await readItem(id);
-        if (latest.ready) return reply({ item: decorate(latest) });
-        const recovered = await bucket.download(pathFor(id, 'result.jpg'));
+      if (action === 'autoPlate') {
+        if (!item.ready) return reply({ error: 'Nejprve upravte fotografii.' }, 400);
+        const base = await loadBase(item);
+        return await finishPhoto(item, base, await detectPlates(Buffer.from(base).toString('base64'), apiKey, fetchVision));
+      }
+        const recoveredBase = await bucket.download(pathFor(id, 'base.jpg'));
+        const recovered = recoveredBase.error ? await bucket.download(pathFor(id, 'result.jpg')) : recoveredBase;
         if (!recovered.error && recovered.data?.size) {
-          item.ready = true; await saveItem(item); return reply({ item: decorate(item) });
+          const bytes = new Uint8Array(await recovered.data.arrayBuffer());
+          if (recoveredBase.error) await checked(bucket.upload(pathFor(id, 'base.jpg'), bytes, { contentType: 'image/jpeg', upsert: true }));
+          return await finishPhoto(item, bytes, await detectPlates(Buffer.from(bytes).toString('base64'), apiKey, fetchVision));
         }
         const original = await checked(bucket.download(pathFor(id, 'original')));
         const editingDeadline = AbortSignal.timeout(125000);
@@ -99,14 +139,13 @@ export function createPhotoStudioHandler({ db, apiKey, fetchImage = fetch, fetch
         const result = await response.json();
         if (!result.data?.[0]?.b64_json) throw new Error('AI nevrátila fotografii.');
         const bytes = Uint8Array.from(atob(result.data[0].b64_json), c => c.charCodeAt(0));
-        Object.assign(item, await detectPlates(result.data[0].b64_json, apiKey, fetchVision));
-        await checked(bucket.upload(pathFor(id, 'result.jpg'), bytes, { contentType: 'image/jpeg', upsert: true }));
-        item.ready = true; item.approved = false; await saveItem(item);
-        return reply({ item: decorate(item) });
+        // Persist the generated base before masking, so retries never pay for generation twice.
+        await checked(bucket.upload(pathFor(id, 'base.jpg'), bytes, { contentType: 'image/jpeg', upsert: true }));
+        return await finishPhoto(item, bytes, await detectPlates(result.data[0].b64_json, apiKey, fetchVision));
       } finally { await bucket.remove([lockPath]); }
     } catch (error) {
       const known = /Použijte JPG|Fotografie může|Neplatný pohled/.test(error.message || '');
-      return reply({ error: known ? error.message : 'Operace se nepodařila. Obnovte seznam; originály zůstávají uložené.' }, known ? 400 : 500);
+      return reply({ error: known ? error.message : 'Operace se nepodařila. Obnovte seznam a zkuste ji znovu.' }, known ? 400 : 500);
     }
   };
 }

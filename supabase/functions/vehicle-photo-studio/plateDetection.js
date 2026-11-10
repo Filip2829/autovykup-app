@@ -1,7 +1,7 @@
 import { validatePlates } from '../../../src/photoStudio/plates.js';
 
 export async function detectPlates(base64, apiKey, fetchVision = fetch) {
-  // Detection suggests corners. A staff member must confirm them before export.
+  // Reliable geometry can be rendered automatically; failed detection needs a manual correction.
   const pending = { plates: [], plateStatus: 'review', plateVerified: false };
   try {
     const point = { type: 'object', properties: { x: { type: 'number' }, y: { type: 'number' } }, required: ['x', 'y'], additionalProperties: false };
@@ -16,7 +16,8 @@ export async function detectPlates(base64, apiKey, fetchVision = fetch) {
     const data = await response.json();
     const result = JSON.parse(data.choices?.[0]?.message?.content || '{}');
     const plates = validatePlates(result.plates);
+    if (result.status === 'none' && !plates.length) return { plates: [], plateStatus: 'not-visible', plateVerified: true };
     if (result.status !== 'located' || !plates.length) return pending;
-    return { plates, plateStatus: 'detected', plateVerified: false };
+    return { plates, plateStatus: 'automatic', plateVerified: true };
   } catch { return pending; }
 }

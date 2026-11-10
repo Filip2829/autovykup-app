@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Camera, Download, RefreshCw, Sparkles } from 'lucide-react';
+import { Camera, Download, RefreshCw, Sparkles, Trash2 } from 'lucide-react';
 import { angles, backgrounds, backgroundOptions, exportName, validatePhoto } from './model';
 import { studioRequest } from './api';
 import { prepareInspectionPhoto } from '../mobileInspection/preparePhoto';
@@ -68,6 +68,20 @@ export default function PhotoStudio({ carId, carName }) {
   async function approve(item) {
     await run(async () => { const data = await studioRequest(carId, 'approve', { id: item.id, approved: String(!item.approved) }); merge(data.item); });
   }
+  async function deletePhoto(item) {
+    if (running.current || !window.confirm('Smazat tuto fotku z fotostudia včetně jejího nahraného originálu a upravených verzí? Ostatní fotografie vozu zůstanou zachované.')) return;
+    await run(async () => {
+      const data = await studioRequest(carId, 'delete', { id: item.id });
+      if (data.deletedId !== item.id) throw new Error('Smazání fotografie nebylo potvrzeno. Obnovte seznam.');
+      if (mounted.current) { setItems(current => current.filter(photo => photo.id !== item.id)); setEditingPlate(current => current === item.id ? null : current); }
+    });
+  }
+  async function autoPlate(item) {
+    await run(async () => {
+      setProgress('Rozpoznávám a zakrývám SPZ…');
+      const data = await studioRequest(carId, 'autoPlate', { id: item.id }); merge(data.item);
+    });
+  }
   async function savePlate(item, plates) {
     await run(async () => {
       const data = await studioRequest(carId, 'plate', { id: item.id, plates: JSON.stringify(plates) });
@@ -81,7 +95,12 @@ export default function PhotoStudio({ carId, carName }) {
       const files = [];
       for (let i = 0; i < selected.length; i++) {
         setProgress(`Připravuji export ${i + 1} z ${selected.length}…`);
-        const photo = await platePhotoBlob(selected[i].resultUrl, selected[i].plates || []);
+        let photo;
+        if (selected[i].plateRendered) {
+          const response = await fetch(selected[i].resultUrl);
+          if (!response.ok) throw new Error('Stažení fotografie selhalo. Zkuste export znovu.');
+          photo = await response.blob();
+        } else photo = await platePhotoBlob(selected[i].resultUrl, selected[i].plates || []);
         files.push({ name: exportName(i, selected[i].angle), bytes: new Uint8Array(await photo.arrayBuffer()) });
       }
       download(makeZip(files), `vuz-${carId}-inzerce.zip`);
@@ -111,17 +130,17 @@ export default function PhotoStudio({ carId, carName }) {
     <p className="studioHint">Nahrajte společně snímky stejného pohledu; pro další pohled změňte výběr. AI srovná kompozici a horizont, zachová původní úhel. Chybějící pohledy dofoťte. Interiér a detaily si ponechají původní prostředí.</p>
     <div className="studioChecklist">{Object.entries(angles).slice(0, 8).map(([key, label]) => <span className={items.some(p => p.angle === key && p.ready) ? 'studioCaptured' : ''} key={key}>{items.some(p => p.angle === key && p.ready) ? '✓' : '○'} {label}</span>)}</div>
     <p className="studioHint">AI úpravy využívají placené API. Před exportem porovnejte vůz s originálem, zejména lak, výbavu a poškození. Fotografie se ukládají jako ostatní fotky vozu; originály se nepřepisují.</p>
-    <p className="studioHint">Viditelné SPZ překryjeme originálním logem Opportunity podle jejich rohů a perspektivy. AI navrhne umístění; před schválením potvrďte úplné zakrytí nebo rohy ručně opravte. Stejný překryv se použije v náhledu i exportu.</p>
+    <p className="studioHint">SPZ se rozpoznají a automaticky překryjí logem Opportunity už při generování. Zakrytí je součástí uloženého JPG. Před exportem zkontrolujte výsledek; pokud se rozpoznání nepodaří, zopakujte jej nebo ručně označte rohy SPZ.</p>
     <div className="studioToolbar"><button type="button" className="primary outline" disabled={busy || loading} onClick={refresh}><RefreshCw size={16} /> Obnovit seznam</button><label><input type="checkbox" checked={originals} onChange={e => setOriginals(e.target.checked)} /> Ukázat originály</label><button type="button" className="primary" disabled={busy || loading || !approved} onClick={exportPhotos}><Download size={16} /> Export ZIP ({approved})</button></div>
     {(loading || progress) && <p role="status">{loading ? 'Načítám fotografie…' : progress}</p>}
-    {busy && <button type="button" className="primary outline" onClick={() => { stop.current = true; }}>Zastavit po aktuální fotografii</button>}
+    {busy && progress.startsWith('Fotografie') && <button type="button" className="primary outline" onClick={() => { stop.current = true; }}>Zastavit po aktuální fotografii</button>}
     {error && <p role="alert" className="badText">{error}</p>}
     {!loading && !items.length && <div className="studioEmpty">Fotostudio pro {carName || 'tento vůz'} je připravené. Začněte předním pohledem zleva.</div>}
     <div className="studioGrid">{items.map((item, index) => <article className="studioPhoto" key={item.id}>
       <PlatePhoto item={item} original={originals} label={angles[item.angle]} />
       <div className="studioPhotoBody"><strong>{index + 1}. {angles[item.angle]}</strong><small>{backgrounds[item.background]} · {item.approved ? 'Schváleno' : item.ready ? 'Ke kontrole' : 'Čeká na úpravu'}</small>
-        {item.ready && <small>{item.plateVerified ? '✓ Kontrola SPZ potvrzena' : 'SPZ: zkontrolujte úplné zakrytí'}</small>}
-        <div className="studioPhotoActions">{item.ready ? <><button type="button" className="primary outline" disabled={busy} onClick={() => setEditingPlate(item.id)}>Zkontrolovat / upravit SPZ</button><button type="button" className={item.approved ? 'success' : 'primary outline'} disabled={busy || !item.plateVerified} onClick={() => approve(item)}>{item.approved ? '✓ Schváleno · vrátit' : 'Schválit pro export'}</button></> : <button type="button" className="primary" disabled={busy} onClick={() => process(item)}>Upravit pomocí AI</button>}<button type="button" aria-label="Posunout dopředu" disabled={busy || index === 0} onClick={() => move(index, -1)}>↑</button><button type="button" aria-label="Posunout dozadu" disabled={busy || index === items.length - 1} onClick={() => move(index, 1)}>↓</button></div>
+        {item.ready && <small>{item.plateVerified ? (item.plateStatus === 'automatic' ? '✓ SPZ automaticky zakryta' : item.plateStatus === 'not-visible' ? '✓ SPZ není na snímku viditelná' : '✓ Zakrytí SPZ připraveno') : 'SPZ se nepodařilo spolehlivě rozpoznat. Zopakujte zakrytí nebo označte rohy ručně.'}</small>}
+        <div className="studioPhotoActions">{item.ready ? <>{(!item.plateRendered || !item.plateVerified) && <button type="button" className="primary" disabled={busy} onClick={() => autoPlate(item)}>Zakryt SPZ automaticky</button>}<button type="button" className="primary outline" disabled={busy} onClick={() => setEditingPlate(item.id)}>Upravit zakrytí SPZ</button><button type="button" className={item.approved ? 'success' : 'primary outline'} disabled={busy || !item.plateVerified} onClick={() => approve(item)}>{item.approved ? '✓ Schváleno · vrátit' : 'Schválit pro export'}</button></> : <button type="button" className="primary" disabled={busy} onClick={() => process(item)}>Upravit pomocí AI</button>}<button type="button" aria-label="Posunout dopředu" disabled={busy || index === 0} onClick={() => move(index, -1)}>↑</button><button type="button" aria-label="Posunout dozadu" disabled={busy || index === items.length - 1} onClick={() => move(index, 1)}>↓</button><button type="button" className="studioDeletePhoto" disabled={busy} onClick={() => deletePhoto(item)}><Trash2 size={16} /> Smazat fotku</button></div>
         {editingPlate === item.id && <PlateEditor key={item.id} item={item} busy={busy} onClose={() => setEditingPlate(null)} onSave={plates => savePlate(item, plates)} />}
       </div></article>)}</div>
     <p className="studioHint">Export: JPG 1536 × 1024 px (3:2), pořadí podle náhledu, soubory očíslované v ZIP. Pořadí platí pro aktuální export; po obnovení se vrátí pořadí nahrání. ZIP rozbalte a fotografie nahrajte na inzertní portál.</p>

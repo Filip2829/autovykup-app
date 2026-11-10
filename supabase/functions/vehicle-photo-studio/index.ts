@@ -1,4 +1,5 @@
 import { createClient } from 'npm:@supabase/supabase-js@2.106.1';
 import { createPhotoStudioHandler } from './handler.js';
+import { renderMaskedJpeg } from './imageCodec.js';
 const db = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!, { auth: { persistSession: false } });
-Deno.serve(createPhotoStudioHandler({ db, apiKey: Deno.env.get('OPENAI_API_KEY') }));
+Deno.serve(createPhotoStudioHandler({ db, apiKey: Deno.env.get('OPENAI_API_KEY'), renderMaskedJpeg }));

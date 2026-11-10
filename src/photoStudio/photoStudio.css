@@ -42,6 +42,8 @@
 .studioPhotoBody { padding: 14px; display: grid; gap: 6px; }
 .studioPhotoBody small { color: #b5c2d6; }
 .studioPhotoActions { margin: 6px 0 0; }
+.studioDeletePhoto { border: 1px solid #f8717166; border-radius: 10px; padding: 9px 12px; color: #fecaca; background: #7f1d1d33; }
+.studioDeletePhoto:hover:not(:disabled) { background: #7f1d1d66; }
 .studioPlatePending { display: grid; place-items: center; min-height: 180px; padding: 20px; color: #b5c2d6; }
 .studioPlateEditor { padding: 14px 0; border-top: 1px solid #334155; }
 .studioPhoto:has(.studioPlateEditor) { grid-column: 1 / -1; }

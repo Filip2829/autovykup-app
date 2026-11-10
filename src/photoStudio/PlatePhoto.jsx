@@ -6,15 +6,16 @@ export function PlatePhoto({ item, original, label }) {
   const [preview, setPreview] = useState({ key: '', url: '', error: '' });
   const key = JSON.stringify([item.resultUrl, item.plates]);
   useEffect(() => {
-    if (original || !item.ready) return;
+    if (original || !item.ready || item.plateRendered) return;
     let active = true, objectUrl;
     platePhotoBlob(item.resultUrl, item.plates || []).then(blob => {
       objectUrl = URL.createObjectURL(blob);
       if (active) setPreview({ key, url: objectUrl, error: '' }); else URL.revokeObjectURL(objectUrl);
     }).catch(error => { if (active) setPreview({ key, url: '', error: error.message }); });
     return () => { active = false; if (objectUrl) URL.revokeObjectURL(objectUrl); };
-  }, [item.resultUrl, item.plates, item.ready, original, key]);
+  }, [item.resultUrl, item.plates, item.ready, item.plateRendered, original, key]);
   if (original || !item.ready) return <a href={item.originalUrl} target="_blank" rel="noreferrer"><img src={item.originalUrl} alt={`Originál: ${label}`} loading="lazy" /></a>;
+  if (item.plateRendered) return <a href={item.resultUrl} target="_blank" rel="noreferrer"><img src={item.resultUrl} alt={`AI úprava se zakrytím SPZ: ${label}`} loading="lazy" /></a>;
   if (preview.key !== key || !preview.url) return <div className="studioPlatePending" role="status">{preview.key === key && preview.error ? preview.error : 'Připravuji náhled…'}</div>;
   return <a href={preview.url} target="_blank" rel="noreferrer"><img src={preview.url} alt={`AI úprava: ${label}`} loading="lazy" /></a>;
 }
@@ -27,10 +28,11 @@ export function PlateEditor({ item, onSave, onClose, busy }) {
   const [drawing, setDrawing] = useState(true);
   const [zoom, setZoom] = useState(1);
   const canvas = useRef(null);
+  const sourceUrl = item.baseUrl || item.resultUrl;
   useEffect(() => {
     let active = true;
     const rendered = document.createElement('canvas');
-    drawPlatePhoto(rendered, item.resultUrl, plates).then(() => {
+    drawPlatePhoto(rendered, sourceUrl, plates).then(() => {
       if (!active) return;
       canvas.current.width = rendered.width; canvas.current.height = rendered.height;
       const context = canvas.current.getContext('2d');
@@ -44,7 +46,7 @@ export function PlateEditor({ item, onSave, onClose, busy }) {
       setDrawing(false);
     }).catch(e => { if (active) { setError(e.message); setDrawing(false); } });
     return () => { active = false; };
-  }, [item.resultUrl, plates, points]);
+  }, [sourceUrl, plates, points]);
   function selectCorner(event) {
     if (busy || drawing || noPlate) return;
     const rect = event.currentTarget.getBoundingClientRect();

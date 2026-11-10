@@ -72,4 +72,5 @@ entrypoint = "./functions/vehicle-sharing/index.ts"
 [functions.vehicle-photo-studio]
 enabled = true
 verify_jwt = true
+import_map = "./functions/vehicle-photo-studio/deno.json"
 entrypoint = "./functions/vehicle-photo-studio/index.ts"
