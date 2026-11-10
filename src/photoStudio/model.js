@@ -7,6 +7,7 @@ export const angles = {
 export function needsPlateUpdate(item) { return item.ready && item.maskVersion !== 2; }
 export function canExportPhoto(item) { return item.ready && item.approved && item.plateVerified && item.maskVersion === 2; }
 export const backgroundOptions = {
+  opportunityDarkTiles: { label: "Opportunity · tmavá dlažba", description: "Světlá stěna, logo Opportunity a antracitová dlažba", image: "/photo-studio/opportunity-dark-tiles.png" },
   opportunityWorkshop: { label: "Opportunity Dílna", description: "Podle vašich inzerátů: světlá stěna, dlažba a vrata", image: "/photo-studio/opportunity-workshop.png" },
   opportunityWhite: { label: "Opportunity White", description: "Světlé studio s firemním označením", image: "/photo-studio/opportunity-white.png" },
   opportunityGraphite: { label: "Opportunity Graphite", description: "Antracitová stěna a světelné linie", image: "/photo-studio/opportunity-graphite.png" },

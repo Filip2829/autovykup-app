@@ -48,6 +48,7 @@ import TireInventory from "./components/tires/TireInventory.jsx";
 import AuctionRadar from "./components/auction/AuctionRadar.jsx";
 import ValuationInbox, { ValuationMenuCard } from "./onlineValuation/ValuationInbox.jsx";
 import MobileInspection from "./mobileInspection/MobileInspection.jsx";
+import StandalonePhotoStudio, { PhotoStudioMenuCard } from "./photoStudio/StandalonePhotoStudio.jsx";
 import {
   createCustomer as createCrmCustomer,
   deleteCustomer as deleteCrmCustomer,
@@ -2090,6 +2091,7 @@ const remainingEquipment = equipmentItems.filter(
             <p>Vyber, s čím chceš pracovat.</p>
 
             <div className="grid">
+              <PhotoStudioMenuCard onOpen={() => setView("photoStudio")} />
               <div className="module">
                 <Smartphone />
                 <h3>Mobilní nacenění</h3>
@@ -2184,6 +2186,8 @@ const remainingEquipment = equipmentItems.filter(
           </div>
         </section>
       )}
+
+      {view === "photoStudio" && <StandalonePhotoStudio key={user.id} onBack={() => setView("home")} />}
 
       {view === "mobileInspection" && (
         <MobileInspection

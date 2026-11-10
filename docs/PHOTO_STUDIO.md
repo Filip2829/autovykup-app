@@ -1,5 +1,15 @@
 # Fotostudio – první verze
 
+## Samostatné Fotostudio v rozcestníku
+
+Rozcestník → Fotostudio zpřístupňuje stejné generování a export bez založení karty výkupu. Uživatel vytvoří pojmenovanou sadu (model/VIN/interní číslo), vrací se k ní a používá společnou komponentu `PhotoStudio`. Výchozí pozadí je „Opportunity · tmavá dlažba“ (`public/photo-studio/opportunity-dark-tiles.png`): světlá stěna, firemní označení a antracitová dlažba. Původní pozadí jsou nadále dostupná u sad i vozů.
+
+Sady i fotografie se ukládají do existujícího bucketu `car-photos` pod `photo-studio-sales/{authUserId}/`. Seznam sad je v podsložce `sessions`, fotografie v podsložce `{sessionId}`. Server odvozuje vlastníka z ověřeného Auth uživatele a nikdy nepřijímá ID vlastníka z klienta. Do API se posílá `scope=standalone` a ID sady. Žádné záznamy v `cars` se nevytvářejí ani nečtou. Limit je 100 sad na účet a 40 fotek na sadu. Prázdnou sadu lze smazat; sadu s fotkami je nejprve potřeba vyprázdnit. Zámek sady brání souběžnému smazání a uploadu.
+
+Přístup mají stávající členové `valuation_staff` a účty s administrátorem nastaveným `auth.users.raw_app_meta_data.photo_studio_access = true`. Uživatelsky editovatelná metadata se pro autorizaci nepoužívají. Samostatné oprávnění nedává přístup k fotostudiu cizího výkupu. Na výslovné zadání uživatele je připraven grant účtům `jhanak` (Hanák) a `sekanina`: `supabase/sql/grant_photo_studio_sales_access.sql`. Jde o změnu příznaku těchto dvou existujících účtů, ne o změnu schématu nebo RLS. Obrázky zůstávají ve stejném veřejném bucketu jako dosavadní fotky; API odděluje sady podle vlastníka, ale přímé URL obrázků nejsou soukromé.
+
+Ruční kontrola: otevřít novou dlaždici z rozcestníku; vytvořit sadu s modelem/VIN; nahrát JPG a zvolit tmavou dlažbu; ověřit náhled, SPZ, schválení, ZIP a názvy souborů. Vrátit se na seznam a obnovit stránku: sada a fotky zůstanou. Ověřit účty jhanak/sekanina, zamítnutí neschváleného účtu, oddělení sad různých vlastníků a zachování přístupu výkupářů. Smazat fotky a prázdnou sadu; ostatní sady musí zůstat. Zopakovat na mobilu 390 px. Stávající fotostudio v detailu vozu zůstává funkční.
+
 Detail vozu → Příprava inzerce → Fotostudio. Nahrajte JPG/PNG/WebP jednoho pohledu, vyberte jedno z pěti pozadí Opportunity nebo bílé/šedé neutrální studio. Po uploadu běží postupně AI úpravy přes přihlášenou Supabase funkci `vehicle-photo-studio`. Originály, výstupy a schválení zůstávají v existujícím bucketu `car-photos`, prefix `photo-studio/{carId}-{uuid}-`. Existující mazání vozu tento prefix zahrnuje. Není potřeba SQL ani změna policies.
 
 Přístup k operacím vyžaduje platného uživatele a členství v `valuation_staff`. Klíč `OPENAI_API_KEY` je pouze v backendu. Model `gpt-image-1.5`, vysoká věrnost vstupu, JPG 1536×1024, kvalita medium. Při chybě zůstává originál a lze opakovat úpravu. Výstup je AI rekonstrukce: věrnost vozu nelze garantovat a před exportem je nutná kontrola. Fotky jsou ve stejném veřejném bucketu jako dosavadní fotodokumentace, nejsou soukromé.

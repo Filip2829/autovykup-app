@@ -2,6 +2,7 @@ import { backgroundReference, editPrompt, validatePhoto } from '../../../src/pho
 import { validatePlates } from '../../../src/photoStudio/plates.js';
 import { detectPlates } from './plateDetection.js';
 import { Buffer } from 'node:buffer';
+import { canUseStandaloneStudio, standaloneStudioRoot } from '../../../src/photoStudio/access.js';
 
 export function createPhotoStudioHandler({ db, apiKey, fetchImage = fetch, fetchBackground = fetch, fetchVision = fetch, renderMaskedJpeg, cropPlateRegion, checkPlateRegion }) {
   const bucket = db.storage.from('car-photos');
@@ -29,7 +30,6 @@ export function createPhotoStudioHandler({ db, apiKey, fetchImage = fetch, fetch
       const auth = await db.auth.getUser(token);
       if (auth.error || !auth.data?.user) return reply({ error: 'Přihlaste se znovu.' }, 401);
       const staff = await checked(db.from('valuation_staff').select('user_id').eq('user_id', auth.data.user.id).maybeSingle());
-      if (!staff) return reply({ error: 'Fotostudio je dostupné pouze pracovníkům výkupu.' }, 403);
       // Bound the stream before parsing multipart data.
       const reader = req.body?.getReader();
       if (!reader) return reply({ error: 'Chybí data.' }, 400);
@@ -37,13 +37,66 @@ export function createPhotoStudioHandler({ db, apiKey, fetchImage = fetch, fetch
       while (true) { const { value, done } = await reader.read(); if (done) break; length += value.length; if (length > 13 * 1024 * 1024) { await reader.cancel(); return reply({ error: 'Soubor je příliš velký.' }, 413); } chunks.push(value); }
       const form = await new Response(new Blob(chunks), { headers: { 'Content-Type': req.headers.get('content-type') || '' } }).formData();
       const carId = form.get('carId'), action = form.get('action');
-      if (!/^\d+$/.test(carId || '')) return reply({ error: 'Neplatné ID vozu.' }, 400);
-      const car = await checked(db.from('cars').select('id').eq('id', carId).maybeSingle());
-      if (!car) return reply({ error: 'Vůz neexistuje.' }, 404);
-      const prefix = `photo-studio/${carId}-`;
+      const standalone = form.get('scope') === 'standalone';
+      const uuid = value => /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(value || '');
+      if (standalone ? !canUseStandaloneStudio(auth.data.user, staff) : !staff) return reply({ error: 'K tomuto fotostudiu nemáte přístup. Správce může prodejci povolit samostatné Fotostudio.' }, 403);
+      if (form.get('scope') && !standalone) return reply({ error: 'Neplatný režim fotostudia.' }, 400);
+      const ownerRoot = standaloneStudioRoot(auth.data.user.id);
+      const sessionsFolder = `${ownerRoot}/sessions`;
+      const sessionPath = id => `${sessionsFolder}/${id}.json`;
+      const readSession = async id => {
+        const result = await bucket.download(sessionPath(id));
+        if (result.error && (String(result.error.statusCode) === '404' || result.error.code === 'NoSuchKey')) return null;
+        if (result.error) throw result.error;
+        return JSON.parse(await result.data.text());
+      };
+      if (standalone && action === 'sessions') {
+        const files = await checked(bucket.list(sessionsFolder, { limit: 100, sortBy: { column: 'created_at', order: 'desc' } }));
+        const sessions = await Promise.all(files.filter(file => uuid(file.name.replace(/\.json$/, ''))).map(file => readSession(file.name.slice(0, -5))));
+        return reply({ sessions: sessions.filter(Boolean) });
+      }
+      if (standalone && action === 'createSession') {
+        const label = String(form.get('label') || '').trim();
+        if (!label || label.length > 100) return reply({ error: 'Zadejte název sady do 100 znaků.' }, 400);
+        const existing = await checked(bucket.list(sessionsFolder, { limit: 100 }));
+        if (existing.length >= 100) return reply({ error: 'Nejprve odstraňte některou prázdnou sadu. Limit je 100 sad.' }, 400);
+        const session = { id: crypto.randomUUID(), label, createdAt: new Date().toISOString() };
+        await checked(bucket.upload(sessionPath(session.id), new Blob([JSON.stringify(session)], { type: 'application/json' }), { contentType: 'application/json', cacheControl: '0', upsert: false }));
+        return reply({ session });
+      }
+      const sessionId = form.get('sessionId');
+      if (standalone) {
+        if (!uuid(sessionId)) return reply({ error: 'Neplatná sada fotografií.' }, 400);
+        const session = await readSession(sessionId);
+        if (!session || session.id !== sessionId) return reply({ error: 'Sada není dostupná.' }, 404);
+      } else {
+        if (!/^\d+$/.test(carId || '')) return reply({ error: 'Neplatné ID vozu.' }, 400);
+        const car = await checked(db.from('cars').select('id').eq('id', carId).maybeSingle());
+        if (!car) return reply({ error: 'Vůz neexistuje.' }, 404);
+      }
+      const photoFolder = standalone ? `${ownerRoot}/${sessionId}` : 'photo-studio';
+      const photoSearch = standalone ? '' : `${carId}-`;
+      const prefix = standalone ? `${photoFolder}/` : `photo-studio/${carId}-`;
+      async function withSessionLock(work) {
+        if (!standalone) return await work();
+        const lockPath = `${photoFolder}/session-lock`;
+        const lock = await bucket.upload(lockPath, new Blob(['session mutation']), { upsert: false });
+        if (lock.error) return reply({ error: 'Se sadou se právě pracuje. Zkuste akci znovu.' }, 409);
+        try { if (!await readSession(sessionId)) return reply({ error: 'Sada není dostupná.' }, 404); return await work(); }
+        finally { await bucket.remove([lockPath]); }
+      }
+      if (standalone && action === 'deleteSession') {
+        return await withSessionLock(async () => {
+        const files = (await checked(bucket.list(photoFolder, { limit: 1000 }))).filter(file => file.name !== 'session-lock');
+        if (files.some(file => file.name.endsWith('-meta.json') || file.name.endsWith('-lock'))) return reply({ error: 'Nejprve smažte fotografie v sadě a počkejte na dokončení úprav.' }, 409);
+        if (files.length) await checked(bucket.remove(files.map(file => `${photoFolder}/${file.name}`)));
+        await checked(bucket.remove([sessionPath(sessionId)]));
+        return reply({ deletedSessionId: sessionId });
+        });
+      }
       const pathFor = (id, suffix) => `${prefix}${id}-${suffix}`;
       const readItem = async (id) => JSON.parse(await (await checked(bucket.download(pathFor(id, 'meta.json')))).text());
-      const saveItem = async (item) => checked(bucket.upload(pathFor(item.id, 'meta.json'), new Blob([JSON.stringify(item)], { type: 'application/json' }), { contentType: 'application/json', upsert: true }));
+      const saveItem = async (item) => checked(bucket.upload(pathFor(item.id, 'meta.json'), new Blob([JSON.stringify(item)], { type: 'application/json' }), { contentType: 'application/json', cacheControl: '0', upsert: true }));
       const resultUrl = (item) => `${bucket.getPublicUrl(pathFor(item.id, 'result.jpg')).data.publicUrl}?v=${item.resultVersion || '1'}`;
       const decorate = (item) => ({ ...item, originalUrl: bucket.getPublicUrl(pathFor(item.id, 'original')).data.publicUrl, resultUrl: item.ready ? resultUrl(item) : null, baseUrl: item.ready ? (item.hasBase ? bucket.getPublicUrl(pathFor(item.id, 'base.jpg')).data.publicUrl : resultUrl(item)) : null });
       async function loadBase(item) {
@@ -63,21 +116,23 @@ export function createPhotoStudioHandler({ db, apiKey, fetchImage = fetch, fetch
         return reply({ item: decorate(item) });
       }
       if (action === 'list') {
-        const entries = await checked(bucket.list('photo-studio', { search: `${carId}-`, limit: 1000 }));
-        const items = await Promise.all(entries.filter(e => e.name.endsWith('-meta.json')).map(e => readItem(e.name.slice(String(carId).length + 1, -10))));
+        const entries = await checked(bucket.list(photoFolder, { search: photoSearch, limit: 1000 }));
+        const items = await Promise.all(entries.filter(e => e.name.endsWith('-meta.json')).map(e => readItem(e.name.slice(standalone ? 0 : String(carId).length + 1, -10))));
         return reply({ items: items.sort((a, b) => a.createdAt.localeCompare(b.createdAt)).map(decorate) });
       }
       if (action === 'upload') {
+        return await withSessionLock(async () => {
         const file = form.get('file'), angle = form.get('angle'), background = form.get('background');
         if (!file || typeof file === 'string') return reply({ error: 'Vyberte fotografii.' }, 400);
         validatePhoto(file); editPrompt(angle, background);
-        const existing = await checked(bucket.list('photo-studio', { search: `${carId}-`, limit: 1000 }));
+        const existing = await checked(bucket.list(photoFolder, { search: photoSearch, limit: 1000 }));
         if (existing.filter(e => e.name.endsWith('-meta.json')).length >= 40) return reply({ error: 'Pro jeden vůz lze uložit nejvýše 40 fotografií.' }, 400);
         const id = crypto.randomUUID();
         const item = { id, angle, background, mime: file.type, ready: false, approved: false, createdAt: new Date().toISOString() };
         await checked(bucket.upload(pathFor(id, 'original'), file, { contentType: file.type }));
         try { await saveItem(item); } catch (e) { await bucket.remove([pathFor(id, 'original')]); throw e; }
         return reply({ item: decorate(item) });
+        });
       }
       const id = form.get('id');
       if (!/^[a-f0-9-]{36}$/.test(id || '')) return reply({ error: 'Neplatná fotografie.' }, 400);

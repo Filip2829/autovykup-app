@@ -7,6 +7,7 @@ import { makeZip } from './zip.js';
 import { createPhotoStudioHandler } from '../../supabase/functions/vehicle-photo-studio/handler.js';
 import { checkPlateRegion, cropPlateRegion, renderMaskedJpeg } from '../../supabase/functions/vehicle-photo-studio/imageCodec.js';
 import { PNG } from 'pngjs';
+import { canUseStandaloneStudio } from './access.js';
 import jpeg from 'jpeg-js';
 import { readFileSync } from 'node:fs';
 import { Buffer } from 'node:buffer';
@@ -33,19 +34,19 @@ test('ZIP contains valid CRC32, directory and UTF-8 filenames', async () => {
   assert.equal(v.getUint32(central, true), 0x02014b50);
   assert.equal(v.getUint16(6, true), 0x800);
 });
-function fixture({ authenticated = true, staff = true, failAi = false, failBackground = false, failRemove = false, failRenderOnce = false, detection = 'located', actualRender = false, imageBytes = new TextEncoder().encode('image bytes') } = {}) {
-  const objects = new Map(); let calls = 0, removeFailure = failRemove; const aiRequests = [], backgroundRequests = [], renders = [];
+function fixture({ authenticated = true, staff = true, sales = false, userId = 'staff-id', objects: sharedObjects, failAi = false, failBackground = false, failRemove = false, failRenderOnce = false, detection = 'located', actualRender = false, imageBytes = new TextEncoder().encode('image bytes') } = {}) {
+  const objects = sharedObjects || new Map(); let calls = 0, carReads = 0, removeFailure = failRemove; const aiRequests = [], backgroundRequests = [], renders = [];
   const bucket = {
     upload: async (path, data, options = {}) => {
       if (objects.has(path) && !options.upsert) return { error: new Error('duplicate') };
       objects.set(path, data instanceof Blob ? data : new Blob([data])); return { data: {} };
     },
-    download: async path => objects.has(path) ? { data: objects.get(path) } : { error: new Error('missing') },
+    download: async path => objects.has(path) ? { data: objects.get(path) } : { error: Object.assign(new Error('missing'), { statusCode: '404' }) },
     remove: async paths => { if (removeFailure && !paths.every(p => p.endsWith('-lock'))) return { error: new Error('storage unavailable') }; paths.forEach(p => objects.delete(p)); return { data: {} }; },
-    list: async (_, { search }) => ({ data: [...objects.keys()].filter(p => p.split('/')[1].startsWith(search)).map(p => ({ name: p.split('/')[1] })) }),
+    list: async (folder, { search = '' } = {}) => ({ data: [...objects.keys()].filter(p => p.startsWith(`${folder}/`) && !p.slice(folder.length + 1).includes('/') && p.slice(folder.length + 1).startsWith(search)).map(p => ({ name: p.slice(folder.length + 1) })) }),
     getPublicUrl: path => ({ data: { publicUrl: `https://test.example/${path}` } }),
   };
-  const db = { storage: { from: () => bucket }, auth: { getUser: async () => ({ data: { user: authenticated ? { id: 'staff-id' } : null } }) }, from: table => ({ select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: table === 'cars' ? { id: 1 } : staff ? { user_id: 'staff-id' } : null }) }) }) }) };
+  const db = { storage: { from: () => bucket }, auth: { getUser: async () => ({ data: { user: authenticated ? { id: userId, app_metadata: { photo_studio_access: sales } } : null } }) }, from: table => { if (table === 'cars') carReads++; return { select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: table === 'cars' ? { id: 1 } : staff ? { user_id: userId } : null }) }) }) }; } };
   const handler = createPhotoStudioHandler({ db, apiKey: 'test',
     fetchImage: async (_, options) => { calls++; aiRequests.push(options.body); return new Response(JSON.stringify({ data: [{ b64_json: Buffer.from(imageBytes).toString('base64') }] }), { status: failAi ? 429 : 200 }); },
     fetchBackground: async url => { backgroundRequests.push(url); const data = url.endsWith('opportunity-logo.png') ? readFileSync(new URL('../../public/photo-studio/opportunity-logo.png', import.meta.url)) : 'background'; return new Response(new Blob([data], { type: 'image/png' }), { status: failBackground ? 404 : 200 }); },
@@ -54,7 +55,7 @@ function fixture({ authenticated = true, staff = true, failAi = false, failBackg
     checkPlateRegion: () => true,
     renderMaskedJpeg: (bytes, plates, logo) => { renders.push({ bytes, plates }); if (failRenderOnce && renders.length === 1) throw new Error('temporary render failure'); return actualRender ? renderMaskedJpeg(bytes, plates, logo) : new TextEncoder().encode('masked result'); },
   });
-  return { objects, aiRequests, backgroundRequests, renders, calls: () => calls, allowRemove: () => { removeFailure = false; }, async request(action, values = {}) {
+  return { objects, aiRequests, backgroundRequests, renders, calls: () => calls, carReads: () => carReads, allowRemove: () => { removeFailure = false; }, async request(action, values = {}) {
     const form = new FormData(); form.set('carId', '1'); form.set('action', action);
     for (const [key, value] of Object.entries(values)) form.set(key, value);
     return handler(new Request('https://example.test', { method: 'POST', headers: { Authorization: 'Bearer test' }, body: form }));
@@ -86,8 +87,8 @@ test('upload → process → approve → reload persists originals and results, 
 });
 const samplePlate = [{ x: .4, y: .6 }, { x: .6, y: .62 }, { x: .59, y: .67 }, { x: .4, y: .65 }];
 test('branded presets send a real background image, neutral and interior edits do not', async () => {
-  assert.equal(Object.keys(backgrounds).length, 7);
-  for (const [angle, background, count] of [['frontLeft', 'opportunityGraphite', 2], ['frontLeft', 'opportunityWorkshop', 2], ['interior', 'opportunityWhite', 1], ['detail', 'opportunityShowroom', 1], ['front', 'gray', 1]]) {
+  assert.equal(Object.keys(backgrounds).length, 8);
+  for (const [angle, background, count] of [['frontLeft', 'opportunityGraphite', 2], ['frontLeft', 'opportunityWorkshop', 2], ['front', 'opportunityDarkTiles', 2], ['interior', 'opportunityWhite', 1], ['detail', 'opportunityShowroom', 1], ['front', 'gray', 1]]) {
     const f = fixture();
     const { item } = await (await f.request('upload', { file: new File(['original'], 'car.jpg', { type: 'image/jpeg' }), angle, background })).json();
     assert.equal((await f.request('process', { id: item.id })).status, 200);
@@ -282,4 +283,59 @@ test('old masks need automatic migration and cannot be exported as approved', ()
   assert.equal(needsPlateUpdate(old), true); assert.equal(canExportPhoto(old), false);
   assert.equal(needsPlateUpdate({ ...old, maskVersion: 2 }), false);
   assert.equal(canExportPhoto({ ...old, maskVersion: 2 }), true);
+});
+
+test('standalone access uses administrator-managed claims, never editable user metadata', () => {
+  assert.equal(canUseStandaloneStudio({ id: 'sales', app_metadata: { photo_studio_access: true } }, false), true);
+  assert.equal(canUseStandaloneStudio({ id: 'sales', user_metadata: { photo_studio_access: true } }, false), false);
+  assert.equal(canUseStandaloneStudio({ id: 'sales', is_anonymous: true, app_metadata: { photo_studio_access: true } }, false), false);
+  assert.equal(canUseStandaloneStudio({ id: 'staff' }, true), true);
+});
+test('approved salesperson can create, reload and process an independent photo set without reading cars', async () => {
+  const f = fixture({ staff: false, sales: true, userId: 'sales-a' });
+  const created = await f.request('createSession', { scope: 'standalone', label: '  Renault Austral · 123  ' });
+  assert.equal(created.status, 200); const { session } = await created.json();
+  assert.equal(session.label, 'Renault Austral · 123');
+  const { sessions } = await (await f.request('sessions', { scope: 'standalone' })).json();
+  assert.equal(sessions.length, 1); assert.equal(sessions[0].id, session.id);
+  const scope = { scope: 'standalone', sessionId: session.id };
+  const upload = await f.request('upload', { ...scope, file: new File(['original'], 'car.jpg', { type: 'image/jpeg' }), angle: 'front', background: 'opportunityDarkTiles' });
+  assert.equal(upload.status, 200); const { item } = await upload.json();
+  assert.equal((await f.request('process', { ...scope, id: item.id })).status, 200);
+  assert.equal((await f.request('approve', { ...scope, id: item.id, approved: 'true' })).status, 200);
+  const { items } = await (await f.request('list', scope)).json();
+  assert.equal(items.length, 1); assert.equal(items[0].approved, true);
+  assert.equal(items[0].plateRendered, true);
+  assert.ok(f.objects.has(`photo-studio-sales/sales-a/${session.id}/${item.id}-original`));
+  assert.equal(f.carReads(), 0);
+});
+test('standalone grant never allows access to vehicle-linked studio or another owner sets', async () => {
+  const f = fixture({ staff: false, sales: true, userId: 'sales-a' });
+  assert.equal((await f.request('list')).status, 403);
+  const { session } = await (await f.request('createSession', { scope: 'standalone', label: 'Moje sada' })).json();
+  const other = fixture({ staff: false, sales: true, userId: 'sales-b', objects: f.objects });
+  const list = await (await other.request('sessions', { scope: 'standalone' })).json(); assert.deepEqual(list.sessions, []);
+  assert.equal((await other.request('list', { scope: 'standalone', sessionId: session.id, userId: 'sales-a' })).status, 404);
+  assert.equal((await other.request('deleteSession', { scope: 'standalone', sessionId: session.id })).status, 404);
+  assert.ok(f.objects.has(`photo-studio-sales/sales-a/sessions/${session.id}.json`));
+});
+test('unapproved accounts and invalid set identifiers cannot start a standalone session', async () => {
+  const denied = fixture({ staff: false });
+  assert.equal((await denied.request('createSession', { scope: 'standalone', label: 'Denied' })).status, 403);
+  const f = fixture({ staff: false, sales: true });
+  assert.equal((await f.request('createSession', { scope: 'standalone', label: ' ' })).status, 400);
+  assert.equal((await f.request('list', { scope: 'standalone', sessionId: '../other' })).status, 400);
+});
+test('session deletion requires an empty photo set and preserves other sessions', async () => {
+  const f = fixture({ staff: false, sales: true });
+  const { session } = await (await f.request('createSession', { scope: 'standalone', label: 'První' })).json();
+  const { session: second } = await (await f.request('createSession', { scope: 'standalone', label: 'Druhá' })).json();
+  const scope = { scope: 'standalone', sessionId: session.id };
+  const { item } = await (await f.request('upload', { ...scope, file: new File(['original'], 'car.jpg', { type: 'image/jpeg' }), angle: 'front', background: 'gray' })).json();
+  assert.equal((await f.request('deleteSession', scope)).status, 409);
+  assert.equal((await f.request('delete', { ...scope, id: item.id })).status, 200);
+  assert.equal((await f.request('deleteSession', scope)).status, 200);
+  const { sessions } = await (await f.request('sessions', { scope: 'standalone' })).json();
+  assert.equal(sessions.length, 1); assert.equal(sessions[0].id, second.id);
+  assert.ok(![...f.objects.keys()].some(path => path.endsWith('-lock')));
 });

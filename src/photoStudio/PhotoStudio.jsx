@@ -13,10 +13,10 @@ function download(blob, filename) {
   a.href = url; a.download = filename; a.click();
   setTimeout(() => URL.revokeObjectURL(url), 30000);
 }
-export default function PhotoStudio({ carId, carName }) {
+export default function PhotoStudio({ carId, carName, initialBackground = 'opportunityWhite' }) {
   const [items, setItems] = useState([]);
   const [angle, setAngle] = useState('frontLeft');
-  const [background, setBackground] = useState('opportunityWhite');
+  const [background, setBackground] = useState(initialBackground);
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
   const [progress, setProgress] = useState('');
@@ -118,7 +118,9 @@ export default function PhotoStudio({ carId, carName }) {
         } else photo = await platePhotoBlob(selected[i].resultUrl, selected[i].plates || []);
         files.push({ name: exportName(i, selected[i].angle), bytes: new Uint8Array(await photo.arrayBuffer()) });
       }
-      download(makeZip(files), `vuz-${carId}-inzerce.zip`);
+      const standalone = String(carId).startsWith('session:');
+      const name = String(carName || 'fotografie').normalize('NFKD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-zA-Z0-9_-]+/g, '-').slice(0, 70) || 'fotografie';
+      download(makeZip(files), standalone ? `${name}-inzerce.zip` : `vuz-${carId}-inzerce.zip`);
     });
   }
   function move(index, direction) {

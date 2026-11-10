@@ -1,4 +1,16 @@
 .photoStudio { margin-bottom: 24px; }
+.studioSessionForm { display: flex; align-items: end; flex-wrap: wrap; gap: 14px; margin: 24px 0; }
+.studioSessionForm label { display: grid; gap: 8px; flex: 1 1 280px; }
+.studioSessionForm input { width: 100%; min-height: 46px; padding: 12px 14px; border: 1px solid #475569; border-radius: 10px; background: #0b1222; color: #f8fafc; font: inherit; }
+.studioSessionForm input:focus-visible { outline: 2px solid #93c5fd; outline-offset: 2px; }
+.studioSessionForm button { display: inline-flex; gap: 8px; align-items: center; min-height: 44px; }
+.studioSessionGrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; }
+.studioSessionCard { min-width: 0; padding: 20px; border: 1px solid #334155; border-radius: 14px; display: grid; align-content: start; gap: 12px; background: #111c30; }
+.studioSessionCard h3 { margin: 0; overflow-wrap: anywhere; }
+.studioSessionCard p { margin: 0; font-size: 13px; }
+.studioStandaloneHeading { margin: 20px 0; }
+.studioStandaloneHeading p { color: #b5c2d6; }
+@media(max-width: 650px) { .studioSessionForm { align-items: stretch; flex-direction: column; } .studioSessionForm label { flex: auto; } .studioSessionGrid { grid-template-columns: 1fr; } }
 .studioHeader { display: flex; justify-content: space-between; gap: 16px; align-items: flex-start; }
 .studioHeader h2 { display: flex; align-items: center; gap: 10px; }
 .studioHeader p { color: #b5c2d6; }

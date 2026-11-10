@@ -1,7 +1,10 @@
 import { supabase } from '../supabase';
 export async function studioRequest(carId, action, values = {}) {
   const body = new FormData();
-  body.set('carId', String(carId)); body.set('action', action);
+  if (typeof carId === 'string' && carId.startsWith('session:')) {
+    body.set('scope', 'standalone'); body.set('sessionId', carId.slice(8));
+  } else body.set('carId', String(carId));
+  body.set('action', action);
   for (const [key, value] of Object.entries(values)) body.set(key, value);
   const { data, error } = await supabase.functions.invoke('vehicle-photo-studio', { body });
   if (error) {
