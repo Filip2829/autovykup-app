@@ -1,4 +1,4 @@
-import { paintPlateLogos } from './plates.js';
+import { makePlateLogo, paintPlateLogos } from './plates.js';
 function loadImage(url) {
   return new Promise((resolve, reject) => {
     const image = new Image(); image.crossOrigin = 'anonymous';
@@ -9,11 +9,9 @@ function loadImage(url) {
 let logoPromise;
 async function logoPixels() {
   if (!logoPromise) logoPromise = loadImage('/photo-studio/opportunity-logo.png').then(image => {
-    const canvas = document.createElement('canvas'); canvas.width = 520; canvas.height = 110;
-    const context = canvas.getContext('2d'); context.fillStyle = '#252324'; context.fillRect(0, 0, 520, 110);
-    // Use the supplied original logo, excluding the white screenshot margins.
-    context.drawImage(image, 9, 12, 133, 40, 78, 0, 366, 110);
-    return context.getImageData(0, 0, 520, 110);
+    const canvas = document.createElement('canvas'); canvas.width = image.naturalWidth; canvas.height = image.naturalHeight;
+    const context = canvas.getContext('2d'); context.drawImage(image, 0, 0);
+    return makePlateLogo(context.getImageData(0, 0, canvas.width, canvas.height));
   }).catch(error => { logoPromise = null; throw error; });
   return logoPromise;
 }

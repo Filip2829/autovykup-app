@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Camera, Download, RefreshCw, Sparkles, Trash2 } from 'lucide-react';
-import { angles, backgrounds, backgroundOptions, exportName, validatePhoto } from './model';
+import { angles, backgrounds, backgroundOptions, canExportPhoto, needsPlateUpdate, exportName, validatePhoto } from './model';
 import { studioRequest } from './api';
 import { prepareInspectionPhoto } from '../mobileInspection/preparePhoto';
 import { makeZip } from './zip';
@@ -27,11 +27,26 @@ export default function PhotoStudio({ carId, carName }) {
   const running = useRef(false);
   const stop = useRef(false);
   useEffect(() => {
-    mounted.current = true;
-    studioRequest(carId, 'list').then(data => { if (mounted.current) setItems(data.items); })
-      .catch(e => { if (mounted.current) setError(e.message); })
-      .finally(() => { if (mounted.current) setLoading(false); });
-    return () => { mounted.current = false; stop.current = true; };
+    mounted.current = true; let active = true, ownsWork = false;
+    studioRequest(carId, 'list').then(async data => {
+      if (!active) return;
+      setItems(data.items); setLoading(false);
+      const outdated = data.items.filter(needsPlateUpdate);
+      if (!outdated.length || running.current) return;
+      ownsWork = true; running.current = true; setBusy(true);
+      for (let i = 0; i < outdated.length && active; i++) {
+        const photo = outdated[i]; setProgress(`Zaměřuji SPZ u starších fotografií: ${i + 1} z ${outdated.length}…`);
+        try {
+          // Preserve explicitly corrected geometry; automatically re-detect old AI estimates.
+          const updated = photo.plateStatus === 'verified'
+            ? await studioRequest(carId, 'plate', { id: photo.id, plates: JSON.stringify(photo.plates || []) })
+            : await studioRequest(carId, 'autoPlate', { id: photo.id });
+          if (active) setItems(current => current.map(item => item.id === photo.id ? updated.item : item));
+        } catch (e) { if (active) setError(e.message); }
+      }
+    }).catch(e => { if (active) setError(e.message); })
+      .finally(() => { if (ownsWork) running.current = false; if (active) { setLoading(false); if (ownsWork) { setBusy(false); setProgress(''); } } });
+    return () => { active = false; mounted.current = false; stop.current = true; };
   }, [carId]);
   const merge = item => { if (mounted.current) setItems(current => current.some(p => p.id === item.id) ? current.map(p => p.id === item.id ? item : p) : [...current, item]); };
   async function run(work) {
@@ -90,7 +105,7 @@ export default function PhotoStudio({ carId, carName }) {
   }
   async function exportPhotos() {
     await run(async () => {
-      const selected = items.filter(p => p.ready && p.approved && p.plateVerified);
+      const selected = items.filter(canExportPhoto);
       if (!selected.length) throw new Error('Nejprve schvalte alespoň jednu upravenou fotografii.');
       const files = [];
       for (let i = 0; i < selected.length; i++) {
@@ -109,7 +124,7 @@ export default function PhotoStudio({ carId, carName }) {
   function move(index, direction) {
     setItems(current => { const next = [...current], target = index + direction; [next[index], next[target]] = [next[target], next[index]]; return next; });
   }
-  const approved = items.filter(p => p.ready && p.approved && p.plateVerified).length;
+  const approved = items.filter(canExportPhoto).length;
   return <section className="card decision photoStudio" aria-label="Fotostudio pro inzerci">
     <div className="studioHeader"><div><p className="label">INZERCE · FOTOGRAFIE</p><h2><Camera size={24} /> Fotostudio</h2><p>Jednotné pozadí. Přirozený vzhled. Fotografie připravené pro váš inzerát.</p></div><span className="studioBadge">První verze</span></div>
     <div className="studioSteps"><span>1. Nahrajte fotografie</span><span>2. AI sjednotí vzhled</span><span>3. Zkontrolujte a exportujte</span></div>
@@ -140,7 +155,7 @@ export default function PhotoStudio({ carId, carName }) {
       <PlatePhoto item={item} original={originals} label={angles[item.angle]} />
       <div className="studioPhotoBody"><strong>{index + 1}. {angles[item.angle]}</strong><small>{backgrounds[item.background]} · {item.approved ? 'Schváleno' : item.ready ? 'Ke kontrole' : 'Čeká na úpravu'}</small>
         {item.ready && <small>{item.plateVerified ? (item.plateStatus === 'automatic' ? '✓ SPZ automaticky zakryta' : item.plateStatus === 'not-visible' ? '✓ SPZ není na snímku viditelná' : '✓ Zakrytí SPZ připraveno') : 'SPZ se nepodařilo spolehlivě rozpoznat. Zopakujte zakrytí nebo označte rohy ručně.'}</small>}
-        <div className="studioPhotoActions">{item.ready ? <>{(!item.plateRendered || !item.plateVerified) && <button type="button" className="primary" disabled={busy} onClick={() => autoPlate(item)}>Zakryt SPZ automaticky</button>}<button type="button" className="primary outline" disabled={busy} onClick={() => setEditingPlate(item.id)}>Upravit zakrytí SPZ</button><button type="button" className={item.approved ? 'success' : 'primary outline'} disabled={busy || !item.plateVerified} onClick={() => approve(item)}>{item.approved ? '✓ Schváleno · vrátit' : 'Schválit pro export'}</button></> : <button type="button" className="primary" disabled={busy} onClick={() => process(item)}>Upravit pomocí AI</button>}<button type="button" aria-label="Posunout dopředu" disabled={busy || index === 0} onClick={() => move(index, -1)}>↑</button><button type="button" aria-label="Posunout dozadu" disabled={busy || index === items.length - 1} onClick={() => move(index, 1)}>↓</button><button type="button" className="studioDeletePhoto" disabled={busy} onClick={() => deletePhoto(item)}><Trash2 size={16} /> Smazat fotku</button></div>
+        <div className="studioPhotoActions">{item.ready ? <><button type="button" className="primary outline" disabled={busy} onClick={() => autoPlate(item)}>Znovu zaměřit SPZ automaticky</button><button type="button" className="primary outline" disabled={busy} onClick={() => setEditingPlate(item.id)}>Upravit zakrytí SPZ</button><button type="button" className={item.approved ? 'success' : 'primary outline'} disabled={busy || !item.plateVerified || needsPlateUpdate(item)} onClick={() => approve(item)}>{item.approved ? '✓ Schváleno · vrátit' : 'Schválit pro export'}</button></> : <button type="button" className="primary" disabled={busy} onClick={() => process(item)}>Upravit pomocí AI</button>}<button type="button" aria-label="Posunout dopředu" disabled={busy || index === 0} onClick={() => move(index, -1)}>↑</button><button type="button" aria-label="Posunout dozadu" disabled={busy || index === items.length - 1} onClick={() => move(index, 1)}>↓</button><button type="button" className="studioDeletePhoto" disabled={busy} onClick={() => deletePhoto(item)}><Trash2 size={16} /> Smazat fotku</button></div>
         {editingPlate === item.id && <PlateEditor key={item.id} item={item} busy={busy} onClose={() => setEditingPlate(null)} onSave={plates => savePlate(item, plates)} />}
       </div></article>)}</div>
     <p className="studioHint">Export: JPG 1536 × 1024 px (3:2), pořadí podle náhledu, soubory očíslované v ZIP. Pořadí platí pro aktuální export; po obnovení se vrátí pořadí nahrání. ZIP rozbalte a fotografie nahrajte na inzertní portál.</p>

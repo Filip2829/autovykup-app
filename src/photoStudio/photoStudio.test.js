@@ -1,11 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { validatePhoto, editPrompt, exportName, backgrounds, backgroundReference } from './model.js';
-import { validatePlates, paintPlateLogos } from './plates.js';
+import { validatePhoto, editPrompt, exportName, backgrounds, backgroundReference, needsPlateUpdate, canExportPhoto } from './model.js';
+import { validatePlates, paintPlateLogos, makePlateLogo } from './plates.js';
 import { detectPlates } from '../../supabase/functions/vehicle-photo-studio/plateDetection.js';
 import { makeZip } from './zip.js';
 import { createPhotoStudioHandler } from '../../supabase/functions/vehicle-photo-studio/handler.js';
-import { renderMaskedJpeg } from '../../supabase/functions/vehicle-photo-studio/imageCodec.js';
+import { checkPlateRegion, cropPlateRegion, renderMaskedJpeg } from '../../supabase/functions/vehicle-photo-studio/imageCodec.js';
+import { PNG } from 'pngjs';
 import jpeg from 'jpeg-js';
 import { readFileSync } from 'node:fs';
 import { Buffer } from 'node:buffer';
@@ -49,6 +50,8 @@ function fixture({ authenticated = true, staff = true, failAi = false, failBackg
     fetchImage: async (_, options) => { calls++; aiRequests.push(options.body); return new Response(JSON.stringify({ data: [{ b64_json: Buffer.from(imageBytes).toString('base64') }] }), { status: failAi ? 429 : 200 }); },
     fetchBackground: async url => { backgroundRequests.push(url); const data = url.endsWith('opportunity-logo.png') ? readFileSync(new URL('../../public/photo-studio/opportunity-logo.png', import.meta.url)) : 'background'; return new Response(new Blob([data], { type: 'image/png' }), { status: failBackground ? 404 : 200 }); },
     fetchVision: async () => new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify({ status: detection, plates: detection === 'located' ? [samplePlate] : [] }) } }] })),
+    cropPlateRegion: base64 => ({ base64, left: 0, top: 0, width: 1, height: 1 }),
+    checkPlateRegion: () => true,
     renderMaskedJpeg: (bytes, plates, logo) => { renders.push({ bytes, plates }); if (failRenderOnce && renders.length === 1) throw new Error('temporary render failure'); return actualRender ? renderMaskedJpeg(bytes, plates, logo) : new TextEncoder().encode('masked result'); },
   });
   return { objects, aiRequests, backgroundRequests, renders, calls: () => calls, allowRemove: () => { removeFailure = false; }, async request(action, values = {}) {
@@ -227,4 +230,56 @@ test('real JPEG pipeline saves an opaque logo into result pixels and preserves t
   assert.equal(decoded.width, 320); assert.equal(decoded.height, 200);
   const pixel = (127 * 320 + 160) * 4;
   assert.ok(!(decoded.data[pixel] > 180 && decoded.data[pixel + 1] < 60));
+});
+
+test('wordmark bounds are centered horizontally and vertically, with an opaque background', () => {
+  const source = PNG.sync.read(readFileSync(new URL('../../public/photo-studio/opportunity-logo.png', import.meta.url)));
+  const logo = makePlateLogo(source); const xs = [], ys = [];
+  for (let y = 0; y < logo.height; y++) for (let x = 0; x < logo.width; x++) {
+    const i = (y * logo.width + x) * 4; assert.equal(logo.data[i + 3], 255);
+    if (logo.data[i] > 190 && logo.data[i + 1] > 190 && logo.data[i + 2] > 190) { xs.push(x); ys.push(y); }
+  }
+  assert.ok(xs.length > 100);
+  assert.ok(Math.abs((Math.min(...xs) + Math.max(...xs) + 1) / 2 - logo.width / 2) <= 1);
+  assert.ok(Math.abs((Math.min(...ys) + Math.max(...ys) + 1) / 2 - logo.height / 2) <= 1);
+});
+const visionResponse = (status, plates) => new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify({ status, plates }) } }] }));
+test('only refined crop coordinates are mapped back and rendered, never a rough bumper estimate', async () => {
+  let calls = 0;
+  const crop = { base64: 'crop-image', left: .1, top: .3, width: .4, height: .5 };
+  const localized = [{ x: .2, y: .3 }, { x: .6, y: .35 }, { x: .6, y: .5 }, { x: .2, y: .45 }];
+  const result = await detectPlates('full-image', 'test', async (_, options) => {
+    const request = JSON.parse(options.body); assert.equal(request.model, 'gpt-4.1');
+    assert.match(request.messages[1].content[0].image_url.url, new RegExp(calls ? 'crop-image' : 'full-image'));
+    return ++calls === 1 ? visionResponse('located', [samplePlate]) : visionResponse('located', [localized]);
+  }, () => crop, (_, quad) => Math.abs(quad[0].x - .18) < 1e-10);
+  assert.equal(calls, 2); assert.equal(result.plateVerified, true);
+  assert.ok(Math.abs(result.plates[0][0].x - .18) < 1e-10);
+  assert.ok(Math.abs(result.plates[0][0].y - .45) < 1e-10);
+});
+test('unconfirmed or visually implausible crop cannot be marked automatically masked', async () => {
+  let calls = 0;
+  const failedCrop = await detectPlates('image', 'test', async () => ++calls === 1 ? visionResponse('located', [samplePlate]) : visionResponse('uncertain', []), () => ({ base64: 'crop', left: 0, top: 0, width: 1, height: 1 }), () => true);
+  assert.equal(failedCrop.plateVerified, false);
+  const bumper = await detectPlates('image', 'test', async () => visionResponse('located', [samplePlate]), () => ({ base64: 'crop', left: 0, top: 0, width: 1, height: 1 }), () => false);
+  assert.equal(bumper.plateVerified, false); assert.deepEqual(bumper.plates, []);
+});
+test('every detected visible plate is refined independently and retained', async () => {
+  const second = samplePlate.map(p => ({ x: p.x + .25, y: p.y })); let calls = 0, crops = 0;
+  const result = await detectPlates('image', 'test', async () => ++calls === 1 ? visionResponse('located', [samplePlate, second]) : visionResponse('located', [samplePlate]), () => ({ base64: 'crop', left: crops++ * .25, top: 0, width: 1, height: 1 }), () => true);
+  assert.equal(result.plateVerified, true); assert.equal(result.plates.length, 2); assert.equal(crops, 2);
+});
+test('pixel check rejects a smooth bumper, crop bounds stay in the original coordinate space', () => {
+  const image = { width: 320, height: 200, data: new Uint8Array(320 * 200 * 4).fill(220) };
+  const base64 = Buffer.from(jpeg.encode(image, 95).data).toString('base64');
+  assert.equal(checkPlateRegion(base64, samplePlate), false);
+  const crop = cropPlateRegion(base64, samplePlate);
+  assert.ok(crop.left >= 0 && crop.top >= 0 && crop.left + crop.width <= 1 && crop.top + crop.height <= 1);
+  assert.ok(crop.left < samplePlate[0].x && crop.top < samplePlate[0].y);
+});
+test('old masks need automatic migration and cannot be exported as approved', () => {
+  const old = { ready: true, approved: true, plateVerified: true };
+  assert.equal(needsPlateUpdate(old), true); assert.equal(canExportPhoto(old), false);
+  assert.equal(needsPlateUpdate({ ...old, maskVersion: 2 }), false);
+  assert.equal(canExportPhoto({ ...old, maskVersion: 2 }), true);
 });

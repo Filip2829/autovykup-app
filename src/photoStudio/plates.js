@@ -1,4 +1,30 @@
 // Coordinates are normalized to the image, clockwise from the plate's top left.
+export function makePlateLogo(source) {
+  // Extract only the original OPPORTUNITY wordmark, not the subtitle or screenshot margins.
+  let left = source.width, right = -1, top = source.height, bottom = -1;
+  for (let y = 18; y < Math.min(36, source.height); y++) for (let x = 12; x < Math.min(141, source.width); x++) {
+    const i = (y * source.width + x) * 4;
+    if (source.data[i] > 190 && source.data[i + 1] > 190 && source.data[i + 2] > 190) { left = Math.min(left, x); right = Math.max(right, x); top = Math.min(top, y); bottom = Math.max(bottom, y); }
+  }
+  if (right < left) throw new Error('Nápis Opportunity nelze načíst.');
+  const logo = { width: 520, height: 110, data: new Uint8ClampedArray(520 * 110 * 4) };
+  const width = right - left + 1, height = bottom - top + 1;
+  const scale = Math.min(logo.width * .88 / width, logo.height * .68 / height);
+  const drawWidth = width * scale, drawHeight = height * scale;
+  const offsetX = (logo.width - drawWidth) / 2, offsetY = (logo.height - drawHeight) / 2;
+  for (let y = 0; y < logo.height; y++) for (let x = 0; x < logo.width; x++) {
+    const target = (y * logo.width + x) * 4;
+    logo.data.set([37, 35, 36, 255], target);
+    if (x + .5 < offsetX || x + .5 >= offsetX + drawWidth || y + .5 < offsetY || y + .5 >= offsetY + drawHeight) continue;
+    const sx = Math.min(right, left + Math.floor((x + .5 - offsetX) / scale));
+    const sy = Math.min(bottom, top + Math.floor((y + .5 - offsetY) / scale));
+    const sourceIndex = (sy * source.width + sx) * 4;
+    const alpha = source.data[sourceIndex + 3] / 255;
+    for (let c = 0; c < 3; c++) logo.data[target + c] = Math.round(source.data[sourceIndex + c] * alpha + logo.data[target + c] * (1 - alpha));
+  }
+  return logo;
+}
+
 export function validatePlates(plates) {
   if (!Array.isArray(plates) || plates.length > 5) throw new Error('Neplatné označení SPZ.');
   return plates.map(quad => {

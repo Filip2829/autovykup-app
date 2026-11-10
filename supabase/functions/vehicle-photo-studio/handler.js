@@ -3,9 +3,10 @@ import { validatePlates } from '../../../src/photoStudio/plates.js';
 import { detectPlates } from './plateDetection.js';
 import { Buffer } from 'node:buffer';
 
-export function createPhotoStudioHandler({ db, apiKey, fetchImage = fetch, fetchBackground = fetch, fetchVision = fetch, renderMaskedJpeg }) {
+export function createPhotoStudioHandler({ db, apiKey, fetchImage = fetch, fetchBackground = fetch, fetchVision = fetch, renderMaskedJpeg, cropPlateRegion, checkPlateRegion }) {
   const bucket = db.storage.from('car-photos');
   const checked = async (promise) => { const { data, error } = await promise; if (error) throw error; return data; };
+  const locatePlates = base64 => detectPlates(base64, apiKey, fetchVision, cropPlateRegion, checkPlateRegion);
   let logoBytes;
   async function getLogo() {
     if (!logoBytes) {
@@ -57,7 +58,7 @@ export function createPhotoStudioHandler({ db, apiKey, fetchImage = fetch, fetch
       async function finishPhoto(item, bytes, detection) {
         const rendered = detection.plates.length ? await renderMaskedJpeg(bytes, detection.plates, await getLogo()) : bytes;
         await checked(bucket.upload(pathFor(item.id, 'result.jpg'), rendered, { contentType: 'image/jpeg', cacheControl: '0', upsert: true }));
-        Object.assign(item, detection, { hasBase: true, plateRendered: detection.plateVerified, resultVersion: crypto.randomUUID(), ready: true, approved: false });
+        Object.assign(item, detection, { hasBase: true, plateRendered: detection.plateVerified, maskVersion: 2, resultVersion: crypto.randomUUID(), ready: true, approved: false });
         await saveItem(item);
         return reply({ item: decorate(item) });
       }
@@ -103,6 +104,7 @@ export function createPhotoStudioHandler({ db, apiKey, fetchImage = fetch, fetch
       if (action === 'approve') {
         if (!item.ready) return reply({ error: 'Nejprve upravte fotografii.' }, 400);
         if (form.get('approved') === 'true' && !item.plateVerified) return reply({ error: 'Nejprve zkontrolujte a potvrďte zakrytí SPZ.' }, 400);
+        if (form.get('approved') === 'true' && item.maskVersion !== 2) return reply({ error: 'Fotografie potřebuje nové automatické zaměření SPZ. Obnovte seznam.' }, 400);
         item.approved = form.get('approved') === 'true'; await saveItem(item);
         return reply({ item: decorate(item) });
       }
@@ -111,17 +113,17 @@ export function createPhotoStudioHandler({ db, apiKey, fetchImage = fetch, fetch
       if (action === 'autoPlate') {
         if (!item.ready) return reply({ error: 'Nejprve upravte fotografii.' }, 400);
         const base = await loadBase(item);
-        return await finishPhoto(item, base, await detectPlates(Buffer.from(base).toString('base64'), apiKey, fetchVision));
+        return await finishPhoto(item, base, await locatePlates(Buffer.from(base).toString('base64')));
       }
         const recoveredBase = await bucket.download(pathFor(id, 'base.jpg'));
         const recovered = recoveredBase.error ? await bucket.download(pathFor(id, 'result.jpg')) : recoveredBase;
         if (!recovered.error && recovered.data?.size) {
           const bytes = new Uint8Array(await recovered.data.arrayBuffer());
           if (recoveredBase.error) await checked(bucket.upload(pathFor(id, 'base.jpg'), bytes, { contentType: 'image/jpeg', upsert: true }));
-          return await finishPhoto(item, bytes, await detectPlates(Buffer.from(bytes).toString('base64'), apiKey, fetchVision));
+          return await finishPhoto(item, bytes, await locatePlates(Buffer.from(bytes).toString('base64')));
         }
         const original = await checked(bucket.download(pathFor(id, 'original')));
-        const editingDeadline = AbortSignal.timeout(125000);
+        const editingDeadline = AbortSignal.timeout(100000);
         const aiForm = new FormData();
         aiForm.set('model', 'gpt-image-1.5'); aiForm.set('image[]', original, `original.${item.mime === 'image/png' ? 'png' : item.mime === 'image/webp' ? 'webp' : 'jpg'}`);
         const reference = backgroundReference(item.angle, item.background);
@@ -141,7 +143,7 @@ export function createPhotoStudioHandler({ db, apiKey, fetchImage = fetch, fetch
         const bytes = Uint8Array.from(atob(result.data[0].b64_json), c => c.charCodeAt(0));
         // Persist the generated base before masking, so retries never pay for generation twice.
         await checked(bucket.upload(pathFor(id, 'base.jpg'), bytes, { contentType: 'image/jpeg', upsert: true }));
-        return await finishPhoto(item, bytes, await detectPlates(result.data[0].b64_json, apiKey, fetchVision));
+        return await finishPhoto(item, bytes, await locatePlates(result.data[0].b64_json));
       } finally { await bucket.remove([lockPath]); }
     } catch (error) {
       const known = /Použijte JPG|Fotografie může|Neplatný pohled/.test(error.message || '');
