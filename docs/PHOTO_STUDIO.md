@@ -18,6 +18,14 @@ ZIP obsahuje pouze ručně schválené fotky, názvy jsou očíslované podle ak
 
 ## Pozadí Opportunity a SPZ
 
+### Jemná redukce odrazů okolí
+
+Volba před nahráním fotografií je standardně vypnutá a dostupná pro exteriéry v obou fotostudiích. `reflectionReduction` má pouze hodnoty `off` / `gentle`; server ji validuje a ukládá do manifestu každé fotky. U interiéru a detailů vždy normalizuje na `off`, aby se neupravovaly důkazní snímky stavu. Starší fotky bez pole používají dosavadní režim. Změna zaškrtávátka nepřegeneruje už hotové fotky.
+
+Režim `gentle` přidává do původní AI úpravy pokyn k potlačení jednoznačných odrazů stromů, budov, lidí a oblohy. Vyžaduje zachování přirozených odlesků popisujících tvar karoserie, barvy a metalízy/perleti, lesku, prolisů, mezer panelů, skel a všech vad. Zakazuje obnovovat zakryté detaily a při nejasnosti mezi odrazem a vadou má oblast ponechat. Model a vysoká věrnost vstupu zůstávají stejné. Jde o instrukci generativnímu modelu, nikoliv záruku přesného zachování vzhledu; skutečný vizuální účinek musí ověřit uživatel na snímku venkovního vozu. Nedochází k dodatečné AI operaci ani samostatné ceně nad rámec běžné úpravy fotografie.
+
+Ruční kontrola: exteriér s výraznými odrazy nahrát s volbou zapnutou a porovnat s originálem (barva, metalíza, lesk, promáčkliny, škrábance, skla a výbava). Nahrát bez volby: nesmí se žádat dodatečná redukce. U interiéru/detailu musí být volba nedostupná a server musí zachovat `off`. Po obnovení mají fotky se zvoleným režimem zachovat popisek. Existující výsledky se nesmějí samy změnit. Ověřit zaškrtávání na telefonu.
+
 Předlohy jsou v `public/photo-studio/opportunity-{white,graphite,showroom,concrete}.png`. Náhledové karty i backend používají stejné soubory. Pro exteriér backend připojí vybranou předlohu jako druhý obrázek k AI úpravě; pro interiér/detail ji neposílá. Cesty jsou pevně povolené v modelu a backend nikdy nestahuje URL zadané uživatelem. Logo a prostor mohou být při AI kompozici mírně odlišné. Volba platí pro nově nahrávané fotky, nemění hotové výstupy.
 
 Varianta „Opportunity Dílna“ (`public/photo-studio/opportunity-workshop.png`) vznikla v ImageGen odstraněním vozu a prvků galerie z uživatelova snímku dílny. Zachovává světlé panely, dlažbu, šedá žebrovaná vrata a rozostřený pravý průchod. Oblasti zakryté autem jsou rekonstrukce, nikoliv skutečná dokumentace prázdné dílny. AI instrukce pro tuto variantu výslovně zakazují přidávat ceduli či logo na stěnu; ostatní značkové varianty vlastní ceduli zachovávají. Přesné prompty jsou v `docs/photo-studio-background-prompts.json`.

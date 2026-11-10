@@ -1,4 +1,4 @@
-import { backgroundReference, editPrompt, validatePhoto } from '../../../src/photoStudio/model.js';
+import { backgroundReference, editPrompt, reflectionMode, validatePhoto } from '../../../src/photoStudio/model.js';
 import { validatePlates } from '../../../src/photoStudio/plates.js';
 import { detectPlates } from './plateDetection.js';
 import { Buffer } from 'node:buffer';
@@ -124,11 +124,12 @@ export function createPhotoStudioHandler({ db, apiKey, fetchImage = fetch, fetch
         return await withSessionLock(async () => {
         const file = form.get('file'), angle = form.get('angle'), background = form.get('background');
         if (!file || typeof file === 'string') return reply({ error: 'Vyberte fotografii.' }, 400);
-        validatePhoto(file); editPrompt(angle, background);
+        const reflectionReduction = reflectionMode(angle, form.get('reflectionReduction') || 'off');
+        validatePhoto(file); editPrompt(angle, background, reflectionReduction);
         const existing = await checked(bucket.list(photoFolder, { search: photoSearch, limit: 1000 }));
         if (existing.filter(e => e.name.endsWith('-meta.json')).length >= 40) return reply({ error: 'Pro jeden vůz lze uložit nejvýše 40 fotografií.' }, 400);
         const id = crypto.randomUUID();
-        const item = { id, angle, background, mime: file.type, ready: false, approved: false, createdAt: new Date().toISOString() };
+        const item = { id, angle, background, reflectionReduction, mime: file.type, ready: false, approved: false, createdAt: new Date().toISOString() };
         await checked(bucket.upload(pathFor(id, 'original'), file, { contentType: file.type }));
         try { await saveItem(item); } catch (e) { await bucket.remove([pathFor(id, 'original')]); throw e; }
         return reply({ item: decorate(item) });
@@ -190,7 +191,7 @@ export function createPhotoStudioHandler({ db, apiKey, fetchImage = fetch, fetch
           if (image.size > 12 * 1024 * 1024) throw new Error('Předloha je příliš velká.');
           aiForm.append('image[]', image, 'background.png');
         }
-        aiForm.set('prompt', editPrompt(item.angle, item.background)); aiForm.set('input_fidelity', 'high'); aiForm.set('quality', 'medium'); aiForm.set('size', '1536x1024'); aiForm.set('output_format', 'jpeg');
+        aiForm.set('prompt', editPrompt(item.angle, item.background, item.reflectionReduction || 'off')); aiForm.set('input_fidelity', 'high'); aiForm.set('quality', 'medium'); aiForm.set('size', '1536x1024'); aiForm.set('output_format', 'jpeg');
         const response = await fetchImage('https://api.openai.com/v1/images/edits', { method: 'POST', headers: { Authorization: `Bearer ${apiKey}` }, body: aiForm, signal: editingDeadline });
         if (!response.ok) return reply({ error: response.status === 429 ? 'AI je vytížená nebo je vyčerpaný kredit. Zkuste to později.' : 'AI úprava se nezdařila. Ověřte přístup k obrazovému modelu a kredit OpenAI.' }, 502);
         const result = await response.json();
@@ -201,7 +202,7 @@ export function createPhotoStudioHandler({ db, apiKey, fetchImage = fetch, fetch
         return await finishPhoto(item, bytes, await locatePlates(result.data[0].b64_json));
       } finally { await bucket.remove([lockPath]); }
     } catch (error) {
-      const known = /Použijte JPG|Fotografie může|Neplatný pohled/.test(error.message || '');
+      const known = /Použijte JPG|Fotografie může|Neplatný pohled|Neplatný režim redukce/.test(error.message || '');
       return reply({ error: known ? error.message : 'Operace se nepodařila. Obnovte seznam a zkuste ji znovu.' }, known ? 400 : 500);
     }
   };

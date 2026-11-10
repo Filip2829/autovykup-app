@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { validatePhoto, editPrompt, exportName, backgrounds, backgroundReference, needsPlateUpdate, canExportPhoto } from './model.js';
+import { validatePhoto, editPrompt, reflectionMode, exportName, backgrounds, backgroundReference, needsPlateUpdate, canExportPhoto } from './model.js';
 import { validatePlates, paintPlateLogos, makePlateLogo } from './plates.js';
 import { detectPlates } from '../../supabase/functions/vehicle-photo-studio/plateDetection.js';
 import { makeZip } from './zip.js';
@@ -338,4 +338,34 @@ test('session deletion requires an empty photo set and preserves other sessions'
   const { sessions } = await (await f.request('sessions', { scope: 'standalone' })).json();
   assert.equal(sessions.length, 1); assert.equal(sessions[0].id, second.id);
   assert.ok(![...f.objects.keys()].some(path => path.endsWith('-lock')));
+});
+
+test('reflection reduction is optional, conservative and disabled for condition details and interiors', () => {
+  const gentle = editPrompt('frontLeft', 'opportunityDarkTiles', 'gentle');
+  assert.match(gentle, /CONSERVATIVE ENVIRONMENT REFLECTION REDUCTION/);
+  assert.match(gentle, /exact paint hue, metallic or pearl grain, gloss level/);
+  assert.match(gentle, /leave that area unchanged/);
+  assert.match(gentle, /Never reconstruct or invent surface details hidden by a reflection/);
+  assert.doesNotMatch(editPrompt('frontLeft', 'gray'), /CONSERVATIVE ENVIRONMENT/);
+  for (const angle of ['interior', 'detail']) {
+    assert.equal(reflectionMode(angle, 'gentle'), 'off');
+    assert.doesNotMatch(editPrompt(angle, 'gray', 'gentle'), /CONSERVATIVE ENVIRONMENT/);
+  }
+  assert.throws(() => reflectionMode('front', 'aggressive'));
+});
+test('selected reflection mode persists through upload, generation and reload', async () => {
+  const f = fixture();
+  const { item } = await (await f.request('upload', { file: new File(['original'], 'car.jpg', { type: 'image/jpeg' }), angle: 'front', background: 'gray', reflectionReduction: 'gentle' })).json();
+  assert.equal(item.reflectionReduction, 'gentle');
+  assert.equal((await f.request('process', { id: item.id })).status, 200);
+  assert.match(f.aiRequests[0].get('prompt'), /CONSERVATIVE ENVIRONMENT REFLECTION REDUCTION/);
+  const { items } = await (await f.request('list')).json();
+  assert.equal(items[0].reflectionReduction, 'gentle');
+});
+test('unsupported reflection modes are rejected before upload or paid AI request', async () => {
+  const f = fixture();
+  const response = await f.request('upload', { file: new File(['original'], 'car.jpg', { type: 'image/jpeg' }), angle: 'front', background: 'gray', reflectionReduction: 'remove-all-damage' });
+  assert.equal(response.status, 400); assert.equal(f.objects.size, 0); assert.equal(f.calls(), 0);
+  const { item } = await (await f.request('upload', { file: new File(['original'], 'detail.jpg', { type: 'image/jpeg' }), angle: 'detail', background: 'gray', reflectionReduction: 'gentle' })).json();
+  assert.equal(item.reflectionReduction, 'off');
 });

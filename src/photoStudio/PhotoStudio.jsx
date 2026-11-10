@@ -17,6 +17,7 @@ export default function PhotoStudio({ carId, carName, initialBackground = 'oppor
   const [items, setItems] = useState([]);
   const [angle, setAngle] = useState('frontLeft');
   const [background, setBackground] = useState(initialBackground);
+  const [reduceReflections, setReduceReflections] = useState(false);
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
   const [progress, setProgress] = useState('');
@@ -69,7 +70,7 @@ export default function PhotoStudio({ carId, carName, initialBackground = 'oppor
       for (let i = 0; i < files.length && !stop.current; i++) {
         setProgress(`Fotografie ${i + 1} z ${files.length}: nahrávám originál…`);
         const file = await prepareInspectionPhoto(files[i]);
-        const { item } = await studioRequest(carId, 'upload', { file, angle, background }); merge(item);
+        const { item } = await studioRequest(carId, 'upload', { file, angle, background, reflectionReduction: reduceReflections ? 'gentle' : 'off' }); merge(item);
         if (stop.current) break;
         setProgress(`Fotografie ${i + 1} z ${files.length}: AI upravuje snímek…`);
         try { const data = await studioRequest(carId, 'process', { id: item.id }); merge(data.item); }
@@ -143,6 +144,10 @@ export default function PhotoStudio({ carId, carName, initialBackground = 'oppor
     </fieldset>
     <p className="studioHint">Výběr platí pro nově nahrávané fotografie. U exteriéru AI použije zvolené pozadí jako obrazovou předlohu; drobné odchylky v logu a prostoru jsou možné. Interiéry a detaily zůstanou v původním prostředí.</p>
     {backgroundOptions[background].image && <a className="studioBackgroundLink" href={backgroundOptions[background].image} target="_blank" rel="noreferrer">Zobrazit vybrané pozadí v plné velikosti ↗</a>}
+    <div className="studioReflectionControl">
+      <label><input type="checkbox" checked={reduceReflections && angle !== 'interior' && angle !== 'detail'} onChange={e => setReduceReflections(e.target.checked)} disabled={busy || loading || angle === 'interior' || angle === 'detail'} /> Jemná redukce odrazů okolí</label>
+      <p className="studioHint">Pro venkovní fotografie exteriéru: šetrné omezení odrazů stromů, budov a oblohy při zachování přirozeného lesku. Před exportem ověřte odstín laku, detaily a vady porovnáním s originálem. U interiéru a detailů se redukce nepoužije.</p>
+    </div>
     <label className={`studioUpload ${busy || loading ? 'studioDisabled' : ''}`}><Sparkles size={28} /><strong>Nahrát a automaticky upravit</strong><span>JPG, PNG nebo WebP · nejvýše 12 MB na fotku</span><input aria-label="Nahrát fotografie pro inzerci" type="file" multiple accept="image/jpeg,image/png,image/webp" disabled={busy || loading} onChange={upload} /></label>
     <p className="studioHint">Nahrajte společně snímky stejného pohledu; pro další pohled změňte výběr. AI srovná kompozici a horizont, zachová původní úhel. Chybějící pohledy dofoťte. Interiér a detaily si ponechají původní prostředí.</p>
     <div className="studioChecklist">{Object.entries(angles).slice(0, 8).map(([key, label]) => <span className={items.some(p => p.angle === key && p.ready) ? 'studioCaptured' : ''} key={key}>{items.some(p => p.angle === key && p.ready) ? '✓' : '○'} {label}</span>)}</div>
@@ -156,6 +161,7 @@ export default function PhotoStudio({ carId, carName, initialBackground = 'oppor
     <div className="studioGrid">{items.map((item, index) => <article className="studioPhoto" key={item.id}>
       <PlatePhoto item={item} original={originals} label={angles[item.angle]} />
       <div className="studioPhotoBody"><strong>{index + 1}. {angles[item.angle]}</strong><small>{backgrounds[item.background]} · {item.approved ? 'Schváleno' : item.ready ? 'Ke kontrole' : 'Čeká na úpravu'}</small>
+        {item.reflectionReduction === 'gentle' && <small>Jemná redukce odrazů okolí</small>}
         {item.ready && <small>{item.plateVerified ? (item.plateStatus === 'automatic' ? '✓ SPZ automaticky zakryta' : item.plateStatus === 'not-visible' ? '✓ SPZ není na snímku viditelná' : '✓ Zakrytí SPZ připraveno') : 'SPZ se nepodařilo spolehlivě rozpoznat. Zopakujte zakrytí nebo označte rohy ručně.'}</small>}
         <div className="studioPhotoActions">{item.ready ? <><button type="button" className="primary outline" disabled={busy} onClick={() => autoPlate(item)}>Znovu zaměřit SPZ automaticky</button><button type="button" className="primary outline" disabled={busy} onClick={() => setEditingPlate(item.id)}>Upravit zakrytí SPZ</button><button type="button" className={item.approved ? 'success' : 'primary outline'} disabled={busy || !item.plateVerified || needsPlateUpdate(item)} onClick={() => approve(item)}>{item.approved ? '✓ Schváleno · vrátit' : 'Schválit pro export'}</button></> : <button type="button" className="primary" disabled={busy} onClick={() => process(item)}>Upravit pomocí AI</button>}<button type="button" aria-label="Posunout dopředu" disabled={busy || index === 0} onClick={() => move(index, -1)}>↑</button><button type="button" aria-label="Posunout dozadu" disabled={busy || index === items.length - 1} onClick={() => move(index, 1)}>↓</button><button type="button" className="studioDeletePhoto" disabled={busy} onClick={() => deletePhoto(item)}><Trash2 size={16} /> Smazat fotku</button></div>
         {editingPlate === item.id && <PlateEditor key={item.id} item={item} busy={busy} onClose={() => setEditingPlate(null)} onSave={plates => savePlate(item, plates)} />}
