@@ -46,3 +46,41 @@ test("supports stored card data and deduplicates confirmed facts", () => {
     cebia_history: { countryOfOrigin: "CZ", warranty: "12 měsíců" },
   }), "Servisní historie\nProtokol CEBIA\nČeský původ\n2× klíč\nZáruka: 12 měsíců");
 });
+
+test("extracts concise public facts from authored notes without copying private text", () => {
+  const result = buildOnlineListingText({
+    notes: [
+      "Filip: K vozu je k dispozici protokol od Cebia. Při využití financování získá zákazník bonus 20 000 Kč. Telefon zákazníka 777123456.",
+      "Filip: Vůz byl zakoupen v autorizované prodejně Renault; auto lze vzít na protiúčet.",
+      "Filip: Vůz má 2 karty a dvě sady kol; pravidelně servisovaný; záruka na 12 měsíců / 20 000 km.",
+    ],
+  });
+  assert.deepEqual(result.split("\n"), [
+    "Protokol CEBIA", "Bonus při financování: 20 000 Kč",
+    "Zakoupeno v autorizované prodejně", "Možnost vozu na protiúčet",
+    "2× karta", "2 sady kol", "Pravidelný servis", "Záruka: 12 měsíců / 20 000 km",
+  ]);
+});
+
+test("rejects negated and uncertain note claims and internal commission bonuses", () => {
+  const result = buildOnlineListingText({
+    notes: [
+      "Filip: Cebia protokol není k dispozici.",
+      "Filip: Ověřit bonus 20 000 Kč při využití financování.",
+      "Filip: Bonus při financování byl zrušen.",
+      "Filip: Interní provize bonus 10 000 Kč při financování.",
+      "Filip: Má vůz dvě sady kol?", "Filip: Záruka na 12 měsíců neplatí.",
+    ],
+  });
+  assert.equal(result, "");
+});
+
+test("reads sale notes, preserves bonus limits and enriches a generic financing phrase", () => {
+  assert.equal(buildOnlineListingText({
+    advertisingData: {
+      highlights: "bonus při financování",
+      listingNote: "K vozu přiložen CEBIA protokol",
+      internalSaleNote: "Zákazník může získat bonus až 20 000 Kč při využití financování.",
+    },
+  }), "Bonus při financování: až 20 000 Kč\nProtokol CEBIA");
+});
