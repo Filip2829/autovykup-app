@@ -19,6 +19,8 @@ import VehiclePricing from "./components/VehiclePricing";
 import VehicleChecklist from "./components/VehicleChecklist";
 import VehiclePhotos from "./components/VehiclePhotos";
 import VehicleNotes from "./components/VehicleNotes";
+import VehicleEquipment from "./components/VehicleEquipment.jsx";
+import { equipmentItems, normalizeEquipment } from "./utils/vehicleEquipment.js";
 import VehicleHeader from "./components/VehicleHeader";
 import VehicleDamage from "./components/VehicleDamage";
 import VehiclePostPurchaseCosts from "./components/VehiclePostPurchaseCosts.jsx";
@@ -92,45 +94,6 @@ const emptyCustomerInfo = {
   notes: "",
 };
 
-const equipmentItems = [
-  "ABS",
-  "Adaptivní tempomat",
-  "Airbagy",
-  "Alarm",
-  "Android Auto",
-  "Apple CarPlay",
-  "Asistent jízdy v pruzích",
-  "Automatická převodovka",
-  "Automatická klimatizace",
-  "Bezklíčové odemykání",
-  "Bezklíčové startování",
-  "Bluetooth",
-  "Couvací kamera",
-  "Digitální kokpit",
-  "Elektrická sedadla",
-  "Elektrická zrcátka",
-  "Elektrické víko kufru",
-  "ESP",
-  "Head-up display",
-  "Hlídání mrtvého úhlu",
-  "Isofix",
-  "Kožené sedačky",
-  "LED světlomety",
-  "Matrix LED",
-  "Multifunkční volant",
-  "Navigace",
-  "Nezávislé topení",
-  "Panoramatická střecha",
-  "Parkovací senzory přední",
-  "Parkovací senzory zadní",
-  "Prémiové audio",
-  "Sedačky s pamětí",
-  "Tažné zařízení",
-  "Tempomat",
-  "Vyhřívaná sedadla",
-  "Vyhřívaný volant",
-  "Vzduchový podvozek",
-];
 
 const vehicleDocumentCategories = [
   "Servisní knížka",
@@ -437,10 +400,7 @@ function prepareCar(car) {
       car.checklist && typeof car.checklist === "object"
         ? clone({ ...emptyChecklist, ...car.checklist }, { ...emptyChecklist })
         : { ...emptyChecklist },
-    equipment:
-      car.equipment && typeof car.equipment === "object"
-        ? clone(car.equipment, {})
-        : {},
+    equipment: normalizeEquipment(car.equipment),
     notes: normalizeArray(car.notes),
     technicalParams:
       car.technical_params && typeof car.technical_params === "object"
@@ -699,13 +659,6 @@ export default function App() {
   const [cars, setCars] = useState([]);
   const [query, setQuery] = useState("");
   const [selectedCar, setSelectedCar] = useState(null);
-  const selectedEquipment = equipmentItems.filter(
-  (item) => selectedCar?.equipment?.[item]
-);
-
-const remainingEquipment = equipmentItems.filter(
-  (item) => !selectedCar?.equipment?.[item]
-);
   const [view, setView] = useState(() => new URLSearchParams(window.location.search).get("mobile-inspection") === "1" ? "mobileInspection" : (new URLSearchParams(window.location.search).has("valuation") || window.location.pathname.replace(/\/$/, "") === "/poptavky-naceneni") ? "onlineValuations" : "home");
   const [customers, setCustomers] = useState([]);
   const [selectedCustomer, setSelectedCustomer] = useState(null);
@@ -1744,18 +1697,6 @@ const remainingEquipment = equipmentItems.filter(
     }
 
     event.target.value = "";
-  }
-
-  function toggleEquipment(item) {
-    if (!selectedCar) return;
-
-    updateCar({
-      ...selectedCar,
-      equipment: {
-        ...selectedCar.equipment,
-        [item]: !selectedCar.equipment?.[item],
-      },
-    });
   }
 
   function updateCustomerField(key, value) {
@@ -2822,39 +2763,7 @@ const remainingEquipment = equipmentItems.filter(
           )}
 
           {module === "equipment" && (
-            <div className="card decision" ref={moduleContentRef}>
-              <h2>Výbava vozu</h2>
-
-              <h3>Zjištěná výbava</h3>
-
-              {[...selectedEquipment]
-                .sort((a, b) => a.localeCompare(b, "cs"))
-                .map((item) => (
-                  <label key={item} className="checkItem">
-                    <input
-                      type="checkbox"
-                      checked={Boolean(selectedCar.equipment?.[item])}
-                      onChange={() => toggleEquipment(item)}
-                    />
-                    {item}
-                  </label>
-                ))}
-
-              <h3 style={{ marginTop: "20px" }}>Další výbava k doplnění</h3>
-
-              {[...remainingEquipment]
-                .sort((a, b) => a.localeCompare(b, "cs"))
-                .map((item) => (
-                  <label key={item} className="checkItem">
-                    <input
-                      type="checkbox"
-                      checked={false}
-                      onChange={() => toggleEquipment(item)}
-                    />
-                    {item}
-                  </label>
-                ))}
-            </div>
+            <VehicleEquipment key={selectedCar.id} selectedCar={selectedCar} updateCar={updateCar} moduleContentRef={moduleContentRef} />
           )}
 
           {module === "notes" && (

@@ -351,7 +351,7 @@ describe("buildMarketingVehicle – výbava a fotografie", () => {
     assert.equal(vehicle.equipment.length, 10);
   });
 
-  test("case varianty názvu výbavy dnes nejsou deduplikovány", () => {
+  test("case varianty názvu výbavy se deduplikují", () => {
     const vehicle = buildMarketingVehicle({
       equipment: {
         Navigace: true,
@@ -359,7 +359,7 @@ describe("buildMarketingVehicle – výbava a fotografie", () => {
       },
     });
 
-    assert.deepEqual(vehicle.equipment, ["Navigace", "navigace"]);
+    assert.deepEqual(vehicle.equipment, ["Navigace"]);
   });
 
   test("používá první fotografii a fotografie ovlivňuje readiness", () => {

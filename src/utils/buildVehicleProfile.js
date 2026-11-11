@@ -1,3 +1,5 @@
+import { formatEquipmentWarranty, getEquipmentDetails, normalizeEquipment } from "./vehicleEquipment.js";
+
 const highlightedEquipmentPriority = [
   "Adaptivní tempomat",
   "Automatická klimatizace",
@@ -164,7 +166,8 @@ export function buildVehicleProfile(
   );
   const damageReport = asObject(car.damageReport ?? car.damage_report);
   const cebiaHistory = asObject(car.cebiaHistory ?? car.cebia_history);
-  const equipmentData = asObject(car.equipment);
+  const equipmentData = normalizeEquipment(asObject(car.equipment));
+  const equipmentWarranty = formatEquipmentWarranty(getEquipmentDetails(car));
   const checklist = asObject(car.checklist);
   const photos = asArray(car.photos);
   const activeItems = getActiveEquipment(equipmentData);
@@ -270,7 +273,7 @@ export function buildVehicleProfile(
       color: firstValue(technicalParams.color),
       consumption: firstValue(technicalParams.consumption),
       emissions: firstValue(technicalParams.emissions),
-      warranty: firstValue(technicalParams.warranty),
+      warranty: firstValue(equipmentWarranty, technicalParams.warranty),
       readinessCoverageCount: technicalReadinessGroups.filter(Boolean).length,
       readinessCoverageTotal: technicalReadinessGroups.length,
     },
@@ -293,6 +296,7 @@ export function buildVehicleProfile(
       stk: firstValue(technicalParams.stkValidUntil),
       cebiaWarranty: firstValue(cebiaHistory.warranty),
       warranty: firstValue(
+        equipmentWarranty,
         technicalParams.warranty,
         cebiaHistory.warranty,
         advertisingData.warranty

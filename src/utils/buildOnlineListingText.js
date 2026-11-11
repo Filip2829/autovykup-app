@@ -1,4 +1,5 @@
 import { buildVehicleProfile } from "./buildVehicleProfile.js";
+import { getEquipmentDetails } from "./vehicleEquipment.js";
 
 function textParts(value) {
   return (Array.isArray(value) ? value : [value])
@@ -61,6 +62,7 @@ function factsFromNote(note) {
 
 export function buildOnlineListingText(selectedCar = {}) {
   const profile = buildVehicleProfile(selectedCar);
+  const equipmentDetails = getEquipmentDetails(selectedCar);
   const lines = [];
   const preparation = profile.advertising.preparationData;
   const advertisingData = selectedCar.advertisingData ||
@@ -74,7 +76,7 @@ export function buildOnlineListingText(selectedCar = {}) {
     }
   }
 
-  const notes = [...phrases, ...textParts(selectedCar.notes), ...textParts(advertisingData.internalSaleNote)]
+  const notes = [...phrases, ...textParts(selectedCar.notes), ...textParts(advertisingData.internalSaleNote), ...textParts(equipmentDetails.notes)]
     .flatMap((part) => part.split(/(?<=[.!])\s+(?=[A-ZÁČĎÉĚÍŇÓŘŠŤÚŮÝŽ])/u));
   for (const note of notes) {
     for (const fact of factsFromNote(note)) {
@@ -102,6 +104,20 @@ export function buildOnlineListingText(selectedCar = {}) {
   if (profile.history.serviceHistoryConfirmed &&
       !lines.includes("Pravidelný servis")) lines.push("Servisní historie");
   if (profile.history.cebiaDocumentsAvailable) lines.push("Protokol CEBIA");
+  if (equipmentDetails.twoKeys === "no") {
+    for (let i = lines.length - 1; i >= 0; i--) {
+      if (lines[i] === "2× klíč" || lines[i] === "2× karta") lines.splice(i, 1);
+    }
+  } else if (equipmentDetails.twoKeys === "yes" && !lines.includes("2× karta")) {
+    lines.push("2× klíč");
+  }
+  if (equipmentDetails.secondWheelSet === "no") {
+    for (let i = lines.length - 1; i >= 0; i--) {
+      if (lines[i] === "2 sady kol") lines.splice(i, 1);
+    }
+  } else if (equipmentDetails.secondWheelSet === "yes") {
+    lines.push("2 sady kol");
+  }
   if (/^(?:česká republika|čr|cz|czech republic|czechia|česko)$/iu.test(
     String(profile.history.origin).trim()
   )) lines.push("Český původ");

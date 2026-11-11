@@ -1,3 +1,5 @@
+import { canonicalEquipmentLabel, normalizeEquipment } from "../utils/vehicleEquipment.js";
+
 export async function applyVehicleAnalysis({
   selectedCar,
   technicalParams = {},
@@ -7,10 +9,11 @@ export async function applyVehicleAnalysis({
   allowedEquipment = [],
   updateCar,
 }) {
-  const updatedEquipment = { ...(selectedCar?.equipment || {}) };
+  const updatedEquipment = { ...normalizeEquipment(selectedCar?.equipment) };
 
   for (const item of equipment) {
-    if (allowedEquipment.includes(item)) updatedEquipment[item] = true;
+    const canonical = canonicalEquipmentLabel(item) || item;
+    if (allowedEquipment.includes(canonical)) updatedEquipment[canonical] = true;
   }
 
   return updateCar({

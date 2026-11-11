@@ -1,0 +1,12 @@
+.vehicleEquipmentDetails { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.vehicleEquipmentDetails label, .vehicleEquipmentNote, .vehicleEquipmentSearch { display: grid; gap: 8px; min-width: 0; text-align: left; }
+.vehicleEquipmentDetails input, .vehicleEquipmentDetails select, .vehicleEquipmentNote textarea, .vehicleEquipmentSearch input { width: 100%; box-sizing: border-box; min-height: 44px; }
+.vehicleEquipmentDetails input, .vehicleEquipmentDetails select, .vehicleEquipmentSearch input { border: 1px solid #334155; border-radius: 10px; padding: 10px 12px; color: #f8fafc; background: #111827; font: inherit; color-scheme: dark; }
+.vehicleEquipmentNote, .vehicleEquipmentSearch { margin-top: 20px; }
+.vehicleEquipmentGroups { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); align-items: start; gap: 16px; text-align: left; }
+.vehicleEquipmentGroups fieldset { min-width: 0; margin: 0; padding: 12px; border: 1px solid #334155; border-radius: 12px; }
+.vehicleEquipmentGroups legend { padding: 0 6px; color: #93c5fd; font-weight: 700; }
+.vehicleEquipmentGroups .checkItem { display: flex; align-items: center; gap: 10px; min-height: 44px; margin: 0; overflow-wrap: anywhere; }
+.vehicleEquipmentGroups .checkItem input { flex: 0 0 18px; width: 18px; height: 18px; margin: 0; }
+@media (max-width: 1000px) { .vehicleEquipmentGroups { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 600px) { .vehicleEquipmentGroups, .vehicleEquipmentDetails { grid-template-columns: minmax(0, 1fr); } }

@@ -1,5 +1,6 @@
 import { formatVehicleCurrency } from "../../utils/vehicleEconomy.js";
 import { buildVehicleProfile } from "../../utils/buildVehicleProfile.js";
+import { normalizeEquipment } from "../../utils/vehicleEquipment.js";
 
 const fallbackText = "Neuvedeno";
 
@@ -72,7 +73,9 @@ function maskVin(vin) {
 }
 
 function getSelectedEquipment(equipment = {}, limit = 10) {
-  const selected = Object.entries(equipment)
+  const selected = Object.entries(normalizeEquipment(Object.fromEntries(
+    Object.entries(equipment).map(([label, enabled]) => [label, Boolean(enabled)])
+  )))
     .filter(([, enabled]) => Boolean(enabled))
     .map(([label]) => label);
 
@@ -266,6 +269,7 @@ export function buildMarketingVehicle(selectedCar) {
       firstOwner: getFirstOwner(car),
       serviceHistory: getServiceHistory(car),
       warranty: getValue(
+        vehicleProfile.history.warranty,
         technicalParams.warranty,
         cebiaHistory.warranty,
         advertisingData.warranty
