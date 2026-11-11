@@ -2,6 +2,8 @@
 
 ## Aktuální showroom a interiéry (11. 11. 2026)
 
+Uživatel 11. 11. 2026 výslovně povolil při spuštění úpravy interiéru předat celou původní fotografii i její upravenou verzi do OpenAI API k rozpoznání výhledu z oken a ověření zachování kabiny. Potvrdil i upozornění, že snímky mohou obsahovat osoby nebo osobní věci. Souhlas zazněl po automatickém odmítnutí prvního nasazení této nové operace. Úprava se spouští pouze u nově nahraného / výslovně zpracovaného snímku interiéru, nikoliv hromadně nad starými fotografiemi při otevření aplikace.
+
 V nabídce zůstává pouze Opportunity Showroom. Pět ostatních rastrových pozadí bylo odstraněno ze statických souborů; neutrální bílé/šedé varianty již nejsou volitelné. Starší klíče API se mapují na showroom, aby starší otevřený klient nedokázal znovu vybrat jiné pozadí. Hotové historické fotografie se nemění.
 
 Showroomový obrázek v `public/photo-studio/opportunity-showroom.png` byl upraven vestavěným ImageGen: přesun stejné cedule níže, zachování místnosti, světel a dlažby. Cedule je celá pod horními 15 % obrazu, takže zůstává v přiloženém typu ořezu. Prompt je uložen v `docs/photo-studio-background-prompts.json`.
