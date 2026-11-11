@@ -14,11 +14,11 @@ Přidává jen odpovídající položky katalogu s důkazem zdroje `cebia` a jis
 
 Ověření tlačítka: 4 testy s napodobenou odpovědí služby, lint, build a browser kontrola zobrazení bez kliknutí. Žádný skutečný CEBIA report ani skutečná karta nebyly v rámci úpravy analyzovány nebo doplněny. Ruční kontrola po výslovném spuštění uživatelem: načíst CEBIA, zkontrolovat počet doplněných položek, obnovení karty a zachování ostatních údajů; bez reportu musí zůstat výbava beze změny.
 
-## Připravené rozšíření o fotografie a anglické specifikace
+## Rozšíření o fotografie a anglické specifikace
 
-Rozšíření čeká na výslovný souhlas s předáváním CEBIA dokumentů a fotografií vozu do OpenAI. Automatická kontrola nasazení ho 11. 11. 2026 zamítla; produkční frontend ani Edge Function proto v této etapě nebyly změněny.
+Uživatel 11. 11. 2026 výslovně schválil nasazení i předávání CEBIA dokumentů a fotografií daného vozu do OpenAI pro vyhodnocení výbavy, vždy až po kliknutí na tlačítko. Funkce `analyze-vehicle-technical-data` byla nasazena ve verzi 10 s ponechaným ověřováním JWT. Nasazení ani otevření karty nevyvolává analýzu vozidel.
 
-Připravené tlačítko „Doplnit výbavu z CEBIA a fotografií“ používá přiložené soubory CEBIA a všechny fotografie z karty, postupně po nejvýše 12 snímcích na požadavek. CEBIA čte pouze v první dávce. Při chybě některé dávky se nic částečně neukládá. Přijímá pouze důkazy odpovídající skutečně předanému zdroji a zachovává ručně vyplněné/odškrtnuté položky.
+Tlačítko „Doplnit výbavu z CEBIA a fotografií“ používá přiložené soubory CEBIA a všechny fotografie z karty, postupně po nejvýše 12 snímcích na požadavek. CEBIA čte pouze v první dávce. Při chybě některé dávky se nic částečně neukládá. Přijímá pouze důkazy odpovídající skutečně předanému zdroji a zachovává ručně vyplněné/odškrtnuté položky.
 
 Server používá celý současný katalog a cílené instrukce ke čtení všech dodaných stran, zejména tabulek „Informace o vozidle“ a „Soupis výbavy vozidla“. Překládá anglické popisy a převádí doslovné specifikace na výbavu: např. `7-SPEED DUAL CLUTCH AUTOMATIC GEARBOX` na automatickou převodovku a 7 stupňů; `FWD` nepřevádí na 4×4. Kódy jako DW5007 a EA3 nejsou důkazem konkrétního prvku. Sekce existující jen na webu CEBIA se sama nestahuje: pokud chybí v PDF, uživatel musí přiložit její snímek jako CEBIA dokument.
 
