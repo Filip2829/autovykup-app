@@ -114,5 +114,7 @@ export function buildOnlineListingText(selectedCar = {}) {
     lines.push(`Záruka: ${warranty}`);
   }
 
-  return [...new Set(lines)].join("\n");
+  return [...new Set(lines)]
+    .map((line) => `${line.replace(/\s+/gu, " ").trim().replace(/,+$/, "")},`)
+    .join(" ");
 }

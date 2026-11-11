@@ -16,12 +16,12 @@ test("generates only available listing phrases and preserves sale terms", () => 
       internalSaleNote: "Interní poznámka",
     },
   });
-  assert.deepEqual(text.split("\n"), [
+  assert.equal(text, [
     "2× karta", "2 sady kol", "Pravidelný servis",
     "Zakoupeno v autorizované prodejně", "bonus při financování: 20 000 Kč",
     "Možnost vozu na protiúčet", "Protokol CEBIA", "Český původ",
     "Záruka: do 20. 12. 2027 / 150 000 km",
-  ]);
+  ].join(", ") + ",");
 });
 
 test("does not turn negative, uncertain or unrelated information into selling points", () => {
@@ -44,7 +44,7 @@ test("supports stored card data and deduplicates confirmed facts", () => {
     checklist: { "Servisní historie": true, "Počet klíčů 2x": true },
     cebia_files: ["report.pdf"],
     cebia_history: { countryOfOrigin: "CZ", warranty: "12 měsíců" },
-  }), "Servisní historie\nProtokol CEBIA\nČeský původ\n2× klíč\nZáruka: 12 měsíců");
+  }), "Servisní historie, Protokol CEBIA, Český původ, 2× klíč, Záruka: 12 měsíců,");
 });
 
 test("extracts concise public facts from authored notes without copying private text", () => {
@@ -55,11 +55,11 @@ test("extracts concise public facts from authored notes without copying private 
       "Filip: Vůz má 2 karty a dvě sady kol; pravidelně servisovaný; záruka na 12 měsíců / 20 000 km.",
     ],
   });
-  assert.deepEqual(result.split("\n"), [
+  assert.equal(result, [
     "Protokol CEBIA", "Bonus při financování: 20 000 Kč",
     "Zakoupeno v autorizované prodejně", "Možnost vozu na protiúčet",
     "2× karta", "2 sady kol", "Pravidelný servis", "Záruka: 12 měsíců / 20 000 km",
-  ]);
+  ].join(", ") + ",");
 });
 
 test("rejects negated and uncertain note claims and internal commission bonuses", () => {
@@ -82,5 +82,5 @@ test("reads sale notes, preserves bonus limits and enriches a generic financing 
       listingNote: "K vozu přiložen CEBIA protokol",
       internalSaleNote: "Zákazník může získat bonus až 20 000 Kč při využití financování.",
     },
-  }), "Bonus při financování: až 20 000 Kč\nProtokol CEBIA");
+  }), "Bonus při financování: až 20 000 Kč, Protokol CEBIA,");
 });
