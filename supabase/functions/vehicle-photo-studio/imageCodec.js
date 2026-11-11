@@ -5,6 +5,7 @@ import { makePlateLogo, paintPlateLogos, validatePlates } from '../../../src/pho
 import { compositeSourcePixels } from '../../../src/photoStudio/subjectMask.js';
 import { floorContactShadow, placeOriginalVehicle } from '../../../src/photoStudio/vehiclePlacement.js';
 import { neutralizeInteriorViews } from './interiorWindows.js';
+import { cleanLooseInteriorDirt } from '../../../src/photoStudio/surfaceCleanup.js';
 
 function decodeStudioPng(bytes) {
   const buffer = Buffer.from(bytes);
@@ -38,16 +39,29 @@ export function composeOriginalVehicle(sourceBytes, maskBytes, backgroundBytes, 
     if (decodedMask.width !== width || decodedMask.height !== height) throw new Error('Rozměry masky nesouhlasí.');
     const mask = new Uint8Array(width * height); let count = 0;
     for (let i = 0; i < mask.length; i++) { mask[i] = decodedMask.data[i * 4] >= 128 ? 255 : 0; if (mask[i]) count++; }
-    if (count < mask.length * .03 || count > mask.length * .95) throw new Error('Neplatný rozsah masky vozu.');
-    const placed = placeOriginalVehicle(source.data, mask, width, height);
-    const shadow = floorContactShadow(background, placed.profile, width, height);
-    source.data = compositeSourcePixels(placed.pixels, shadow, placed.mask);
+    if (count < mask.length * .03 || count > mask.length * (options.preserveFraming ? .9995 : .95)) throw new Error('Neplatný rozsah masky vozu.');
+    if (options.preserveFraming) {
+      source.data = compositeSourcePixels(source.data, background, mask);
+    } else {
+      const placed = placeOriginalVehicle(source.data, mask, width, height);
+      const shadow = floorContactShadow(background, placed.profile, width, height);
+      source.data = compositeSourcePixels(placed.pixels, shadow, placed.mask);
+    }
   } else if (options.angle === 'interior') {
-    source.data = neutralizeInteriorViews(source, options.windows || []).data;
+    source.data = neutralizeInteriorViews(source, options.windows || [], backgroundBytes ? decodeStudioPng(backgroundBytes) : null).data;
+  } else if (options.surroundings?.length) {
+    if (!backgroundBytes) throw new Error('Chybí podklad showroomu.');
+    source.data = neutralizeInteriorViews(source, options.surroundings, decodeStudioPng(backgroundBytes)).data;
   }
   // Uniform input dimensions and perspective are retained. JPEG introduces only
   // the usual encoding differences; vehicle appearance is not synthesized.
   return new Uint8Array(jpeg.encode(source, 95).data);
+}
+
+export function cleanInteriorJpeg(bytes, regions) {
+  if (!regions.length) return bytes;
+  const image = jpeg.decode(bytes, { useTArray: true, maxResolutionInMP: 4, maxMemoryUsageInMB: 128 });
+  return new Uint8Array(jpeg.encode(cleanLooseInteriorDirt(image, regions), 95).data);
 }
 
 export function renderMaskedJpeg(bytes, plates, logoPng) {

@@ -19,7 +19,7 @@ function automaticMask(source, onProgress) {
   });
 }
 
-export async function prepareStudioSubject(file, angle, onProgress) {
+export async function prepareStudioSubject(file, angle, onProgress, inspect) {
   const bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' });
   try {
     // Uniform resize only: retain the source aspect ratio and full framing.
@@ -31,7 +31,11 @@ export async function prepareStudioSubject(file, angle, onProgress) {
     const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
     if (!blob) throw new Error('Fotografii se nepodařilo připravit.');
     const source = new File([blob], 'source.png', { type: 'image/png' });
-    if (angle === 'interior' || angle === 'detail') return { source };
+    onProgress?.('Rozpoznávám obsah snímku a viditelné okolí…');
+    const inspection = inspect ? await inspect(source) : { scene: angle === 'interior' ? 'interior' : angle === 'detail' ? 'exterior_detail' : 'exterior', backgroundVisible: !['interior', 'detail'].includes(angle), conditionEvidence: angle === 'detail', confidence: 1 };
+    if (!inspection || !['exterior', 'exterior_detail', 'interior', 'interior_detail'].includes(inspection.scene) || typeof inspection.backgroundVisible !== 'boolean') throw new Error('Obsah fotografie se nepodařilo rozpoznat. Zkuste ji nahrát znovu.');
+    const prepared = { source, inspection: JSON.stringify(inspection) };
+    if (inspection.scene !== 'exterior' || !inspection.backgroundVisible) return prepared;
     onProgress?.('Automaticky odděluji původní vůz od pozadí…');
     const result = await automaticMask(blob, onProgress);
     if (result.width !== canvas.width || result.height !== canvas.height) throw new Error('Rozměry masky vozu nesouhlasí.');
@@ -41,6 +45,6 @@ export async function prepareStudioSubject(file, angle, onProgress) {
     context.putImageData(image, 0, 0);
     const maskBlob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
     if (!maskBlob) throw new Error('Masku vozu se nepodařilo uložit.');
-    return { source, vehicleMask: new File([maskBlob], 'vehicle-mask.png', { type: 'image/png' }) };
+    return { ...prepared, vehicleMask: new File([maskBlob], 'vehicle-mask.png', { type: 'image/png' }) };
   } finally { bitmap.close(); }
 }

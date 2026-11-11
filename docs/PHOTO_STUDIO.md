@@ -1,5 +1,23 @@
 # Fotostudio – první verze
 
+## Pravidla podle skutečného obsahu fotografie (11. 11. 2026)
+
+Uživatel doplnil příklady img_8954, img_8942, img_8947, img_8948, img_8949, img_8950 a img_8952 a požádal o showroom všude, kde je skutečně vidět okolní prostředí vozu, i o odstranění volného prachu, šlápot a nečistot v interiéru při zachování ovladačů a materiálů. Tato aktuální pravidla nahrazují výjimku pro pohled Detail i dřívější neutrální plochu ve výhledu z interiéru.
+
+Před uploadem klient připraví PNG a zavolá autorizovanou operaci `inspect`. Ta bez zápisu do Storage rozpozná skutečný obsah snímku (`exterior`, `exterior_detail`, `interior`, `interior_detail`), viditelné okolí a případný důkazní záběr poškození. Rozhoduje obsah, nikoliv pouze ručně vybraný pohled. Pro nové fotografie se ukládá `photoRulesVersion: 3` a `compositionVersion: 3`. Hotové historické fotografie se samy nemění.
+
+Celý vůz se nadále odděluje lokálním modelem a usazuje na podlahu. Těsné venkovní detaily se neposílají do salienčního výřezu: na skutečném img_8947 zaměňoval odrazy na laku za okolí a vykusoval karoserii. Místo toho server rozpozná pouze vnější okolí hlavního vozu a vloží showroom výhradně do těchto oblastí. Původní výřez, velikost, poloha, lak a odrazy na voze zůstávají zachované. Po kompozici se porovnává původní snímek s výsledkem a předlohou; bez potvrzení zachování vozu a odstranění okolí se výsledek neuloží.
+
+Interiéry i jejich detaily mají stejný showroom ve výhledu přes skla, otevřené dveře a úzké pruhy kolem hran snímku. Příklad img_8950: štěrk pod dveřmi se nahrazuje, ovladače oken a obložení zůstávají. Všechny otvory používají jednu souvislou předlohu, nikoliv opakovaný obrázek v každém okně.
+
+Čištění interiéru je lokální fotografická úprava, nikoliv generování nových plastů/tlačítek. Obrazová analýza ve stávajícím OpenAI API vymezí pouze bezpečně rozpoznaný volný prach, vlákna, otisky/světlý špinavý film a šlápoty na gumových kobercích; vyžaduje jistotu alespoň 0,98. Každá oblast obsahuje ochranné výluky symbolů, textů, hran ovladačů, švů a skutečných vad. U filmu je nutná čistá referenční oblast stejného materiálu a osvětlení. Izolované světlé částice se tlumí lokálním mediánem; film se konzervativně přizpůsobuje referenci při zachování původní vysokofrekvenční struktury. Tmavé škrábance se nevyplňují. Neobnovuje se poškozený plast, lak, kůže ani čalounění; důkazní záběry poškození se nečistí.
+
+Samostatné porovnání před a po čištění musí potvrdit zachování ovladačů, materiálů a opotřebení a změnu pouze volných nečistot. Selhání zastaví uložení i schválení. Původní upload se nepřepisuje. Operace přidávají obrazovou klasifikaci, lokalizaci nečistot a kontrolu přes stávající OpenAI API; fotografie se nepředávají novému poskytovateli a nepoužívá se Images Edit API. Přesnost rozpoznání a rozsah odstranění nečistot z libovolného snímku nejsou garantované; při nejistotě se oblast nemění nebo se zpracování zastaví.
+
+Ověření: `node --test src/photoStudio/photoStudio.test.js src/photoStudio/subjectMask.test.js src/photoStudio/showroomComposition.test.js src/photoStudio/photoRules.test.js`; lint změněných modulů a izolovaný build. Testy zahrnují ochranu symbolů, tmavých škrábanců a struktury materiálu, film na gumě, štěrk u dveří, zachování výřezu a odrazů na karoserii, skutečný obsah odlišný od vybraného pohledu a zablokování nevyhovující kontroly. Odpovědi cloudové analýzy jsou v testech simulované. Lokální salienční model byl ověřen na dodaných fotografiích světlometů a právě jeho nevyhovující výsledek vedl k vyřazení této cesty pro těsné detaily.
+
+Ruční checklist po nasazení: obnovit aplikaci, nahrát dodané záběry; u světlometů zkontrolovat původní výřez a každý díl lesklé karoserie. U img_8950 ověřit odstranění štěrku pod dveřmi bez zásahu do ovladačů. U img_8954/img_8952 porovnat symboly a texturu plastů s originálem; u img_8948/img_8949 zkontrolovat koberečky, jejich žebra a skutečné vady. Při nejistotě nesmí být dostupný hotový výsledek ke schválení. Staré hotové fotografie je třeba nahrát znovu. SQL ani nové oprávnění nejsou potřeba.
+
 ## Aktuální showroom a interiéry (11. 11. 2026)
 
 Uživatel 11. 11. 2026 výslovně povolil při spuštění úpravy interiéru předat celou původní fotografii i její upravenou verzi do OpenAI API k rozpoznání výhledu z oken a ověření zachování kabiny. Potvrdil i upozornění, že snímky mohou obsahovat osoby nebo osobní věci. Souhlas zazněl po automatickém odmítnutí prvního nasazení této nové operace. Úprava se spouští pouze u nově nahraného / výslovně zpracovaného snímku interiéru, nikoliv hromadně nad starými fotografiemi při otevření aplikace.

@@ -69,11 +69,13 @@ export default function PhotoStudio({ carId, carName }) {
       for (let i = 0; i < files.length && !stop.current; i++) {
         setProgress(`Fotografie ${i + 1} z ${files.length}: nahrávám originál…`);
         const file = files[i];
-        const protectedSource = await prepareStudioSubject(file, angle, message => { if (mounted.current) setProgress(`Fotografie ${i + 1} z ${files.length}: ${message}`); });
+        const protectedSource = await prepareStudioSubject(file, angle,
+          message => { if (mounted.current) setProgress(`Fotografie ${i + 1} z ${files.length}: ${message}`); },
+          async source => (await studioRequest(carId, 'inspect', { source, angle })).inspection);
         if (stop.current) break;
         const { item } = await studioRequest(carId, 'upload', { file, angle, background, ...protectedSource }); merge(item);
         if (stop.current) break;
-        setProgress(`Fotografie ${i + 1} z ${files.length}: skládám původní vůz s pozadím…`);
+        setProgress(`Fotografie ${i + 1} z ${files.length}: upravuji okolí a kontroluji čistotu interiéru…`);
         try { const data = await studioRequest(carId, 'process', { id: item.id }); merge(data.item); }
         catch (e) { failures++; if (mounted.current) setError(`${failures} fotek čeká na úpravu. ${e.message}`); }
       }
@@ -143,7 +145,8 @@ export default function PhotoStudio({ carId, carName }) {
         <span className="studioBackgroundCaption"><strong>Opportunity Showroom</strong><small>Jednotné pozadí a přirozené usazení vozu na podlahu</small></span>
       </div></div>
     </fieldset>
-    <p className="studioHint">Vůz automaticky usadíme na podlahu showroomu a doplníme kontaktní stín. Zachováme jeho proporce, úhel, barvu, kola, detaily i poškození. U interiéru zakryjeme výhled ven neutrální světlou plochou; vybavení kabiny zůstane původní. Detaily poškození se nepřekreslují.</p>
+    <p className="studioHint">Viditelné okolí nahradíme showroomem i na detailech světlometů, karoserie a kolem otevřených dveří. Detailní záběry si zachovají původní výřez. U celého vozu doplníme usazení na podlahu a kontaktní stín.</p>
+    <p className="studioHint">U interiéru šetrně omezíme rozpoznaný prach, otisky, ušmudlané plochy a šlápoty na gumových koberečcích. Tlačítka, symboly, struktura plastů, švy i skutečné opotřebení zůstávají zachované. Snímky dokumentující poškození se nečistí. Rozhoduje skutečný obsah fotografie, ne pouze vybraný pohled.</p>
     {backgroundOptions[background].image && <a className="studioBackgroundLink" href={backgroundOptions[background].image} target="_blank" rel="noreferrer">Zobrazit vybrané pozadí v plné velikosti ↗</a>}
     <label className={`studioUpload ${busy || loading ? 'studioDisabled' : ''}`}><Sparkles size={28} /><strong>Nahrát a automaticky upravit</strong><span>JPG, PNG nebo WebP · nejvýše 12 MB na fotku</span><input aria-label="Nahrát fotografie pro inzerci" type="file" multiple accept="image/jpeg,image/png,image/webp" disabled={busy || loading} onChange={upload} /></label>
     <p className="studioHint">Nahrajte společně snímky stejného pohledu; pro další pohled změňte výběr. Vůz umisťujeme jako celek bez změny jeho proporcí a zachováváme poměr stran fotografie. Chybějící pohledy dofoťte. Při prvním použití se stáhne model pro automatické oddělení pozadí.</p>
@@ -159,6 +162,7 @@ export default function PhotoStudio({ carId, carName }) {
       <PlatePhoto item={item} original={originals} label={angles[item.angle]} />
       <div className="studioPhotoBody"><strong>{index + 1}. {angles[item.angle]}</strong><small>{backgrounds[item.background] || 'Dřívější pozadí'} · {item.approved ? 'Schváleno' : item.ready ? 'Ke kontrole' : 'Čeká na úpravu'}</small>
         {item.ready && <small>{item.subjectVersion === 1 ? 'Původní vůz · bez generativního překreslení' : 'Starší AI úprava · vzhled vozu porovnejte s originálem'}</small>}
+        {item.interiorCleaningChecked && <small>{item.cleanedRegions > 0 ? 'Šetrně vyčištěný interiér · zkontrolujte s originálem' : 'Čistota interiéru zkontrolovaná'}</small>}
         {item.reflectionReduction === 'gentle' && <small>Jemná redukce odrazů okolí</small>}
         {item.ready && <small>{item.plateVerified ? (item.plateStatus === 'automatic' ? '✓ SPZ automaticky zakryta' : item.plateStatus === 'not-visible' ? '✓ SPZ není na snímku viditelná' : '✓ Zakrytí SPZ připraveno') : 'SPZ se nepodařilo spolehlivě rozpoznat. Zopakujte zakrytí nebo označte rohy ručně.'}</small>}
         <div className="studioPhotoActions">{item.ready ? <><button type="button" className="primary outline" disabled={busy} onClick={() => autoPlate(item)}>Znovu zaměřit SPZ automaticky</button><button type="button" className="primary outline" disabled={busy} onClick={() => setEditingPlate(item.id)}>Upravit zakrytí SPZ</button><button type="button" className={item.approved ? 'success' : 'primary outline'} disabled={busy || !item.plateVerified || needsPlateUpdate(item)} onClick={() => approve(item)}>{item.approved ? '✓ Schváleno · vrátit' : 'Schválit pro export'}</button></> : <button type="button" className="primary" disabled={busy} onClick={() => process(item)}>Upravit pomocí AI</button>}<button type="button" aria-label="Posunout dopředu" disabled={busy || index === 0} onClick={() => move(index, -1)}>↑</button><button type="button" aria-label="Posunout dozadu" disabled={busy || index === items.length - 1} onClick={() => move(index, 1)}>↓</button><button type="button" className="studioDeletePhoto" disabled={busy} onClick={() => deletePhoto(item)}><Trash2 size={16} /> Smazat fotku</button></div>

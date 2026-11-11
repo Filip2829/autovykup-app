@@ -4,8 +4,11 @@ import { detectPlates } from './plateDetection.js';
 import { Buffer } from 'node:buffer';
 import { canUseStandaloneStudio, standaloneStudioRoot } from '../../../src/photoStudio/access.js';
 import { locateInteriorWindows, verifyInteriorViews } from './interiorWindows.js';
+import { inspectStudioScene, legacyScene, validateScene } from './sceneInspection.js';
+import { locateLooseDirt, verifyInteriorCleanup } from './interiorCleanup.js';
+import { locateExteriorSurroundings, verifyExteriorPhoto } from './exteriorSurroundings.js';
 
-export function createPhotoStudioHandler({ db, apiKey, fetchBackground = fetch, fetchVision = fetch, renderMaskedJpeg, cropPlateRegion, checkPlateRegion, composeOriginalVehicle }) {
+export function createPhotoStudioHandler({ db, apiKey, fetchBackground = fetch, fetchVision = fetch, renderMaskedJpeg, cropPlateRegion, checkPlateRegion, composeOriginalVehicle, cleanInteriorJpeg }) {
   const bucket = db.storage.from('car-photos');
   const checked = async (promise) => { const { data, error } = await promise; if (error) throw error; return data; };
   const locatePlates = base64 => detectPlates(base64, apiKey, fetchVision, cropPlateRegion, checkPlateRegion);
@@ -121,6 +124,12 @@ export function createPhotoStudioHandler({ db, apiKey, fetchBackground = fetch, 
         const items = await Promise.all(entries.filter(e => e.name.endsWith('-meta.json')).map(e => readItem(e.name.slice(standalone ? 0 : String(carId).length + 1, -10))));
         return reply({ items: items.sort((a, b) => a.createdAt.localeCompare(b.createdAt)).map(decorate) });
       }
+      if (action === 'inspect') {
+        const source = form.get('source');
+        if (!source || typeof source === 'string' || source.type !== 'image/png' || !source.size || source.size > 16 * 1024 * 1024) return reply({ error: 'Chybí podklad k rozpoznání fotografie.' }, 400);
+        if (!apiKey) return reply({ error: 'AI není nakonfigurovaná.' }, 503);
+        return reply({ inspection: await inspectStudioScene(Buffer.from(await source.arrayBuffer()).toString('base64'), apiKey, fetchVision) });
+      }
       if (action === 'upload') {
         return await withSessionLock(async () => {
         const file = form.get('file'), angle = form.get('angle'), background = normalizeBackground(form.get('background'));
@@ -129,13 +138,14 @@ export function createPhotoStudioHandler({ db, apiKey, fetchBackground = fetch, 
         const reflectionReduction = 'off';
         validatePhoto(file); backgroundReference(angle, background);
         const source = form.get('source'), vehicleMask = form.get('vehicleMask');
-        const exterior = angle !== 'interior' && angle !== 'detail';
+        const inspection = form.get('inspection') ? validateScene(JSON.parse(form.get('inspection'))) : legacyScene(angle);
+        const exterior = inspection.scene === 'exterior' && inspection.backgroundVisible;
         const validPng = (value, max) => value && typeof value !== 'string' && value.type === 'image/png' && value.size > 0 && value.size <= max * 1024 * 1024;
         if (!validPng(source, 16) || exterior && !validPng(vehicleMask, 2)) return reply({ error: 'Chybí chráněný podklad vozu. Obnovte aplikaci a nahrajte fotografii znovu.' }, 400);
         const existing = await checked(bucket.list(photoFolder, { search: photoSearch, limit: 1000 }));
         if (existing.filter(e => e.name.endsWith('-meta.json')).length >= 40) return reply({ error: 'Pro jeden vůz lze uložit nejvýše 40 fotografií.' }, 400);
         const id = crypto.randomUUID();
-        const item = { id, angle, background, reflectionReduction, mime: file.type, subjectVersion: 1, compositionVersion: 2, ready: false, approved: false, createdAt: new Date().toISOString() };
+        const item = { id, angle, background, reflectionReduction, mime: file.type, subjectVersion: 1, compositionVersion: 3, photoRulesVersion: 3, ...inspection, ready: false, approved: false, createdAt: new Date().toISOString() };
         await checked(bucket.upload(pathFor(id, 'original'), file, { contentType: file.type }));
         try {
           await checked(bucket.upload(pathFor(id, 'source.png'), source, { contentType: 'image/png' }));
@@ -190,10 +200,12 @@ export function createPhotoStudioHandler({ db, apiKey, fetchBackground = fetch, 
         }
         if (item.subjectVersion !== 1) return reply({ error: 'Tato fotografie čeká na starší AI úpravu. Nahrajte originál znovu pro zachování původního vozu.' }, 409);
         const source = await checked(bucket.download(pathFor(id, 'source.png')));
-        const exterior = item.angle !== 'interior' && item.angle !== 'detail';
-        const mask = exterior ? await checked(bucket.download(pathFor(id, 'vehicle-mask.png'))) : null;
+        const inspection = item.scene ? item : legacyScene(item.angle);
+        const interior = inspection.scene.startsWith('interior');
+        const exterior = !interior && inspection.backgroundVisible;
+        const mask = inspection.scene === 'exterior' && inspection.backgroundVisible ? await checked(bucket.download(pathFor(id, 'vehicle-mask.png'))) : null;
         let backgroundBytes = null;
-        const reference = backgroundReference(item.angle, item.background);
+        const reference = exterior || interior ? backgroundReference('front', item.background) : null;
         if (reference) {
           // Only server-controlled preset paths are fetched, never URLs from the request.
           const backdrop = await fetchBackground(`https://autovykup-app.vercel.app${reference}`, { signal: AbortSignal.timeout(15000), redirect: 'error' });
@@ -203,20 +215,35 @@ export function createPhotoStudioHandler({ db, apiKey, fetchBackground = fetch, 
           backgroundBytes = new Uint8Array(await image.arrayBuffer());
         }
         const sourceBytes = new Uint8Array(await source.arrayBuffer());
-        const sourceBase64 = item.angle === 'interior' ? Buffer.from(sourceBytes).toString('base64') : '';
-        const windows = item.angle === 'interior' ? await locateInteriorWindows(sourceBase64, apiKey, fetchVision) : [];
-        const bytes = await composeOriginalVehicle(sourceBytes, mask ? new Uint8Array(await mask.arrayBuffer()) : null, backgroundBytes, item.background, { angle: item.angle, windows });
-        if (item.angle === 'interior') await verifyInteriorViews(sourceBase64, Buffer.from(bytes).toString('base64'), apiKey, fetchVision);
+        const sourceBase64 = Buffer.from(sourceBytes).toString('base64');
+        const windows = interior ? await locateInteriorWindows(sourceBase64, apiKey, fetchVision) : [];
+        const surroundings = exterior && inspection.scene === 'exterior_detail' ? await locateExteriorSurroundings(sourceBase64, apiKey, fetchVision) : [];
+        let bytes = await composeOriginalVehicle(sourceBytes, mask ? new Uint8Array(await mask.arrayBuffer()) : null, backgroundBytes, item.background, { angle: interior ? 'interior' : item.angle, windows, surroundings, preserveFraming: inspection.scene !== 'exterior' });
+        if (exterior) await verifyExteriorPhoto(sourceBase64, Buffer.from(bytes).toString('base64'), Buffer.from(backgroundBytes).toString('base64'), inspection.scene !== 'exterior', apiKey, fetchVision);
+        if (interior) {
+          await verifyInteriorViews(sourceBase64, Buffer.from(bytes).toString('base64'), apiKey, fetchVision, backgroundBytes ? Buffer.from(backgroundBytes).toString('base64') : '');
+          if (!inspection.conditionEvidence) {
+            const before = Buffer.from(bytes).toString('base64');
+            const cleanup = await locateLooseDirt(before, apiKey, fetchVision);
+            if (cleanup.length) {
+              bytes = await cleanInteriorJpeg(bytes, cleanup);
+              await verifyInteriorCleanup(before, Buffer.from(bytes).toString('base64'), apiKey, fetchVision);
+            }
+            item.interiorCleaningChecked = true;
+            item.cleanedRegions = cleanup.length;
+          }
+        }
         item.background = normalizeBackground(item.background);
-        item.compositionVersion = 2;
-        item.interiorViewsNeutralized = item.angle === 'interior';
+        item.compositionVersion = 3;
+        item.interiorViewsNeutralized = interior;
         // Persist the source-pixel composite before plate masking for retries.
         await checked(bucket.upload(pathFor(id, 'base.jpg'), bytes, { contentType: 'image/jpeg', upsert: true }));
+        await saveItem(item);
         return await finishPhoto(item, bytes, await locatePlates(Buffer.from(bytes).toString('base64')));
       } finally { await bucket.remove([lockPath]); }
     } catch (error) {
       const known = /Použijte JPG|Fotografie může|Neplatný pohled|Neplatné pozadí|Neplatný režim redukce/.test(error.message || '');
-      const interiorError = /výhled|Výhled|interiéru/.test(error.message || '');
+      const interiorError = /výhled|interiéru|nečistot|čištění|rozpozn|okolí|zachování vozu/i.test(error.message || '');
       return reply({ error: known || interiorError ? error.message : 'Operace se nepodařila. Obnovte seznam a zkuste ji znovu.' }, known ? 400 : interiorError ? 422 : 500);
     }
   };
