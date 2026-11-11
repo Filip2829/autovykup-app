@@ -1,3 +1,5 @@
+import { normalizeEquipmentEvidence, specificationEquipmentEvidence, equipmentExtractionInstructions } from "../_shared/vehicleEquipmentEvidence.js";
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
@@ -78,20 +80,6 @@ function extractOutputText(response: any) {
   return parts.join("\n").trim();
 }
 
-const equipmentItems = [
-  "ABS", "Adaptivní tempomat", "Airbagy", "Alarm", "Android Auto",
-  "Apple CarPlay", "Asistent jízdy v pruzích", "Automatická převodovka",
-  "Automatická klimatizace",
-  "Bezklíčové odemykání", "Bezklíčové startování", "Bluetooth",
-  "Couvací kamera", "Digitální kokpit", "Elektrická sedadla",
-  "Elektrická zrcátka", "Elektrické víko kufru", "ESP", "Head-up display",
-  "Hlídání mrtvého úhlu", "Isofix", "Kožené sedačky", "LED světlomety",
-  "Matrix LED", "Multifunkční volant", "Navigace", "Nezávislé topení",
-  "Panoramatická střecha", "Parkovací senzory přední",
-  "Parkovací senzory zadní", "Prémiové audio", "Sedačky s pamětí",
-  "Tažné zařízení", "Tempomat", "Vyhřívaná sedadla", "Vyhřívaný volant",
-  "Vzduchový podvozek",
-];
 
 function text(value: unknown, maxLength = 500) {
   return value === null || value === undefined
@@ -124,38 +112,6 @@ function sanitizeCar(car: Record<string, unknown> = {}) {
     drive: text(technicalParams.drive, 80),
     firstRegistration: text(technicalParams.firstRegistration, 30),
   };
-}
-
-function normalizeEquipmentEvidence(value: unknown) {
-  const allowedSources = new Set(["cebia", "photo", "document"]);
-  const allowedItems = new Map(
-    equipmentItems.map((item) => [item.toLocaleLowerCase("cs"), item])
-  );
-  const seen = new Set<string>();
-
-  return (Array.isArray(value) ? value : [])
-    .map((entry) => {
-      const item = entry && typeof entry === "object"
-        ? entry as Record<string, unknown>
-        : {};
-      const name = allowedItems.get(text(item.name, 100).toLocaleLowerCase("cs")) || "";
-      const source = text(item.source, 20).toLowerCase();
-      return {
-        name,
-        source,
-        confidence: numberBetweenZeroAndOne(item.confidence),
-        note: text(item.note, 240),
-      };
-    })
-    .filter((item) => {
-      if (!item.name || !allowedSources.has(item.source) || item.confidence < 0.7) {
-        return false;
-      }
-      const key = item.name.toLocaleLowerCase("cs");
-      if (seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    });
 }
 
 function normalizeReferences(value: unknown) {
@@ -292,6 +248,7 @@ Deno.serve(async (req) => {
       technicalCardPhotos = [],
       cebiaFiles = [],
       vehiclePhotos = [],
+      equipmentOnly = false,
     } =
       await req.json();
 
@@ -413,17 +370,7 @@ Výbava:
 - source = "cebia" pro údaj výslovně uvedený v CEBIA, "photo" pro prvek jasně viditelný na fotografii vozu a "document" pro jiný doklad.
 - confidence musí být 0 až 1. Za potvrzenou považuj jen hodnotu alespoň 0.7.
 - Z fotografie uznej jen prvek, který je skutečně vidět (např. panoramatická střecha, volič automatu, tlačítka adaptivního tempomatu, LED světlomet, panel automatické klimatizace). Neodvozuj výbavu pouze z modelu.
-- Používej jen tyto přesné názvy, pokud jsou v reportu nebo na fotografii jasně doložené:
-ABS, Adaptivní tempomat, Airbagy, Alarm, Android Auto, Apple CarPlay,
-Asistent jízdy v pruzích, Automatická převodovka, Automatická klimatizace, Bezklíčové odemykání,
-Bezklíčové startování, Bluetooth, Couvací kamera, Digitální kokpit,
-Elektrická sedadla, Elektrická zrcátka, Elektrické víko kufru, ESP,
-Head-up display, Hlídání mrtvého úhlu, Isofix, Kožené sedačky,
-LED světlomety, Matrix LED, Multifunkční volant, Navigace,
-Nezávislé topení, Panoramatická střecha, Parkovací senzory přední,
-Parkovací senzory zadní, Prémiové audio, Sedačky s pamětí,
-Tažné zařízení, Tempomat, Vyhřívaná sedadla, Vyhřívaný volant,
-Vzduchový podvozek.
+${equipmentExtractionInstructions()}
 
 Pravidla:
 - Nevyplňuj aktuální km do technicalParams.
@@ -437,6 +384,8 @@ ${JSON.stringify(vehicleContext, null, 2)}
 `,
       },
     ];
+
+    if (equipmentOnly) userContent.push({ type: "input_text", text: "Režim pouze výbava: nevytvářej odhad výbavového stupně ani údaje historie. Soustřeď se na doložené equipmentEvidence a doslovnou vehicleSpecification." });
 
     for (const fileId of uploadedPdfFileIds) {
       userContent.push({
@@ -533,7 +482,8 @@ ${JSON.stringify(vehicleContext, null, 2)}
       ? parsed.cebiaHistory
       : {};
     const equipmentEvidence = normalizeEquipmentEvidence(
-      technicalParams.equipmentEvidence
+      [...(Array.isArray(technicalParams.equipmentEvidence) ? technicalParams.equipmentEvidence : []),
+        ...(cebiaFiles.length > 0 ? specificationEquipmentEvidence(parsed.vehicleSpecification) : [])]
     );
     const confirmedEquipment = equipmentEvidence.map((item) => item.name);
     const extractedLevel = text(technicalParams.equipmentLevel, 120);
@@ -552,7 +502,7 @@ ${JSON.stringify(vehicleContext, null, 2)}
 
     let comparison = null;
     try {
-      comparison = await compareEquipmentLevel({
+      if (!equipmentOnly) comparison = await compareEquipmentLevel({
         apiKey: OPENAI_API_KEY,
         vehicle: comparisonVehicle,
         candidate,

@@ -2,10 +2,10 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readCebiaEquipment } from "./cebiaEquipment.js";
 
-test("missing CEBIA never starts analysis or changes a vehicle", async () => {
+test("missing sources never start analysis or change a vehicle", async () => {
   let calls = 0;
   await assert.rejects(readCebiaEquipment({
-    car: { id: 1, photos: ["car.jpg"], technicalCardPhotos: ["tp.jpg"] },
+    car: { id: 1, photos: [], technicalCardPhotos: ["tp.jpg"] },
     documents: [{ category: "Technický průkaz", filePath: "tp.pdf" }],
     invoke: async () => { calls++; },
   }), /nahrajte protokol CEBIA/);
@@ -61,4 +61,39 @@ test("returns a useful failure instead of applying a failed analysis", async () 
     car: { id: 1, cebiaFiles: ["https://example.com/cebia.pdf"] },
     invoke: async () => ({ data: { error: "CEBIA se nepodařilo přečíst" } }),
   }), /CEBIA se nepodařilo přečíst/);
+});
+
+test("reads all photos in batches and accepts only sources actually sent", async () => {
+  const photos = Array.from({ length: 25 }, (_, i) => `https://example.com/view-${i}.jpg`);
+  const requests = [];
+  const result = await readCebiaEquipment({
+    car: { id: 1, cebiaFiles: ["https://example.com/cebia.pdf"], photos },
+    invoke: async (_name, { body }) => {
+      requests.push(body);
+      return { data: { technicalParams: { equipmentEvidence: [
+        { name: "USB", source: "photo", confidence: 0.95 },
+        ...(requests.length === 3 ? [{ name: "Navigace", source: "cebia", confidence: 0.95 }] : []),
+      ] } } };
+    },
+  });
+  assert.deepEqual(requests.map((body) => body.vehiclePhotos.length), [12, 12, 1]);
+  assert.deepEqual(requests.flatMap((body) => body.vehiclePhotos), photos);
+  assert.deepEqual(requests.map((body) => body.cebiaFiles.length), [1, 0, 0]);
+  assert.equal(requests.every((body) => body.equipmentOnly), true);
+  assert.equal(result.addedCount, 1);
+  assert.equal(result.car.equipment.USB, true);
+  assert.equal(result.car.equipment.Navigace, undefined);
+});
+
+test("supports photos without a CEBIA report", async () => {
+  const result = await readCebiaEquipment({
+    car: { id: 1, photos: ["https://example.com/interior.jpg"] },
+    invoke: async () => ({ data: { technicalParams: { equipmentEvidence: [
+      { name: "Automatická převodovka", source: "photo", confidence: 0.95, note: "Fotografie 1: čitelný volič P R N D" },
+      { name: "ABS", source: "cebia", confidence: 0.95 },
+    ] } } }),
+  });
+  assert.equal(result.addedCount, 1);
+  assert.equal(result.car.equipment["Automatická převodovka"], true);
+  assert.equal(result.car.equipment.ABS, undefined);
 });

@@ -42,13 +42,13 @@ export default function VehicleEquipment({ selectedCar, updateCar, moduleContent
       });
       if (task !== taskRef.current) return;
       if (!result.addedCount) {
-        setFillStatus("CEBIA neobsahuje další potvrzené položky k doplnění. Ručně zadaná výbava zůstává zachována.");
+        setFillStatus("V podkladech nejsou další potvrzené položky k doplnění. Ručně zadaná výbava zůstává zachována.");
         return;
       }
       const saved = await updateCar(result.car);
       if (task !== taskRef.current) return;
       if (saved === false) throw new Error("Výbavu se nepodařilo uložit. Zkuste to znovu.");
-      setFillStatus(`Doplněno položek výbavy z CEBIA: ${result.addedCount}. Výsledek prosím zkontrolujte.`);
+      setFillStatus(`Doplněno položek výbavy z CEBIA a fotografií: ${result.addedCount}. Výsledek prosím zkontrolujte.`);
     } catch (error) {
       if (task === taskRef.current) setFillStatus(error instanceof Error ? error.message : "Výbavu se nepodařilo doplnit.");
     } finally {
@@ -61,9 +61,10 @@ export default function VehicleEquipment({ selectedCar, updateCar, moduleContent
     <div className="card decision vehicleEquipment" ref={moduleContentRef}>
       <h2>Výbava vozu</h2>
       <button type="button" className="primary" onClick={fillEquipment} disabled={filling || vehicleDocumentsLoading}>
-        {filling ? "Načítám výbavu z CEBIA…" : "Automaticky doplnit výbavu z CEBIA"}
+        {filling ? "Načítám výbavu z CEBIA a fotografií…" : "Doplnit výbavu z CEBIA a fotografií"}
       </button>
-      <p>Spustí se až po kliknutí. Doplní doloženou výbavu z nahraného protokolu CEBIA.</p>
+      <p>Spustí se až po kliknutí. Přečte i anglické specifikace v Informacích o vozidle z CEBIA a jasně viditelnou výbavu na fotografiích.</p>
+      <p>Pokud nahraný protokol neobsahuje sekci Informace o vozidle, přiložte i její snímek jako dokument CEBIA.</p>
       <p role="status" aria-live="polite">{fillStatus}</p>
       <fieldset disabled={filling} className="vehicleEquipmentForm">
       <section aria-labelledby="equipmentDetailsTitle">

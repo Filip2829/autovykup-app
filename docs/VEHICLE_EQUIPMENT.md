@@ -14,6 +14,18 @@ Přidává jen odpovídající položky katalogu s důkazem zdroje `cebia` a jis
 
 Ověření tlačítka: 4 testy s napodobenou odpovědí služby, lint, build a browser kontrola zobrazení bez kliknutí. Žádný skutečný CEBIA report ani skutečná karta nebyly v rámci úpravy analyzovány nebo doplněny. Ruční kontrola po výslovném spuštění uživatelem: načíst CEBIA, zkontrolovat počet doplněných položek, obnovení karty a zachování ostatních údajů; bez reportu musí zůstat výbava beze změny.
 
+## Připravené rozšíření o fotografie a anglické specifikace
+
+Rozšíření čeká na výslovný souhlas s předáváním CEBIA dokumentů a fotografií vozu do OpenAI. Automatická kontrola nasazení ho 11. 11. 2026 zamítla; produkční frontend ani Edge Function proto v této etapě nebyly změněny.
+
+Připravené tlačítko „Doplnit výbavu z CEBIA a fotografií“ používá přiložené soubory CEBIA a všechny fotografie z karty, postupně po nejvýše 12 snímcích na požadavek. CEBIA čte pouze v první dávce. Při chybě některé dávky se nic částečně neukládá. Přijímá pouze důkazy odpovídající skutečně předanému zdroji a zachovává ručně vyplněné/odškrtnuté položky.
+
+Server používá celý současný katalog a cílené instrukce ke čtení všech dodaných stran, zejména tabulek „Informace o vozidle“ a „Soupis výbavy vozidla“. Překládá anglické popisy a převádí doslovné specifikace na výbavu: např. `7-SPEED DUAL CLUTCH AUTOMATIC GEARBOX` na automatickou převodovku a 7 stupňů; `FWD` nepřevádí na 4×4. Kódy jako DW5007 a EA3 nejsou důkazem konkrétního prvku. Sekce existující jen na webu CEBIA se sama nestahuje: pokud chybí v PDF, uživatel musí přiložit její snímek jako CEBIA dokument.
+
+Fotografie dokládají pouze jasně viditelné prvky; neurčují se z nich neviditelné funkce podle typu vozu. Ke každému důkazu se ukládá zdroj a stručný popis. Režim `equipmentOnly` nevytváří webové porovnání výbavových stupňů. JWT ověření funkce zůstává zapnuté.
+
+Ověřeno 10 testy (včetně skutečného handleru s nahrazenou HTTP odpovědí), lintem, produkčním buildem, smoke testem zabalené funkce bez sítě a kontrolou UI bez stisknutí tlačítka. Testovací příkaz: `node --experimental-strip-types --test src/services/cebiaEquipment.test.js supabase/functions/_shared/vehicleEquipmentEvidence.test.js`. Testy neskenovaly skutečné dokumenty ani neupravovaly karty vozidel.
+
 ## Kontrola
 
 1. Otevřít Výbavu vozu; vyhledat navigaci a ověřit jednu společnou volbu. Změnit zaškrtnutí a znovu načíst kartu.
