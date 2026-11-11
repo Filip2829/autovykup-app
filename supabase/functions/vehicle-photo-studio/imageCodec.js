@@ -3,6 +3,8 @@ import { PNG } from 'pngjs';
 import { Buffer } from 'node:buffer';
 import { makePlateLogo, paintPlateLogos, validatePlates } from '../../../src/photoStudio/plates.js';
 import { compositeSourcePixels } from '../../../src/photoStudio/subjectMask.js';
+import { floorContactShadow, placeOriginalVehicle } from '../../../src/photoStudio/vehiclePlacement.js';
+import { neutralizeInteriorViews } from './interiorWindows.js';
 
 function decodeStudioPng(bytes) {
   const buffer = Buffer.from(bytes);
@@ -13,7 +15,7 @@ function decodeStudioPng(bytes) {
 }
 
 // No generated pixels are ever used on the protected vehicle.
-export function composeOriginalVehicle(sourceBytes, maskBytes, backgroundBytes, backgroundName) {
+export function composeOriginalVehicle(sourceBytes, maskBytes, backgroundBytes, backgroundName, options = {}) {
   const source = decodeStudioPng(sourceBytes), { width, height } = source;
   const background = new Uint8Array(width * height * 4);
   if (maskBytes) {
@@ -37,7 +39,11 @@ export function composeOriginalVehicle(sourceBytes, maskBytes, backgroundBytes, 
     const mask = new Uint8Array(width * height); let count = 0;
     for (let i = 0; i < mask.length; i++) { mask[i] = decodedMask.data[i * 4] >= 128 ? 255 : 0; if (mask[i]) count++; }
     if (count < mask.length * .03 || count > mask.length * .95) throw new Error('Neplatný rozsah masky vozu.');
-    source.data = compositeSourcePixels(source.data, background, mask);
+    const placed = placeOriginalVehicle(source.data, mask, width, height);
+    const shadow = floorContactShadow(background, placed.profile, width, height);
+    source.data = compositeSourcePixels(placed.pixels, shadow, placed.mask);
+  } else if (options.angle === 'interior') {
+    source.data = neutralizeInteriorViews(source, options.windows || []).data;
   }
   // Uniform input dimensions and perspective are retained. JPEG introduces only
   // the usual encoding differences; vehicle appearance is not synthesized.

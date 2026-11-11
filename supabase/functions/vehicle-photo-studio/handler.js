@@ -1,8 +1,9 @@
-import { backgroundReference, reflectionMode, validatePhoto } from '../../../src/photoStudio/model.js';
+import { backgroundReference, normalizeBackground, reflectionMode, validatePhoto } from '../../../src/photoStudio/model.js';
 import { validatePlates } from '../../../src/photoStudio/plates.js';
 import { detectPlates } from './plateDetection.js';
 import { Buffer } from 'node:buffer';
 import { canUseStandaloneStudio, standaloneStudioRoot } from '../../../src/photoStudio/access.js';
+import { locateInteriorWindows, verifyInteriorViews } from './interiorWindows.js';
 
 export function createPhotoStudioHandler({ db, apiKey, fetchBackground = fetch, fetchVision = fetch, renderMaskedJpeg, cropPlateRegion, checkPlateRegion, composeOriginalVehicle }) {
   const bucket = db.storage.from('car-photos');
@@ -122,7 +123,7 @@ export function createPhotoStudioHandler({ db, apiKey, fetchBackground = fetch, 
       }
       if (action === 'upload') {
         return await withSessionLock(async () => {
-        const file = form.get('file'), angle = form.get('angle'), background = form.get('background');
+        const file = form.get('file'), angle = form.get('angle'), background = normalizeBackground(form.get('background'));
         if (!file || typeof file === 'string') return reply({ error: 'Vyberte fotografii.' }, 400);
         reflectionMode(angle, form.get('reflectionReduction') || 'off');
         const reflectionReduction = 'off';
@@ -134,7 +135,7 @@ export function createPhotoStudioHandler({ db, apiKey, fetchBackground = fetch, 
         const existing = await checked(bucket.list(photoFolder, { search: photoSearch, limit: 1000 }));
         if (existing.filter(e => e.name.endsWith('-meta.json')).length >= 40) return reply({ error: 'Pro jeden vůz lze uložit nejvýše 40 fotografií.' }, 400);
         const id = crypto.randomUUID();
-        const item = { id, angle, background, reflectionReduction, mime: file.type, subjectVersion: 1, ready: false, approved: false, createdAt: new Date().toISOString() };
+        const item = { id, angle, background, reflectionReduction, mime: file.type, subjectVersion: 1, compositionVersion: 2, ready: false, approved: false, createdAt: new Date().toISOString() };
         await checked(bucket.upload(pathFor(id, 'original'), file, { contentType: file.type }));
         try {
           await checked(bucket.upload(pathFor(id, 'source.png'), source, { contentType: 'image/png' }));
@@ -201,14 +202,22 @@ export function createPhotoStudioHandler({ db, apiKey, fetchBackground = fetch, 
           if (image.size > 12 * 1024 * 1024) throw new Error('Předloha je příliš velká.');
           backgroundBytes = new Uint8Array(await image.arrayBuffer());
         }
-        const bytes = await composeOriginalVehicle(new Uint8Array(await source.arrayBuffer()), mask ? new Uint8Array(await mask.arrayBuffer()) : null, backgroundBytes, item.background);
+        const sourceBytes = new Uint8Array(await source.arrayBuffer());
+        const sourceBase64 = item.angle === 'interior' ? Buffer.from(sourceBytes).toString('base64') : '';
+        const windows = item.angle === 'interior' ? await locateInteriorWindows(sourceBase64, apiKey, fetchVision) : [];
+        const bytes = await composeOriginalVehicle(sourceBytes, mask ? new Uint8Array(await mask.arrayBuffer()) : null, backgroundBytes, item.background, { angle: item.angle, windows });
+        if (item.angle === 'interior') await verifyInteriorViews(sourceBase64, Buffer.from(bytes).toString('base64'), apiKey, fetchVision);
+        item.background = normalizeBackground(item.background);
+        item.compositionVersion = 2;
+        item.interiorViewsNeutralized = item.angle === 'interior';
         // Persist the source-pixel composite before plate masking for retries.
         await checked(bucket.upload(pathFor(id, 'base.jpg'), bytes, { contentType: 'image/jpeg', upsert: true }));
         return await finishPhoto(item, bytes, await locatePlates(Buffer.from(bytes).toString('base64')));
       } finally { await bucket.remove([lockPath]); }
     } catch (error) {
-      const known = /Použijte JPG|Fotografie může|Neplatný pohled|Neplatný režim redukce/.test(error.message || '');
-      return reply({ error: known ? error.message : 'Operace se nepodařila. Obnovte seznam a zkuste ji znovu.' }, known ? 400 : 500);
+      const known = /Použijte JPG|Fotografie může|Neplatný pohled|Neplatné pozadí|Neplatný režim redukce/.test(error.message || '');
+      const interiorError = /výhled|Výhled|interiéru/.test(error.message || '');
+      return reply({ error: known || interiorError ? error.message : 'Operace se nepodařila. Obnovte seznam a zkuste ji znovu.' }, known ? 400 : interiorError ? 422 : 500);
     }
   };
 }

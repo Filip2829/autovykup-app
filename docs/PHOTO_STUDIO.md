@@ -1,5 +1,21 @@
 # Fotostudio – první verze
 
+## Aktuální showroom a interiéry (11. 11. 2026)
+
+V nabídce zůstává pouze Opportunity Showroom. Pět ostatních rastrových pozadí bylo odstraněno ze statických souborů; neutrální bílé/šedé varianty již nejsou volitelné. Starší klíče API se mapují na showroom, aby starší otevřený klient nedokázal znovu vybrat jiné pozadí. Hotové historické fotografie se nemění.
+
+Showroomový obrázek v `public/photo-studio/opportunity-showroom.png` byl upraven vestavěným ImageGen: přesun stejné cedule níže, zachování místnosti, světel a dlažby. Cedule je celá pod horními 15 % obrazu, takže zůstává v přiloženém typu ořezu. Prompt je uložen v `docs/photo-studio-background-prompts.json`.
+
+Nové exteriéry používají `compositionVersion: 2`. Výřez vozu se jako celek rovnoměrně zmenší a posune podle svého obrysu: nejvýše 86 % šířky a 58 % výšky snímku, spodní obrys na 89 % výšky. Horní část stěny zůstává pro ceduli. Poměr stran snímku i proporce a úhel vozu zůstávají zachované; mění se jeho velikost a umístění v záběru. Kontaktní stín vychází ze spodního profilu výřezu, takže respektuje rozdílnou výšku kontaktů pneumatik u šikmých pohledů. Stín se kreslí pouze do pozadí; znovu vložené chráněné pixely vozu se nepřebarvují.
+
+U pohledu Interiér server pomocí stávajícího gpt-4.1 rozpozná pouze oblasti výhledu ven přes skla nebo otevřené dveře. Každá oblast má ochranné výluky pro zrcátka, sloupky a ostatní vybavení; přijme se pouze jistota alespoň 0,95 a validní geometrie. Výhled se vyplní neprůhlednou teplou světlou plochou podobnou přiloženým ukázkám. Zbytek interiéru zůstává původní. Nejde o generativní rekonstrukci kabiny. Druhé porovnání původního a upraveného snímku vyžaduje zachování kabiny a zakrytí výhledu; při selhání se základ ani hotový výsledek neuloží a schválení není možné. Zpracování interiéru přidává dva obrazové požadavky na stávající OpenAI API. Detail / poškození tyto úpravy neprovádí.
+
+Ověření: `node --test src/photoStudio/photoStudio.test.js src/photoStudio/subjectMask.test.js src/photoStudio/showroomComposition.test.js`, lint a izolovaný produkční build. Testy zahrnují obrys a stín pro různé proporce pohledů, zachování zdrojových barev, přesné zachování pixelů palubní desky a zrcátka mimo výhled, zamítnutí nejisté geometrie i neúspěšné výsledné kontroly a pozici cedule. Odpovědi obrazové analýzy interiéru jsou v automatických testech simulované; přesnost rozpoznání libovolného skutečného interiéru nelze garantovat.
+
+Ruční checklist: obnovit aplikaci; ověřit jedinou showroomovou kartu na desktopu i 390 px; nahrát přední, boční a šikmý pohled a zkontrolovat pneumatiky na podlaze, proporce a ceduli po ořezu. Nahrát interiér se zřetelným výhledem ven, zkontrolovat všechna skla, zrcátka, sloupky, displeje a potahy. Potvrdit zakrytí SPZ a exportovat ZIP. Při nejistotě musí zůstat originál a nezpřístupnit se schválení výsledku. Starší snímky je pro nové zpracování třeba znovu nahrát. SQL ani změna oprávnění nejsou potřeba.
+
+Následující části popisují původní zavádění jednotlivých funkcí; pro výběr pozadí, kompozici a úpravy interiéru platí aktuální postup výše.
+
 ## Samostatné Fotostudio v rozcestníku
 
 Rozcestník → Fotostudio zpřístupňuje stejné generování a export bez založení karty výkupu. Uživatel vytvoří pojmenovanou sadu (model/VIN/interní číslo), vrací se k ní a používá společnou komponentu `PhotoStudio`. Výchozí pozadí je „Opportunity · tmavá dlažba“ (`public/photo-studio/opportunity-dark-tiles.png`): světlá stěna, firemní označení a antracitová dlažba. Původní pozadí jsou nadále dostupná u sad i vozů.

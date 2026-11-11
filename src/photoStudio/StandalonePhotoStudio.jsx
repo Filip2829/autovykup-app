@@ -42,12 +42,12 @@ export default function StandalonePhotoStudio({ onBack }) {
   if (selected) return <section>
     <button type="button" className="back bigBack" onClick={() => setSelected(null)}>← Zpět na moje sady fotografií</button>
     <div className="studioStandaloneHeading"><h2>{selected.label}</h2><p>Samostatná sada fotografií · bez vazby na evidenci výkupů</p></div>
-    <PhotoStudio key={selected.id} carId={`session:${selected.id}`} carName={selected.label} initialBackground="opportunityDarkTiles" />
+    <PhotoStudio key={selected.id} carId={`session:${selected.id}`} carName={selected.label} />
   </section>;
   return <section>
     <button type="button" className="back bigBack" onClick={onBack}>← Zpět na rozcestník</button>
     <div className="card decision">
-      <div className="studioHeader"><div><p className="label">NOVÉ I OJETÉ VOZY</p><h2><Camera size={24} /> Samostatné Fotostudio</h2><p>Nahrajte fotografie, vyberte pozadí a exportujte připravenou inzerci. Karta výkupu není potřeba.</p></div></div>
+      <div className="studioHeader"><div><p className="label">NOVÉ I OJETÉ VOZY</p><h2><Camera size={24} /> Samostatné Fotostudio</h2><p>Nahrajte fotografie do Opportunity Showroom a exportujte připravenou inzerci. Karta výkupu není potřeba.</p></div></div>
       <form className="studioSessionForm" onSubmit={createSession}>
         <label htmlFor="studio-session-label">Nová sada fotografií<input id="studio-session-label" value={label} onChange={e => setLabel(e.target.value)} maxLength={100} placeholder="Např. Renault Austral · VIN / interní číslo" required disabled={saving || loading} /></label>
         <button type="submit" className="primary" disabled={saving || loading || !label.trim()}><Plus size={18} /> {saving ? 'Ukládám…' : 'Vytvořit sadu'}</button>

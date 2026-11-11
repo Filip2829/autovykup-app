@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Camera, Download, RefreshCw, Sparkles, Trash2 } from 'lucide-react';
-import { angles, backgrounds, backgroundOptions, canExportPhoto, needsPlateUpdate, exportName, validatePhoto } from './model';
+import { angles, backgrounds, backgroundOptions, showroomBackground, canExportPhoto, needsPlateUpdate, exportName, validatePhoto } from './model';
 import { studioRequest } from './api';
 import { prepareStudioSubject } from './prepareSubject.js';
 import { makeZip } from './zip';
@@ -13,10 +13,10 @@ function download(blob, filename) {
   a.href = url; a.download = filename; a.click();
   setTimeout(() => URL.revokeObjectURL(url), 30000);
 }
-export default function PhotoStudio({ carId, carName, initialBackground = 'opportunityWhite' }) {
+export default function PhotoStudio({ carId, carName }) {
   const [items, setItems] = useState([]);
   const [angle, setAngle] = useState('frontLeft');
-  const [background, setBackground] = useState(initialBackground);
+  const background = showroomBackground;
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
   const [progress, setProgress] = useState('');
@@ -134,19 +134,19 @@ export default function PhotoStudio({ carId, carName, initialBackground = 'oppor
     <div className="studioSteps"><span>1. Nahrajte fotografie</span><span>2. Automaticky vyměníme pozadí</span><span>3. Zkontrolujte a exportujte</span></div>
     <div className="studioControls">
       <label>Pohled na nahrávaných fotkách<select value={angle} onChange={e => setAngle(e.target.value)} disabled={busy}>{Object.entries(angles).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label>
-      <label>Jednotné pozadí<select value={background} onChange={e => setBackground(e.target.value)} disabled={busy}>{Object.entries(backgrounds).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label>
+      <div className="studioFixedBackground"><span>Jednotné pozadí</span><strong>Opportunity Showroom</strong></div>
     </div>
     <fieldset className="studioBackgrounds" disabled={busy || loading}>
-      <legend>Vyberte vzhled fotografií</legend>
-      <div className="studioBackgroundGrid">{Object.entries(backgroundOptions).map(([key, option]) => <label className="studioBackgroundOption" data-selected={background === key} key={key}>
-        {option.image ? <img src={option.image} alt={`Pozadí ${option.label}`} loading="lazy" /> : <span className={`studioNeutralPreview studioNeutralPreview-${key}`} aria-hidden="true" />}
-        <span className="studioBackgroundCaption"><input type="radio" name={`studio-background-${carId}`} value={key} checked={background === key} onChange={() => setBackground(key)} /><strong>{option.label}</strong><small>{option.description}</small></span>
-      </label>)}</div>
+      <legend>Pozadí fotografií</legend>
+      <div className="studioBackgroundGrid"><div className="studioBackgroundOption" data-selected="true">
+        <img src={backgroundOptions[background].image} alt="Opportunity Showroom s níže umístěným logem" loading="lazy" />
+        <span className="studioBackgroundCaption"><strong>Opportunity Showroom</strong><small>Jednotné pozadí a přirozené usazení vozu na podlahu</small></span>
+      </div></div>
     </fieldset>
-    <p className="studioHint">Výběr platí pro nově nahrávané fotografie. Vůz automaticky oddělíme a vložíme do vybraného pozadí. Zachováme původní proporce, úhel, barvu, kola, detaily i poškození. Interiéry a detaily zůstanou v původním prostředí.</p>
+    <p className="studioHint">Vůz automaticky usadíme na podlahu showroomu a doplníme kontaktní stín. Zachováme jeho proporce, úhel, barvu, kola, detaily i poškození. U interiéru zakryjeme výhled ven neutrální světlou plochou; vybavení kabiny zůstane původní. Detaily poškození se nepřekreslují.</p>
     {backgroundOptions[background].image && <a className="studioBackgroundLink" href={backgroundOptions[background].image} target="_blank" rel="noreferrer">Zobrazit vybrané pozadí v plné velikosti ↗</a>}
     <label className={`studioUpload ${busy || loading ? 'studioDisabled' : ''}`}><Sparkles size={28} /><strong>Nahrát a automaticky upravit</strong><span>JPG, PNG nebo WebP · nejvýše 12 MB na fotku</span><input aria-label="Nahrát fotografie pro inzerci" type="file" multiple accept="image/jpeg,image/png,image/webp" disabled={busy || loading} onChange={upload} /></label>
-    <p className="studioHint">Nahrajte společně snímky stejného pohledu; pro další pohled změňte výběr. Zachováme celý záběr a poměr stran fotografie. Chybějící pohledy dofoťte. Při prvním použití se stáhne model pro automatické oddělení pozadí.</p>
+    <p className="studioHint">Nahrajte společně snímky stejného pohledu; pro další pohled změňte výběr. Vůz umisťujeme jako celek bez změny jeho proporcí a zachováváme poměr stran fotografie. Chybějící pohledy dofoťte. Při prvním použití se stáhne model pro automatické oddělení pozadí.</p>
     <div className="studioChecklist">{Object.entries(angles).slice(0, 8).map(([key, label]) => <span className={items.some(p => p.angle === key && p.ready) ? 'studioCaptured' : ''} key={key}>{items.some(p => p.angle === key && p.ready) ? '✓' : '○'} {label}</span>)}</div>
     <p className="studioHint">Před exportem porovnejte výsledek s originálem, zejména obrys zrcátek, antény a pneumatik. Automatický výřez může vyžadovat jiný snímek. Starší AI výsledky se touto změnou nepřepočítávají. Originály se nepřepisují.</p>
     <p className="studioHint">SPZ se rozpoznají a automaticky překryjí logem Opportunity už při generování. Zakrytí je součástí uloženého JPG. Před exportem zkontrolujte výsledek; pokud se rozpoznání nepodaří, zopakujte jej nebo ručně označte rohy SPZ.</p>
@@ -157,7 +157,7 @@ export default function PhotoStudio({ carId, carName, initialBackground = 'oppor
     {!loading && !items.length && <div className="studioEmpty">Fotostudio pro {carName || 'tento vůz'} je připravené. Začněte předním pohledem zleva.</div>}
     <div className="studioGrid">{items.map((item, index) => <article className="studioPhoto" key={item.id}>
       <PlatePhoto item={item} original={originals} label={angles[item.angle]} />
-      <div className="studioPhotoBody"><strong>{index + 1}. {angles[item.angle]}</strong><small>{backgrounds[item.background]} · {item.approved ? 'Schváleno' : item.ready ? 'Ke kontrole' : 'Čeká na úpravu'}</small>
+      <div className="studioPhotoBody"><strong>{index + 1}. {angles[item.angle]}</strong><small>{backgrounds[item.background] || 'Dřívější pozadí'} · {item.approved ? 'Schváleno' : item.ready ? 'Ke kontrole' : 'Čeká na úpravu'}</small>
         {item.ready && <small>{item.subjectVersion === 1 ? 'Původní vůz · bez generativního překreslení' : 'Starší AI úprava · vzhled vozu porovnejte s originálem'}</small>}
         {item.reflectionReduction === 'gentle' && <small>Jemná redukce odrazů okolí</small>}
         {item.ready && <small>{item.plateVerified ? (item.plateStatus === 'automatic' ? '✓ SPZ automaticky zakryta' : item.plateStatus === 'not-visible' ? '✓ SPZ není na snímku viditelná' : '✓ Zakrytí SPZ připraveno') : 'SPZ se nepodařilo spolehlivě rozpoznat. Zopakujte zakrytí nebo označte rohy ručně.'}</small>}

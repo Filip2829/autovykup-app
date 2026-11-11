@@ -31,7 +31,7 @@ test('ZIP contains valid CRC32, directory and UTF-8 filenames', async () => {
   assert.equal(v.getUint32(central, true), 0x02014b50);
   assert.equal(v.getUint16(6, true), 0x800);
 });
-function fixture({ authenticated = true, staff = true, sales = false, userId = 'staff-id', objects: sharedObjects, failAi = false, failBackground = false, failRemove = false, failRenderOnce = false, detection = 'located', actualRender = false, actualComposite = false, imageBytes = new TextEncoder().encode('image bytes') } = {}) {
+function fixture({ authenticated = true, staff = true, sales = false, userId = 'staff-id', objects: sharedObjects, failAi = false, failBackground = false, failRemove = false, failRenderOnce = false, detection = 'located', actualRender = false, actualComposite = false, interiorCheck = true, windowResult = { status: 'none', confidence: 1, regions: [] }, imageBytes = new TextEncoder().encode('image bytes') } = {}) {
   const objects = sharedObjects || new Map(); let calls = 0, carReads = 0, removeFailure = failRemove; const composites = [], backgroundRequests = [], renders = [];
   const bucket = {
     upload: async (path, data, options = {}) => {
@@ -45,9 +45,9 @@ function fixture({ authenticated = true, staff = true, sales = false, userId = '
   };
   const db = { storage: { from: () => bucket }, auth: { getUser: async () => ({ data: { user: authenticated ? { id: userId, app_metadata: { photo_studio_access: sales } } : null } }) }, from: table => { if (table === 'cars') carReads++; return { select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: table === 'cars' ? { id: 1 } : staff ? { user_id: userId } : null }) }) }) }; } };
   const handler = createPhotoStudioHandler({ db, apiKey: 'test',
-    composeOriginalVehicle: async (source, mask, background, backgroundName) => { calls++; composites.push({ source, mask, background, backgroundName }); if (failAi) throw new Error('compositing unavailable'); return actualComposite ? composeOriginalVehicle(source, mask, background, backgroundName) : imageBytes; },
-    fetchBackground: async url => { backgroundRequests.push(url); const data = url.endsWith('opportunity-logo.png') ? readFileSync(new URL('../../public/photo-studio/opportunity-logo.png', import.meta.url)) : 'background'; return new Response(new Blob([data], { type: 'image/png' }), { status: failBackground ? 404 : 200 }); },
-    fetchVision: async () => new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify({ status: detection, plates: detection === 'located' ? [samplePlate] : [] }) } }] })),
+    composeOriginalVehicle: async (source, mask, background, backgroundName, options) => { calls++; composites.push({ source, mask, background, backgroundName, options }); if (failAi) throw new Error('compositing unavailable'); return actualComposite ? composeOriginalVehicle(source, mask, background, backgroundName, options) : imageBytes; },
+    fetchBackground: async url => { backgroundRequests.push(url); const data = url.endsWith('opportunity-logo.png') ? readFileSync(new URL('../../public/photo-studio/opportunity-logo.png', import.meta.url)) : PNG.sync.write(Object.assign(new PNG({ width: 32, height: 32 }), { data: Buffer.alloc(32 * 32 * 4, 255) })); return new Response(new Blob([data], { type: 'image/png' }), { status: failBackground ? 404 : 200 }); },
+    fetchVision: async (_, options) => { const name = JSON.parse(options.body).response_format.json_schema.name; const content = name === 'interior_exterior_views' ? windowResult : name === 'interior_view_check' ? { cabinUnchanged: interiorCheck, exteriorHidden: interiorCheck } : { status: detection, plates: detection === 'located' ? [samplePlate] : [] }; return new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify(content) } }] })); },
     cropPlateRegion: base64 => ({ base64, left: 0, top: 0, width: 1, height: 1 }),
     checkPlateRegion: () => true,
     renderMaskedJpeg: (bytes, plates, logo) => { renders.push({ bytes, plates }); if (failRenderOnce && renders.length === 1) throw new Error('temporary render failure'); return actualRender ? renderMaskedJpeg(bytes, plates, logo) : new TextEncoder().encode('masked result'); },
@@ -71,6 +71,24 @@ test('missing protected input fails closed without a generative fallback or stor
   assert.equal(response.status, 400);
   assert.equal(f.calls(), 0);
   assert.equal(f.objects.size, 0);
+});
+
+test('interior verification failure never persists or approves an altered cabin', async () => {
+  const f = fixture({ interiorCheck: false });
+  const { item } = await (await f.request('upload', { file: new File(['original-cabin'], 'interior.jpg', { type: 'image/jpeg' }), angle: 'interior', background: 'opportunityShowroom' })).json();
+  const result = await f.request('process', { id: item.id });
+  assert.equal(result.status, 422);
+  assert.equal(await f.objects.get(`photo-studio/1-${item.id}-original`).text(), 'original-cabin');
+  assert.equal(f.objects.has(`photo-studio/1-${item.id}-base.jpg`), false);
+  assert.equal(f.objects.has(`photo-studio/1-${item.id}-result.jpg`), false);
+  assert.equal((await f.request('approve', { id: item.id, approved: 'true' })).status, 400);
+});
+
+test('uncertain interior window geometry stops before compositing', async () => {
+  const f = fixture({ windowResult: { status: 'uncertain', confidence: .4, regions: [] } });
+  const { item } = await (await f.request('upload', { file: new File(['original'], 'cabin.jpg', { type: 'image/jpeg' }), angle: 'interior', background: 'opportunityShowroom' })).json();
+  assert.equal((await f.request('process', { id: item.id })).status, 422);
+  assert.equal(f.calls(), 0);
 });
 
 test('real source PNG and mask survive upload, composition, physical plate masking and export approval', async () => {
@@ -115,8 +133,8 @@ test('upload → process → approve → reload persists originals and results, 
 });
 const samplePlate = [{ x: .4, y: .6 }, { x: .6, y: .62 }, { x: .59, y: .67 }, { x: .4, y: .65 }];
 test('presets composite the original source; interiors need no mask or background', async () => {
-  assert.equal(Object.keys(backgrounds).length, 8);
-  for (const [angle, background, count] of [['frontLeft', 'opportunityGraphite', 2], ['frontLeft', 'opportunityWorkshop', 2], ['front', 'opportunityDarkTiles', 2], ['interior', 'opportunityWhite', 1], ['detail', 'opportunityShowroom', 1], ['front', 'gray', 1]]) {
+  assert.equal(Object.keys(backgrounds).length, 1);
+  for (const [angle, background, count] of [['frontLeft', 'opportunityGraphite', 2], ['frontLeft', 'opportunityWorkshop', 2], ['front', 'opportunityDarkTiles', 2], ['interior', 'opportunityWhite', 1], ['detail', 'opportunityShowroom', 1], ['front', 'gray', 2]]) {
     const f = fixture();
     const { item } = await (await f.request('upload', { file: new File(['original'], 'car.jpg', { type: 'image/jpeg' }), angle, background })).json();
     assert.equal((await f.request('process', { id: item.id })).status, 200);
@@ -124,12 +142,12 @@ test('presets composite the original source; interiors need no mask or backgroun
     assert.equal(Boolean(f.composites[0].mask), !['interior', 'detail'].includes(angle));
     assert.equal(new TextDecoder().decode(f.composites[0].source), 'source');
     assert.equal(f.backgroundRequests.filter(url => !url.endsWith('opportunity-logo.png')).length, count - 1);
-    assert.equal(f.composites[0].backgroundName, background);
+    assert.equal(f.composites[0].backgroundName, 'opportunityShowroom');
   }
-  assert.equal(backgroundReference('front', 'opportunityWhite'), '/photo-studio/opportunity-white.png');
+  assert.equal(backgroundReference('front', 'opportunityWhite'), '/photo-studio/opportunity-showroom.png');
   assert.equal(backgroundReference('interior', 'opportunityWhite'), null);
   assert.throws(() => backgroundReference('front', 'https://evil.test/image.png'));
-  assert.equal(backgroundReference('frontLeft', 'opportunityWorkshop'), '/photo-studio/opportunity-workshop.png');
+  assert.equal(backgroundReference('frontLeft', 'opportunityWorkshop'), '/photo-studio/opportunity-showroom.png');
 });
 test('missing reference blocks AI edit, preserves original and releases lock', async () => {
   const f = fixture({ failBackground: true });
