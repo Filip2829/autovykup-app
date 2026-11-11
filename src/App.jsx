@@ -2763,7 +2763,7 @@ export default function App() {
           )}
 
           {module === "equipment" && (
-            <VehicleEquipment key={selectedCar.id} selectedCar={selectedCar} updateCar={updateCar} moduleContentRef={moduleContentRef} />
+            <VehicleEquipment key={selectedCar.id} selectedCar={selectedCar} updateCar={updateCar} moduleContentRef={moduleContentRef} vehicleDocuments={vehicleDocuments} vehicleDocumentsLoading={vehicleDocumentsLoading} />
           )}
 
           {module === "notes" && (

@@ -6,6 +6,14 @@ Samostatná pole se ukládají přes existující `updateCar` do JSON `technical
 
 Záruka z nových polí má přednost před starším textem záruky a promítá se do profilu i prodejní karty. Klíče, kola, záruku a rozpoznané skutečnosti z poznámek používá také stručný text inzerce. Výslovné „Ne“ u klíčů a kol má přednost před staršími poznámkami.
 
+## Tlačítko doplnění z CEBIA
+
+„Automaticky doplnit výbavu z CEBIA“ spustí analýzu pouze po kliknutí u otevřeného vozu. Používá stávající funkci `analyze-vehicle-technical-data` a předává pouze identifikaci vozu a přiložené CEBIA dokumenty (starší `cebiaFiles` a dokumenty kategorie CEBIA). Neanalyzuje automaticky ostatní vozy, fotky ani jiné dokumenty. Bez CEBIA zobrazí výzvu k nahrání.
+
+Přidává jen odpovídající položky katalogu s důkazem zdroje `cebia` a jistotou alespoň 0,7; nespoléhá na pouhý seznam bez důkazů. Zachovává ručně vyplněnou i výslovně odškrtnutou výbavu, záruku, klíče, kola a poznámky. Během analýzy je formulář uzamčený; odchod z modulu zruší následné použití výsledku. Neprovádí změny technických údajů nebo historie z odpovědi analýzy. Nevyžaduje SQL ani novou Edge Function.
+
+Ověření tlačítka: 4 testy s napodobenou odpovědí služby, lint, build a browser kontrola zobrazení bez kliknutí. Žádný skutečný CEBIA report ani skutečná karta nebyly v rámci úpravy analyzovány nebo doplněny. Ruční kontrola po výslovném spuštění uživatelem: načíst CEBIA, zkontrolovat počet doplněných položek, obnovení karty a zachování ostatních údajů; bez reportu musí zůstat výbava beze změny.
+
 ## Kontrola
 
 1. Otevřít Výbavu vozu; vyhledat navigaci a ověřit jednu společnou volbu. Změnit zaškrtnutí a znovu načíst kartu.

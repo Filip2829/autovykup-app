@@ -10,3 +10,4 @@
 .vehicleEquipmentGroups .checkItem input { flex: 0 0 18px; width: 18px; height: 18px; margin: 0; }
 @media (max-width: 1000px) { .vehicleEquipmentGroups { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 600px) { .vehicleEquipmentGroups, .vehicleEquipmentDetails { grid-template-columns: minmax(0, 1fr); } }
+.vehicleEquipmentForm { border: 0; padding: 0; margin: 0; min-width: 0; }

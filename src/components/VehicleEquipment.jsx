@@ -1,9 +1,16 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { supabase } from "../supabase.js";
+import { readCebiaEquipment } from "../services/cebiaEquipment.js";
 import { buildEquipmentDetailsUpdate, equipmentGroups, equipmentLabels, getEquipmentDetails, normalizeEquipment } from "../utils/vehicleEquipment.js";
 import "./VehicleEquipment.css";
 
-export default function VehicleEquipment({ selectedCar, updateCar, moduleContentRef }) {
+export default function VehicleEquipment({ selectedCar, updateCar, moduleContentRef, vehicleDocuments = [], vehicleDocumentsLoading = false }) {
   const [query, setQuery] = useState("");
+  const [filling, setFilling] = useState(false);
+  const [fillStatus, setFillStatus] = useState("");
+  const taskRef = useRef(0);
+  const busyRef = useRef(false);
+  useEffect(() => () => { taskRef.current += 1; }, []);
   const equipment = normalizeEquipment(selectedCar.equipment);
   const details = getEquipmentDetails(selectedCar);
   const twoKeys = details.twoKeys ?? (selectedCar.checklist?.["Počet klíčů 2x"] === true ? "yes" : "");
@@ -17,9 +24,48 @@ export default function VehicleEquipment({ selectedCar, updateCar, moduleContent
     updateCar(buildEquipmentDetailsUpdate(selectedCar, field, value));
   }
 
+  async function fillEquipment() {
+    if (busyRef.current || vehicleDocumentsLoading) return;
+    busyRef.current = true;
+    const task = ++taskRef.current;
+    setFilling(true);
+    setFillStatus("");
+    try {
+      const result = await readCebiaEquipment({
+        car: selectedCar, documents: vehicleDocuments,
+        invoke: (name, options) => supabase.functions.invoke(name, options),
+        createSignedUrl: async (filePath) => {
+          const { data, error } = await supabase.storage.from("vehicle-documents").createSignedUrl(filePath, 600);
+          if (error) throw new Error("Dokument CEBIA se nepodařilo načíst. Zkuste to znovu.");
+          return data?.signedUrl || "";
+        },
+      });
+      if (task !== taskRef.current) return;
+      if (!result.addedCount) {
+        setFillStatus("CEBIA neobsahuje další potvrzené položky k doplnění. Ručně zadaná výbava zůstává zachována.");
+        return;
+      }
+      const saved = await updateCar(result.car);
+      if (task !== taskRef.current) return;
+      if (saved === false) throw new Error("Výbavu se nepodařilo uložit. Zkuste to znovu.");
+      setFillStatus(`Doplněno položek výbavy z CEBIA: ${result.addedCount}. Výsledek prosím zkontrolujte.`);
+    } catch (error) {
+      if (task === taskRef.current) setFillStatus(error instanceof Error ? error.message : "Výbavu se nepodařilo doplnit.");
+    } finally {
+      busyRef.current = false;
+      if (task === taskRef.current) setFilling(false);
+    }
+  }
+
   return (
     <div className="card decision vehicleEquipment" ref={moduleContentRef}>
       <h2>Výbava vozu</h2>
+      <button type="button" className="primary" onClick={fillEquipment} disabled={filling || vehicleDocumentsLoading}>
+        {filling ? "Načítám výbavu z CEBIA…" : "Automaticky doplnit výbavu z CEBIA"}
+      </button>
+      <p>Spustí se až po kliknutí. Doplní doloženou výbavu z nahraného protokolu CEBIA.</p>
+      <p role="status" aria-live="polite">{fillStatus}</p>
+      <fieldset disabled={filling} className="vehicleEquipmentForm">
       <section aria-labelledby="equipmentDetailsTitle">
         <h3 id="equipmentDetailsTitle">Klíče, kola a záruka</h3>
         <div className="vehicleEquipmentDetails">
@@ -62,6 +108,7 @@ export default function VehicleEquipment({ selectedCar, updateCar, moduleContent
         ))}
       </div>
       {groups.length === 0 && <p>Žádná výbava neodpovídá hledání.</p>}
+      </fieldset>
     </div>
   );
 }
