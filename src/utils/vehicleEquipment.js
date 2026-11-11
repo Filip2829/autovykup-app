@@ -62,10 +62,30 @@ for (const [alias, key] of Object.entries({
   "Apple Car Play": "Apple CarPlay", "Matrix LED světlomety": "Matrix LED",
   "6x airbag": "6× airbag", "1x airbag": "1× airbag", "2x airbag": "2× airbag", "4x airbag": "4× airbag",
   "8x airbag": "8× airbag", "10x airbag": "10× airbag", "12x airbag": "12× airbag", "14x airbag": "14× airbag",
+  "el. přední okna": "Elektrická přední okna", "el. zadní okna": "Elektrická zadní okna",
+  "elektrické ovládání předních oken": "Elektrická přední okna", "elektrické ovládání zadních oken": "Elektrická zadní okna",
+  "front electric windows": "Elektrická přední okna", "rear electric windows": "Elektrická zadní okna",
+  "front power windows": "Elektrická přední okna", "rear power windows": "Elektrická zadní okna",
+  "Rádio": "Autorádio", "Radio": "Autorádio", "Car radio": "Autorádio",
 })) aliases.set(normalized(alias), key);
 
+export function exclusiveEquipmentGroup(label) {
+  if (/^\d+× airbag$/.test(label)) return "airbagCount";
+  if (/^EURO (?:0|I|II|III|IV|V|VI)$/.test(label)) return "emissions";
+  if (/^\d+ rychlostních stupňů$/.test(label)) return "gearCount";
+  if (["Automatická převodovka", "Manuální převodovka"].includes(label)) return "transmission";
+  return "";
+}
+
 export function canonicalEquipmentLabel(label) {
-  return typeof label === "string" ? aliases.get(normalized(label)) || "" : "";
+  if (typeof label !== "string") return "";
+  const value = normalized(label);
+  const known = aliases.get(value);
+  if (known) return known;
+  const airbags = value.match(/^(1|2|4|6|8|10|12|14)\s*(?:[x×]\s*)?airbag(?:s|ů|y)?$/u);
+  if (airbags) return `${airbags[1]}× airbag`;
+  const euro = value.match(/^euro[\s-]*([0-6])(?:[\s-]?[abcd](?:\d|(?:-(?:temp|isc|fcm|evap))*)?)?$/u);
+  return euro ? `EURO ${["0", "I", "II", "III", "IV", "V", "VI"][Number(euro[1])]}` : "";
 }
 
 export function normalizeEquipment(equipment = {}) {

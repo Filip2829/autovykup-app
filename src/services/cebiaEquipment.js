@@ -1,5 +1,5 @@
 import { buildVehicleAnalysisDocumentUrls, getFunctionErrorDetail } from "../utils/vehicleDocumentAnalysis.js";
-import { canonicalEquipmentLabel, normalizeEquipment } from "../utils/vehicleEquipment.js";
+import { canonicalEquipmentLabel, exclusiveEquipmentGroup, normalizeEquipment } from "../utils/vehicleEquipment.js";
 
 export async function readCebiaEquipment({ car, documents = [], createSignedUrl, invoke }) {
   const cebiaDocuments = documents.filter((document) =>
@@ -44,6 +44,8 @@ export async function readCebiaEquipment({ car, documents = [], createSignedUrl,
     seen.add(label);
     // An explicit manual removal takes precedence over automatic completion.
     if (equipment[label] === false || equipment[label] === true) continue;
+    const group = exclusiveEquipmentGroup(label);
+    if (group && Object.entries(equipment).some(([name, enabled]) => enabled === true && name !== label && exclusiveEquipmentGroup(name) === group)) continue;
     additions.push({ name: label, source: item.source, confidence, note: typeof item.note === "string" ? item.note.slice(0, 240) : "" });
     equipment[label] = true;
   }

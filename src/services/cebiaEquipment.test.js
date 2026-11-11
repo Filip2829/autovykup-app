@@ -97,3 +97,18 @@ test("supports photos without a CEBIA report", async () => {
   assert.equal(result.car.equipment["Automatická převodovka"], true);
   assert.equal(result.car.equipment.ABS, undefined);
 });
+
+test("saves detailed CEBIA equipment with evidence without replacing manual totals", async () => {
+  const result = await readCebiaEquipment({
+    car: { id: 1, cebiaFiles: ["https://example.com/cebia.pdf"], equipment: { "8× airbag": true } },
+    invoke: async () => ({ data: { technicalParams: { equipmentEvidence: [
+      { name: "6 airbags", source: "cebia", confidence: 0.95, note: "CEBIA: 6 airbags" },
+      { name: "EURO 6d-TEMP", source: "cebia", confidence: 0.95, note: "CEBIA: EURO 6d-TEMP" },
+      { name: "el. přední okna", source: "cebia", confidence: 0.95, note: "CEBIA: front and rear electric windows" },
+      { name: "el. zadní okna", source: "cebia", confidence: 0.95, note: "CEBIA: front and rear electric windows" },
+    ] } } }),
+  });
+  assert.equal(result.addedCount, 3);
+  assert.deepEqual(result.car.equipment, { "8× airbag": true, "EURO VI": true, "Elektrická přední okna": true, "Elektrická zadní okna": true });
+  assert.equal(result.car.technicalParams.equipmentEvidence.length, 3);
+});

@@ -26,6 +26,21 @@ Fotografie dokládají pouze jasně viditelné prvky; neurčují se z nich nevid
 
 Ověřeno 10 testy (včetně skutečného handleru s nahrazenou HTTP odpovědí), lintem, produkčním buildem, smoke testem zabalené funkce bez sítě a kontrolou UI bez stisknutí tlačítka. Testovací příkaz: `node --experimental-strip-types --test src/services/cebiaEquipment.test.js supabase/functions/_shared/vehicleEquipmentEvidence.test.js`. Testy neskenovaly skutečné dokumenty ani neupravovaly karty vozidel.
 
+## Podrobné čtení airbagů, oken a emisí
+
+Extrakce kontroluje jednotlivé řádky soupisu a každou skupinu katalogu. Doslovná `vehicleSpecification` nyní obsahuje také `airbagCountText` a `windowsText`. Server z výslovného celkového počtu vytvoří např. `6× airbag`; jednotlivé popisy čelních, bočních a hlavových airbagů nesčítá. Kombinovaný řádek předních a zadních elektrických oken vytvoří dvě samostatné položky. Obecné „electric windows“ bez rozsahu neurčuje obě nápravy. EURO 6, 6b, 6d-TEMP, 6d-ISC-FCM a VI se mapují na katalogové EURO VI; původní znění zůstává v důkazu.
+
+Rozporné počty airbagů, emisní normy, počty stupňů nebo typy převodovky z jedné analýzy se automaticky nepřebírají. Existující zaškrtnutá hodnota se nenahrazuje jinou hodnotou stejné skupiny. Počet airbagů, emisní norma a počet stupňů se nepřijímají ze zdroje `photo`. SQL ani změna UI nejsou potřeba.
+
+Automatické ověření používá simulované odpovědi, včetně volání skutečného handleru: `node --test src/services/cebiaEquipment.test.js src/utils/vehicleEquipment.test.js supabase/functions/_shared/vehicleEquipmentEvidence.test.js`. Skutečný CEBIA report konkrétního vozidla nebyl tímto testem přečten.
+
+Ruční checklist po nasazení:
+
+1. Otevřít vůz s CEBIA dokumentem obsahujícím výslovný počet airbagů, emisní normu a popis oken. V modulu Výbava spustit doplnění.
+2. Porovnat každý nový prvek přímo s řádkem dokumentu. Při společném elektrickém ovládání předních i zadních oken ověřit oba checkboxy; při pouze předních oknech nepřidávat zadní.
+3. Ověřit shodu počtu airbagů a EURO, zachování ručních voleb, klíčů, kol a záruky. Při rozporu s ručně zadanou hodnotou rozhodnout podle dokumentu ručně.
+4. Obnovit kartu a ověřit uloženou výbavu. Opakované spuštění nemá přidávat duplicity.
+
 ## Kontrola
 
 1. Otevřít Výbavu vozu; vyhledat navigaci a ověřit jednu společnou volbu. Změnit zaškrtnutí a znovu načíst kartu.
