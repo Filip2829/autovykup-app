@@ -1,10 +1,10 @@
-import { backgroundReference, editPrompt, reflectionMode, validatePhoto } from '../../../src/photoStudio/model.js';
+import { backgroundReference, reflectionMode, validatePhoto } from '../../../src/photoStudio/model.js';
 import { validatePlates } from '../../../src/photoStudio/plates.js';
 import { detectPlates } from './plateDetection.js';
 import { Buffer } from 'node:buffer';
 import { canUseStandaloneStudio, standaloneStudioRoot } from '../../../src/photoStudio/access.js';
 
-export function createPhotoStudioHandler({ db, apiKey, fetchImage = fetch, fetchBackground = fetch, fetchVision = fetch, renderMaskedJpeg, cropPlateRegion, checkPlateRegion }) {
+export function createPhotoStudioHandler({ db, apiKey, fetchBackground = fetch, fetchVision = fetch, renderMaskedJpeg, cropPlateRegion, checkPlateRegion, composeOriginalVehicle }) {
   const bucket = db.storage.from('car-photos');
   const checked = async (promise) => { const { data, error } = await promise; if (error) throw error; return data; };
   const locatePlates = base64 => detectPlates(base64, apiKey, fetchVision, cropPlateRegion, checkPlateRegion);
@@ -34,7 +34,7 @@ export function createPhotoStudioHandler({ db, apiKey, fetchImage = fetch, fetch
       const reader = req.body?.getReader();
       if (!reader) return reply({ error: 'Chybí data.' }, 400);
       const chunks = []; let length = 0;
-      while (true) { const { value, done } = await reader.read(); if (done) break; length += value.length; if (length > 13 * 1024 * 1024) { await reader.cancel(); return reply({ error: 'Soubor je příliš velký.' }, 413); } chunks.push(value); }
+      while (true) { const { value, done } = await reader.read(); if (done) break; length += value.length; if (length > 32 * 1024 * 1024) { await reader.cancel(); return reply({ error: 'Soubor je příliš velký.' }, 413); } chunks.push(value); }
       const form = await new Response(new Blob(chunks), { headers: { 'Content-Type': req.headers.get('content-type') || '' } }).formData();
       const carId = form.get('carId'), action = form.get('action');
       const standalone = form.get('scope') === 'standalone';
@@ -124,14 +124,23 @@ export function createPhotoStudioHandler({ db, apiKey, fetchImage = fetch, fetch
         return await withSessionLock(async () => {
         const file = form.get('file'), angle = form.get('angle'), background = form.get('background');
         if (!file || typeof file === 'string') return reply({ error: 'Vyberte fotografii.' }, 400);
-        const reflectionReduction = reflectionMode(angle, form.get('reflectionReduction') || 'off');
-        validatePhoto(file); editPrompt(angle, background, reflectionReduction);
+        reflectionMode(angle, form.get('reflectionReduction') || 'off');
+        const reflectionReduction = 'off';
+        validatePhoto(file); backgroundReference(angle, background);
+        const source = form.get('source'), vehicleMask = form.get('vehicleMask');
+        const exterior = angle !== 'interior' && angle !== 'detail';
+        const validPng = (value, max) => value && typeof value !== 'string' && value.type === 'image/png' && value.size > 0 && value.size <= max * 1024 * 1024;
+        if (!validPng(source, 16) || exterior && !validPng(vehicleMask, 2)) return reply({ error: 'Chybí chráněný podklad vozu. Obnovte aplikaci a nahrajte fotografii znovu.' }, 400);
         const existing = await checked(bucket.list(photoFolder, { search: photoSearch, limit: 1000 }));
         if (existing.filter(e => e.name.endsWith('-meta.json')).length >= 40) return reply({ error: 'Pro jeden vůz lze uložit nejvýše 40 fotografií.' }, 400);
         const id = crypto.randomUUID();
-        const item = { id, angle, background, reflectionReduction, mime: file.type, ready: false, approved: false, createdAt: new Date().toISOString() };
+        const item = { id, angle, background, reflectionReduction, mime: file.type, subjectVersion: 1, ready: false, approved: false, createdAt: new Date().toISOString() };
         await checked(bucket.upload(pathFor(id, 'original'), file, { contentType: file.type }));
-        try { await saveItem(item); } catch (e) { await bucket.remove([pathFor(id, 'original')]); throw e; }
+        try {
+          await checked(bucket.upload(pathFor(id, 'source.png'), source, { contentType: 'image/png' }));
+          if (exterior) await checked(bucket.upload(pathFor(id, 'vehicle-mask.png'), vehicleMask, { contentType: 'image/png' }));
+          await saveItem(item);
+        } catch (e) { await bucket.remove(['original', 'source.png', 'vehicle-mask.png'].map(suffix => pathFor(id, suffix))); throw e; }
         return reply({ item: decorate(item) });
         });
       }
@@ -145,7 +154,7 @@ export function createPhotoStudioHandler({ db, apiKey, fetchImage = fetch, fetch
       try {
       if (action === 'delete') {
         // Keep the manifest until asset removal succeeds, so failures remain retryable.
-        await checked(bucket.remove(['original', 'base.jpg', 'result.jpg'].map(suffix => pathFor(id, suffix))));
+        await checked(bucket.remove(['original', 'source.png', 'vehicle-mask.png', 'base.jpg', 'result.jpg'].map(suffix => pathFor(id, suffix))));
         await checked(bucket.remove([pathFor(id, 'meta.json')]));
         return reply({ deletedId: id });
       }
@@ -178,28 +187,24 @@ export function createPhotoStudioHandler({ db, apiKey, fetchImage = fetch, fetch
           if (recoveredBase.error) await checked(bucket.upload(pathFor(id, 'base.jpg'), bytes, { contentType: 'image/jpeg', upsert: true }));
           return await finishPhoto(item, bytes, await locatePlates(Buffer.from(bytes).toString('base64')));
         }
-        const original = await checked(bucket.download(pathFor(id, 'original')));
-        const editingDeadline = AbortSignal.timeout(100000);
-        const aiForm = new FormData();
-        aiForm.set('model', 'gpt-image-1.5'); aiForm.set('image[]', original, `original.${item.mime === 'image/png' ? 'png' : item.mime === 'image/webp' ? 'webp' : 'jpg'}`);
+        if (item.subjectVersion !== 1) return reply({ error: 'Tato fotografie čeká na starší AI úpravu. Nahrajte originál znovu pro zachování původního vozu.' }, 409);
+        const source = await checked(bucket.download(pathFor(id, 'source.png')));
+        const exterior = item.angle !== 'interior' && item.angle !== 'detail';
+        const mask = exterior ? await checked(bucket.download(pathFor(id, 'vehicle-mask.png'))) : null;
+        let backgroundBytes = null;
         const reference = backgroundReference(item.angle, item.background);
         if (reference) {
           // Only server-controlled preset paths are fetched, never URLs from the request.
-          const backdrop = await fetchBackground(`https://autovykup-app.vercel.app${reference}`, { signal: AbortSignal.any([editingDeadline, AbortSignal.timeout(15000)]), redirect: 'error' });
+          const backdrop = await fetchBackground(`https://autovykup-app.vercel.app${reference}`, { signal: AbortSignal.timeout(15000), redirect: 'error' });
           if (!backdrop.ok || !backdrop.headers.get('content-type')?.startsWith('image/png')) return reply({ error: 'Předlohu pozadí se nepodařilo načíst. Zkuste úpravu znovu za chvíli.' }, 502);
           const image = await backdrop.blob();
           if (image.size > 12 * 1024 * 1024) throw new Error('Předloha je příliš velká.');
-          aiForm.append('image[]', image, 'background.png');
+          backgroundBytes = new Uint8Array(await image.arrayBuffer());
         }
-        aiForm.set('prompt', editPrompt(item.angle, item.background, item.reflectionReduction || 'off')); aiForm.set('input_fidelity', 'high'); aiForm.set('quality', 'medium'); aiForm.set('size', '1536x1024'); aiForm.set('output_format', 'jpeg');
-        const response = await fetchImage('https://api.openai.com/v1/images/edits', { method: 'POST', headers: { Authorization: `Bearer ${apiKey}` }, body: aiForm, signal: editingDeadline });
-        if (!response.ok) return reply({ error: response.status === 429 ? 'AI je vytížená nebo je vyčerpaný kredit. Zkuste to později.' : 'AI úprava se nezdařila. Ověřte přístup k obrazovému modelu a kredit OpenAI.' }, 502);
-        const result = await response.json();
-        if (!result.data?.[0]?.b64_json) throw new Error('AI nevrátila fotografii.');
-        const bytes = Uint8Array.from(atob(result.data[0].b64_json), c => c.charCodeAt(0));
-        // Persist the generated base before masking, so retries never pay for generation twice.
+        const bytes = await composeOriginalVehicle(new Uint8Array(await source.arrayBuffer()), mask ? new Uint8Array(await mask.arrayBuffer()) : null, backgroundBytes, item.background);
+        // Persist the source-pixel composite before plate masking for retries.
         await checked(bucket.upload(pathFor(id, 'base.jpg'), bytes, { contentType: 'image/jpeg', upsert: true }));
-        return await finishPhoto(item, bytes, await locatePlates(result.data[0].b64_json));
+        return await finishPhoto(item, bytes, await locatePlates(Buffer.from(bytes).toString('base64')));
       } finally { await bucket.remove([lockPath]); }
     } catch (error) {
       const known = /Použijte JPG|Fotografie může|Neplatný pohled|Neplatný režim redukce/.test(error.message || '');

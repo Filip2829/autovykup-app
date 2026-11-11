@@ -17,6 +17,7 @@
     "bundle:valuation": "node scripts/bundle-valuation.mjs"
   },
   "dependencies": {
+    "@huggingface/transformers": "3.8.1",
     "@supabase/supabase-js": "^2.106.1",
     "lucide-react": "^1.16.0",
     "react": "^19.2.6",

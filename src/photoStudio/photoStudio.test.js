@@ -1,11 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { validatePhoto, editPrompt, reflectionMode, exportName, backgrounds, backgroundReference, needsPlateUpdate, canExportPhoto } from './model.js';
+import { validatePhoto, reflectionMode, exportName, backgrounds, backgroundReference, needsPlateUpdate, canExportPhoto } from './model.js';
 import { validatePlates, paintPlateLogos, makePlateLogo } from './plates.js';
 import { detectPlates } from '../../supabase/functions/vehicle-photo-studio/plateDetection.js';
 import { makeZip } from './zip.js';
 import { createPhotoStudioHandler } from '../../supabase/functions/vehicle-photo-studio/handler.js';
-import { checkPlateRegion, cropPlateRegion, renderMaskedJpeg } from '../../supabase/functions/vehicle-photo-studio/imageCodec.js';
+import { checkPlateRegion, cropPlateRegion, renderMaskedJpeg, composeOriginalVehicle } from '../../supabase/functions/vehicle-photo-studio/imageCodec.js';
 import { PNG } from 'pngjs';
 import { canUseStandaloneStudio } from './access.js';
 import jpeg from 'jpeg-js';
@@ -17,11 +17,8 @@ test('upload rejects unsupported and oversized images', () => {
   assert.throws(() => validatePhoto({ type: 'image/jpeg', size: 13 * 1024 * 1024 }));
   assert.doesNotThrow(() => validatePhoto({ type: 'image/jpeg', size: 100 }));
 });
-test('edits preserve vehicle identity and evidence; reject arbitrary prompt inputs', () => {
-  assert.match(editPrompt('frontLeft', 'gray'), /Never repair/);
-  assert.match(editPrompt('interior', 'white'), /do not replace any background/);
-  assert.match(editPrompt('detail', 'gray'), /do not crop away evidence/);
-  assert.throws(() => editPrompt('invent a vehicle', 'gray'));
+test('catalogue rejects arbitrary views and produces stable export names', () => {
+  assert.throws(() => backgroundReference('invent a vehicle', 'gray'));
   assert.equal(exportName(0, 'frontLeft'), '01-frontLeft.jpg');
 });
 test('ZIP contains valid CRC32, directory and UTF-8 filenames', async () => {
@@ -34,8 +31,8 @@ test('ZIP contains valid CRC32, directory and UTF-8 filenames', async () => {
   assert.equal(v.getUint32(central, true), 0x02014b50);
   assert.equal(v.getUint16(6, true), 0x800);
 });
-function fixture({ authenticated = true, staff = true, sales = false, userId = 'staff-id', objects: sharedObjects, failAi = false, failBackground = false, failRemove = false, failRenderOnce = false, detection = 'located', actualRender = false, imageBytes = new TextEncoder().encode('image bytes') } = {}) {
-  const objects = sharedObjects || new Map(); let calls = 0, carReads = 0, removeFailure = failRemove; const aiRequests = [], backgroundRequests = [], renders = [];
+function fixture({ authenticated = true, staff = true, sales = false, userId = 'staff-id', objects: sharedObjects, failAi = false, failBackground = false, failRemove = false, failRenderOnce = false, detection = 'located', actualRender = false, actualComposite = false, imageBytes = new TextEncoder().encode('image bytes') } = {}) {
+  const objects = sharedObjects || new Map(); let calls = 0, carReads = 0, removeFailure = failRemove; const composites = [], backgroundRequests = [], renders = [];
   const bucket = {
     upload: async (path, data, options = {}) => {
       if (objects.has(path) && !options.upsert) return { error: new Error('duplicate') };
@@ -48,15 +45,16 @@ function fixture({ authenticated = true, staff = true, sales = false, userId = '
   };
   const db = { storage: { from: () => bucket }, auth: { getUser: async () => ({ data: { user: authenticated ? { id: userId, app_metadata: { photo_studio_access: sales } } : null } }) }, from: table => { if (table === 'cars') carReads++; return { select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: table === 'cars' ? { id: 1 } : staff ? { user_id: userId } : null }) }) }) }; } };
   const handler = createPhotoStudioHandler({ db, apiKey: 'test',
-    fetchImage: async (_, options) => { calls++; aiRequests.push(options.body); return new Response(JSON.stringify({ data: [{ b64_json: Buffer.from(imageBytes).toString('base64') }] }), { status: failAi ? 429 : 200 }); },
+    composeOriginalVehicle: async (source, mask, background, backgroundName) => { calls++; composites.push({ source, mask, background, backgroundName }); if (failAi) throw new Error('compositing unavailable'); return actualComposite ? composeOriginalVehicle(source, mask, background, backgroundName) : imageBytes; },
     fetchBackground: async url => { backgroundRequests.push(url); const data = url.endsWith('opportunity-logo.png') ? readFileSync(new URL('../../public/photo-studio/opportunity-logo.png', import.meta.url)) : 'background'; return new Response(new Blob([data], { type: 'image/png' }), { status: failBackground ? 404 : 200 }); },
     fetchVision: async () => new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify({ status: detection, plates: detection === 'located' ? [samplePlate] : [] }) } }] })),
     cropPlateRegion: base64 => ({ base64, left: 0, top: 0, width: 1, height: 1 }),
     checkPlateRegion: () => true,
     renderMaskedJpeg: (bytes, plates, logo) => { renders.push({ bytes, plates }); if (failRenderOnce && renders.length === 1) throw new Error('temporary render failure'); return actualRender ? renderMaskedJpeg(bytes, plates, logo) : new TextEncoder().encode('masked result'); },
   });
-  return { objects, aiRequests, backgroundRequests, renders, calls: () => calls, carReads: () => carReads, allowRemove: () => { removeFailure = false; }, async request(action, values = {}) {
+  return { objects, composites, backgroundRequests, renders, calls: () => calls, carReads: () => carReads, allowRemove: () => { removeFailure = false; }, async request(action, values = {}) {
     const form = new FormData(); form.set('carId', '1'); form.set('action', action);
+    if (action === 'upload' && !values.omitSubject) { form.set('source', new File(['source'], 'source.png', { type: 'image/png' })); form.set('vehicleMask', new File(['mask'], 'mask.png', { type: 'image/png' })); }
     for (const [key, value] of Object.entries(values)) form.set(key, value);
     return handler(new Request('https://example.test', { method: 'POST', headers: { Authorization: 'Bearer test' }, body: form }));
   } };
@@ -65,6 +63,36 @@ test('authentication and staff membership are checked before any storage operati
   for (const [config, status] of [[{ authenticated: false }, 401], [{ staff: false }, 403]]) {
     const f = fixture(config); assert.equal((await f.request('list')).status, status); assert.equal(f.objects.size, 0);
   }
+});
+
+test('missing protected input fails closed without a generative fallback or stored upload', async () => {
+  const f = fixture();
+  const response = await f.request('upload', { file: new File(['original'], 'car.jpg', { type: 'image/jpeg' }), angle: 'front', background: 'gray', omitSubject: true });
+  assert.equal(response.status, 400);
+  assert.equal(f.calls(), 0);
+  assert.equal(f.objects.size, 0);
+});
+
+test('real source PNG and mask survive upload, composition, physical plate masking and export approval', async () => {
+  const source = new PNG({ width: 320, height: 200 }), mask = new PNG({ width: 320, height: 200 });
+  for (let y = 0; y < 200; y++) for (let x = 0; x < 320; x++) {
+    const i = (y * 320 + x) * 4, car = x >= 50 && x < 270 && y >= 40 && y < 170;
+    source.data.set(car ? [180, 40, 40, 255] : [10, 100, 10, 255], i);
+    mask.data.set(car ? [255, 255, 255, 255] : [0, 0, 0, 255], i);
+  }
+  const f = fixture({ actualComposite: true, actualRender: true });
+  const file = new File(['original-upload-untouched'], 'car.jpg', { type: 'image/jpeg' });
+  const { item } = await (await f.request('upload', { file, angle: 'front', background: 'white', source: new File([PNG.sync.write(source)], 'source.png', { type: 'image/png' }), vehicleMask: new File([PNG.sync.write(mask)], 'mask.png', { type: 'image/png' }) })).json();
+  const response = await f.request('process', { id: item.id });
+  assert.equal(response.status, 200);
+  const result = (await response.json()).item;
+  assert.equal(result.subjectVersion, 1); assert.equal(result.plateRendered, true);
+  const base = jpeg.decode(new Uint8Array(await f.objects.get(`photo-studio/1-${item.id}-base.jpg`).arrayBuffer()), { useTArray: true });
+  assert.equal(base.width, 320); assert.equal(base.height, 200);
+  const i = (80 * 320 + 160) * 4;
+  assert.ok(Math.abs(base.data[i] - 180) < 5); assert.ok(base.data[0] > 245);
+  assert.equal(await f.objects.get(`photo-studio/1-${item.id}-original`).text(), 'original-upload-untouched');
+  assert.equal((await f.request('approve', { id: item.id, approved: 'true' })).status, 200);
 });
 test('upload → process → approve → reload persists originals and results, repeat costs nothing', async () => {
   const f = fixture();
@@ -86,24 +114,22 @@ test('upload → process → approve → reload persists originals and results, 
   assert.ok(![...f.objects.keys()].some(p => p.endsWith('-lock')));
 });
 const samplePlate = [{ x: .4, y: .6 }, { x: .6, y: .62 }, { x: .59, y: .67 }, { x: .4, y: .65 }];
-test('branded presets send a real background image, neutral and interior edits do not', async () => {
+test('presets composite the original source; interiors need no mask or background', async () => {
   assert.equal(Object.keys(backgrounds).length, 8);
   for (const [angle, background, count] of [['frontLeft', 'opportunityGraphite', 2], ['frontLeft', 'opportunityWorkshop', 2], ['front', 'opportunityDarkTiles', 2], ['interior', 'opportunityWhite', 1], ['detail', 'opportunityShowroom', 1], ['front', 'gray', 1]]) {
     const f = fixture();
     const { item } = await (await f.request('upload', { file: new File(['original'], 'car.jpg', { type: 'image/jpeg' }), angle, background })).json();
     assert.equal((await f.request('process', { id: item.id })).status, 200);
-    assert.equal(f.aiRequests[0].getAll('image[]').length, count);
+    assert.equal(Boolean(f.composites[0].background), count === 2);
+    assert.equal(Boolean(f.composites[0].mask), !['interior', 'detail'].includes(angle));
+    assert.equal(new TextDecoder().decode(f.composites[0].source), 'source');
     assert.equal(f.backgroundRequests.filter(url => !url.endsWith('opportunity-logo.png')).length, count - 1);
-    if (count === 2) assert.match(f.aiRequests[0].get('prompt'), new RegExp(`Image 2 is the selected empty ${backgrounds[background]}`));
+    assert.equal(f.composites[0].backgroundName, background);
   }
   assert.equal(backgroundReference('front', 'opportunityWhite'), '/photo-studio/opportunity-white.png');
   assert.equal(backgroundReference('interior', 'opportunityWhite'), null);
   assert.throws(() => backgroundReference('front', 'https://evil.test/image.png'));
-  assert.doesNotMatch(editPrompt('interior', 'opportunityWhite'), /OPPORTUNITY/);
   assert.equal(backgroundReference('frontLeft', 'opportunityWorkshop'), '/photo-studio/opportunity-workshop.png');
-  assert.match(editPrompt('frontLeft', 'opportunityWorkshop'), /dark gray ribbed garage door/);
-  assert.match(editPrompt('frontLeft', 'opportunityWorkshop'), /Do not add a wall logo/);
-  assert.doesNotMatch(editPrompt('frontLeft', 'opportunityWorkshop'), /upper-left OPPORTUNITY wall sign/);
 });
 test('missing reference blocks AI edit, preserves original and releases lock', async () => {
   const f = fixture({ failBackground: true });
@@ -146,10 +172,10 @@ test('manual plate confirmation persists, invalid geometry is rejected, correcti
   const { items } = await (await f.request('list')).json();
   assert.equal(items[0].plateVerified, true); assert.equal(items[0].approved, false); assert.deepEqual(items[0].plates, []);
 });
-test('AI failure retains original and releases lock for retry', async () => {
+test('compositing failure retains original and releases lock for retry', async () => {
   const f = fixture({ failAi: true });
   const { item } = await (await f.request('upload', { file: new File(['original'], 'car.png', { type: 'image/png' }), angle: 'detail', background: 'white' })).json();
-  assert.equal((await f.request('process', { id: item.id })).status, 502);
+  assert.equal((await f.request('process', { id: item.id })).status, 500);
   const { items } = await (await f.request('list')).json();
   assert.equal(items[0].ready, false);
   assert.ok(![...f.objects.keys()].some(p => p.endsWith('-lock')));
@@ -340,27 +366,20 @@ test('session deletion requires an empty photo set and preserves other sessions'
   assert.ok(![...f.objects.keys()].some(path => path.endsWith('-lock')));
 });
 
-test('reflection reduction is optional, conservative and disabled for condition details and interiors', () => {
-  const gentle = editPrompt('frontLeft', 'opportunityDarkTiles', 'gentle');
-  assert.match(gentle, /CONSERVATIVE ENVIRONMENT REFLECTION REDUCTION/);
-  assert.match(gentle, /exact paint hue, metallic or pearl grain, gloss level/);
-  assert.match(gentle, /leave that area unchanged/);
-  assert.match(gentle, /Never reconstruct or invent surface details hidden by a reflection/);
-  assert.doesNotMatch(editPrompt('frontLeft', 'gray'), /CONSERVATIVE ENVIRONMENT/);
-  for (const angle of ['interior', 'detail']) {
-    assert.equal(reflectionMode(angle, 'gentle'), 'off');
-    assert.doesNotMatch(editPrompt(angle, 'gray', 'gentle'), /CONSERVATIVE ENVIRONMENT/);
-  }
+test('legacy reflection modes cannot alter the vehicle surface', () => {
+  for (const angle of ['frontLeft', 'interior', 'detail']) assert.equal(reflectionMode(angle, 'gentle'), 'off');
   assert.throws(() => reflectionMode('front', 'aggressive'));
 });
-test('selected reflection mode persists through upload, generation and reload', async () => {
+
+test('old reflection mode is ignored to keep all source vehicle pixels unchanged', async () => {
   const f = fixture();
   const { item } = await (await f.request('upload', { file: new File(['original'], 'car.jpg', { type: 'image/jpeg' }), angle: 'front', background: 'gray', reflectionReduction: 'gentle' })).json();
-  assert.equal(item.reflectionReduction, 'gentle');
+  assert.equal(item.reflectionReduction, 'off');
   assert.equal((await f.request('process', { id: item.id })).status, 200);
-  assert.match(f.aiRequests[0].get('prompt'), /CONSERVATIVE ENVIRONMENT REFLECTION REDUCTION/);
+  assert.equal(f.composites.length, 1);
+  assert.equal(item.subjectVersion, 1);
   const { items } = await (await f.request('list')).json();
-  assert.equal(items[0].reflectionReduction, 'gentle');
+  assert.equal(items[0].reflectionReduction, 'off');
 });
 test('unsupported reflection modes are rejected before upload or paid AI request', async () => {
   const f = fixture();
