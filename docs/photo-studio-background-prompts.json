@@ -14,5 +14,13 @@
     "mode": "built-in imagegen edit",
     "target": "public/photo-studio/opportunity-showroom.png",
     "prompt": "Edit the supplied empty Opportunity Showroom background asset for a car-ad photo compositing application. Preserve the SAME empty room, camera perspective, floor tiles and grout, wall texture, ceiling lights, right windows, proportions and landscape 3:2 aspect ratio. Make exactly one change: relocate the existing black OPPORTUNITY wall sign LOWER on the same left wall. Keep its exact size, typography, lettering 'OPPORTUNITY' and subtitle 'Autocentrum Brno-Líšeň', black panel and realistic shadow. Sign target bounding rectangle: x=8% to 24% of image width; y=21% to 29% of image height. Completely remove the old sign and seamlessly restore the wall at its old location. The whole sign must survive a crop removing the top 15% of the image. Do not add cars, people, props, extra text or extra logos. This is the actual production background asset; preserve everything except the sign position."
+  },
+  "opportunityAtelier": {
+    "asset": "public/photo-studio/opportunity-turntable.png",
+    "reference": "User-supplied UH CAR reference images; original Opportunity logo",
+    "date": "2026-11-12",
+    "revisionPrompt": "Preserve camera, framing, floor turntable and Opportunity sign. Make rear wall noticeably lighter, near-white warm gray. Remove all right-wall vertical lights. Move lighting to a restrained visible strip of ceiling with long recessed linear LED softboxes in correct perspective. Empty room, natural neutral photographic light, no cars or people.",
+    "initialPrompt": "Empty photorealistic professional car photography studio, 3:2, light gray curved cyclorama, large flush circular concrete turntable, camera at headlight height about 1m, neutral diffuse softboxes, small upper-left dark OPPORTUNITY sign with Autocentrum Brno-Líšeň subtitle. No cars or people. Initially vertical light strips at far right.",
+    "generator": "Built-in ImageGen"
   }
 }

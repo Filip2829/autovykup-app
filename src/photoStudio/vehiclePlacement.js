@@ -5,7 +5,7 @@ export function vehiclePlacement(mask, width, height) {
     left = Math.min(left, x); top = Math.min(top, y); right = Math.max(right, x); bottom = Math.max(bottom, y);
   }
   if (right < left) throw new Error('Chybí obrys vozu.');
-  const scale = Math.min(width * .86 / (right - left + 1), height * .58 / (bottom - top + 1), 1);
+  const scale = Math.min(width * .86 / (right - left + 1), height * .64 / (bottom - top + 1), 1);
   // Uniform scale only. Reserve the upper wall for the sign and seat the lower
   // silhouette on the floor; source camera perspective never changes.
   return { scale, offsetX: width * .5 - (left + right + 1) * .5 * scale, offsetY: height * .89 - (bottom + 1) * scale, bounds: { left, top, right, bottom } };
@@ -31,9 +31,10 @@ export function floorContactShadow(background, profile, width, height) {
   const shadow = new Float32Array(width * height);
   for (let x = 0; x < width; x++) {
     const floor = profile[x];
-    if (floor < height * .60) continue;
+    if (floor < height * .42) continue;
     for (let y = Math.max(0, Math.floor(floor - radiusY)); y < Math.min(height, floor + radiusY * 4); y++) {
-      shadow[y * width + x] = .34 * Math.exp(-((y - floor - radiusY * .3) ** 2) / (2 * radiusY ** 2));
+      const dy = y - floor;
+      shadow[y * width + x] = .48 * Math.exp(-((dy - radiusY * .2) ** 2) / (2 * radiusY ** 2)) + .12 * Math.exp(-(dy ** 2) / (8 * radiusY ** 2));
     }
   }
   for (let y = 0; y < height; y++) {

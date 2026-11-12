@@ -1,6 +1,6 @@
 import { validatePlates } from '../../../src/photoStudio/plates.js';
 
-export async function detectPlates(base64, apiKey, fetchVision = fetch, cropPlateRegion, checkPlateRegion) {
+export async function detectPlates(base64, apiKey, fetchVision = fetch, cropPlateRegion, checkPlateRegion, decodePlateImage) {
   const pending = { plates: [], plateStatus: 'review', plateVerified: false };
   const deadline = AbortSignal.timeout(25000);
   try {
@@ -22,14 +22,15 @@ export async function detectPlates(base64, apiKey, fetchVision = fetch, cropPlat
     if (rough.status === 'none' && !rough.plates.length) return { plates: [], plateStatus: 'not-visible', plateVerified: true };
     if (rough.status !== 'located' || !rough.plates.length || !cropPlateRegion || !checkPlateRegion) return pending;
     const plates = [];
+    const decoded = decodePlateImage ? decodePlateImage(base64) : base64;
     for (const candidate of rough.plates) {
-      const crop = await cropPlateRegion(base64, candidate);
+      const crop = await cropPlateRegion(decoded, candidate);
       const refined = await locate(crop.base64, true);
       if (refined.status !== 'located' || !refined.plates.length) return pending;
       for (const quad of refined.plates) {
         const mapped = quad.map(p => ({ x: crop.left + p.x * crop.width, y: crop.top + p.y * crop.height }));
         validatePlates([mapped]);
-        if (!await checkPlateRegion(base64, mapped)) return pending;
+        if (!await checkPlateRegion(decoded, mapped)) return pending;
         const center = q => ({ x: q.reduce((n, p) => n + p.x, 0) / 4, y: q.reduce((n, p) => n + p.y, 0) / 4 });
         const c = center(mapped);
         if (!plates.some(q => { const other = center(q); return Math.hypot(other.x - c.x, other.y - c.y) < .015; })) plates.push(mapped);

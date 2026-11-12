@@ -6,8 +6,9 @@ import { backgroundOptions, backgroundReference, normalizeBackground } from './m
 import { vehiclePlacement, placeOriginalVehicle, floorContactShadow } from './vehiclePlacement.js';
 import { validateInteriorWindows, neutralizeInteriorViews, locateInteriorWindows, verifyInteriorViews } from '../../supabase/functions/vehicle-photo-studio/interiorWindows.js';
 
-test('only Showroom is offered and old preset keys resolve to it without arbitrary remote URLs', () => {
-  assert.deepEqual(Object.keys(backgroundOptions), ['opportunityShowroom']);
+test('Atelier and Showroom are offered and legacy presets resolve without arbitrary remote URLs', () => {
+  assert.deepEqual(Object.keys(backgroundOptions), ['opportunityTurntable', 'opportunityShowroom']);
+  assert.equal(backgroundReference('front', 'opportunityTurntable'), '/photo-studio/opportunity-turntable.png');
   for (const key of ['gray', 'white', 'opportunityWorkshop', 'opportunityDarkTiles']) {
     assert.equal(normalizeBackground(key), 'opportunityShowroom');
     assert.equal(backgroundReference('front', key), '/photo-studio/opportunity-showroom.png');

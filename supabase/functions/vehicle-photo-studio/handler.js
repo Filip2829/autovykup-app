@@ -7,11 +7,12 @@ import { locateInteriorWindows, verifyInteriorViews } from './interiorWindows.js
 import { inspectStudioScene, legacyScene, validateScene } from './sceneInspection.js';
 import { locateLooseDirt, verifyInteriorCleanup } from './interiorCleanup.js';
 import { locateExteriorSurroundings, verifyExteriorPhoto } from './exteriorSurroundings.js';
+import { acquireProcessingLock } from './processingLock.js';
 
-export function createPhotoStudioHandler({ db, apiKey, fetchBackground = fetch, fetchVision = fetch, renderMaskedJpeg, cropPlateRegion, checkPlateRegion, composeOriginalVehicle, cleanInteriorJpeg }) {
+export function createPhotoStudioHandler({ db, apiKey, fetchBackground = fetch, fetchVision = fetch, renderMaskedJpeg, cropPlateRegion, checkPlateRegion, decodePlateImage, composeOriginalVehicle, cleanInteriorJpeg }) {
   const bucket = db.storage.from('car-photos');
   const checked = async (promise) => { const { data, error } = await promise; if (error) throw error; return data; };
-  const locatePlates = base64 => detectPlates(base64, apiKey, fetchVision, cropPlateRegion, checkPlateRegion);
+  const locatePlates = base64 => detectPlates(base64, apiKey, fetchVision, cropPlateRegion, checkPlateRegion, decodePlateImage);
   let logoBytes;
   async function getLogo() {
     if (!logoBytes) {
@@ -84,10 +85,10 @@ export function createPhotoStudioHandler({ db, apiKey, fetchBackground = fetch, 
       async function withSessionLock(work) {
         if (!standalone) return await work();
         const lockPath = `${photoFolder}/session-lock`;
-        const lock = await bucket.upload(lockPath, new Blob(['session mutation']), { upsert: false });
-        if (lock.error) return reply({ error: 'Se sadou se právě pracuje. Zkuste akci znovu.' }, 409);
+        const release = await acquireProcessingLock(bucket, lockPath);
+        if (!release) return reply({ error: 'Se sadou se právě pracuje. Zkuste akci znovu.' }, 409);
         try { if (!await readSession(sessionId)) return reply({ error: 'Sada není dostupná.' }, 404); return await work(); }
-        finally { await bucket.remove([lockPath]); }
+        finally { await release(); }
       }
       if (standalone && action === 'deleteSession') {
         return await withSessionLock(async () => {
@@ -115,7 +116,7 @@ export function createPhotoStudioHandler({ db, apiKey, fetchBackground = fetch, 
       async function finishPhoto(item, bytes, detection) {
         const rendered = detection.plates.length ? await renderMaskedJpeg(bytes, detection.plates, await getLogo()) : bytes;
         await checked(bucket.upload(pathFor(item.id, 'result.jpg'), rendered, { contentType: 'image/jpeg', cacheControl: '0', upsert: true }));
-        Object.assign(item, detection, { hasBase: true, plateRendered: detection.plateVerified, maskVersion: 2, resultVersion: crypto.randomUUID(), ready: true, approved: false });
+        Object.assign(item, detection, { hasBase: true, plateRendered: detection.plateVerified, maskVersion: 2, resultVersion: crypto.randomUUID(), ready: true, approved: false, processingStage: 'complete' });
         await saveItem(item);
         return reply({ item: decorate(item) });
       }
@@ -157,19 +158,25 @@ export function createPhotoStudioHandler({ db, apiKey, fetchBackground = fetch, 
       }
       const id = form.get('id');
       if (!/^[a-f0-9-]{36}$/.test(id || '')) return reply({ error: 'Neplatná fotografie.' }, 400);
-      if (!['delete', 'plate', 'autoPlate', 'approve', 'process'].includes(action)) return reply({ error: 'Neznámá operace.' }, 400);
+      if (!['delete', 'plate', 'autoPlate', 'approve', 'process', 'reprocess'].includes(action)) return reply({ error: 'Neznámá operace.' }, 400);
       // All mutations share a lock: deleting in another tab cannot resurrect a completed job.
       const lockPath = pathFor(id, 'lock');
-      const lock = await bucket.upload(lockPath, new Blob(['processing']), { upsert: false });
-      if (lock.error) return reply({ error: 'S fotografií se právě pracuje. Za chvíli obnovte seznam.' }, 409);
+      const release = await acquireProcessingLock(bucket, lockPath);
+      if (!release) return reply({ error: 'S fotografií se právě pracuje. Pokud předchozí běh selhal, lze jej zopakovat nejpozději za 10 minut.' }, 409);
       try {
       if (action === 'delete') {
         // Keep the manifest until asset removal succeeds, so failures remain retryable.
-        await checked(bucket.remove(['original', 'source.png', 'vehicle-mask.png', 'base.jpg', 'result.jpg'].map(suffix => pathFor(id, suffix))));
+        await checked(bucket.remove(['original', 'source.png', 'vehicle-mask.png', 'draft.jpg', 'base.jpg', 'result.jpg'].map(suffix => pathFor(id, suffix))));
         await checked(bucket.remove([pathFor(id, 'meta.json')]));
         return reply({ deletedId: id });
       }
       const item = await readItem(id);
+      if (action === 'reprocess') {
+        if (item.subjectVersion !== 1) return reply({ error: 'Nahrajte původní fotografii znovu; u této starší úpravy chybí podklad vozu.' }, 409);
+        Object.assign(item, { background: normalizeBackground(form.get('background')), ready: false, approved: false, processingStage: 'restart', plateVerified: false });
+        await saveItem(item);
+        return reply({ item: decorate(item), continueProcessing: true });
+      }
       if (action === 'plate') {
         if (!item.ready) return reply({ error: 'Nejprve upravte fotografii.' }, 400);
         let plates;
@@ -185,14 +192,16 @@ export function createPhotoStudioHandler({ db, apiKey, fetchBackground = fetch, 
         return reply({ item: decorate(item) });
       }
       if (action === 'process' && item.ready) return reply({ item: decorate(item) });
+      const staged = form.get('staged') === 'true';
       if (!apiKey) return reply({ error: 'AI není nakonfigurovaná. Správce musí nastavit OPENAI_API_KEY.' }, 503);
       if (action === 'autoPlate') {
         if (!item.ready) return reply({ error: 'Nejprve upravte fotografii.' }, 400);
         const base = await loadBase(item);
         return await finishPhoto(item, base, await locatePlates(Buffer.from(base).toString('base64')));
       }
-        const recoveredBase = await bucket.download(pathFor(id, 'base.jpg'));
-        const recovered = recoveredBase.error ? await bucket.download(pathFor(id, 'result.jpg')) : recoveredBase;
+        const rebuilding = ['restart', 'clean'].includes(item.processingStage);
+        const recoveredBase = rebuilding ? { error: true } : await bucket.download(pathFor(id, 'base.jpg'));
+        const recovered = rebuilding ? recoveredBase : recoveredBase.error ? await bucket.download(pathFor(id, 'result.jpg')) : recoveredBase;
         if (!recovered.error && recovered.data?.size) {
           const bytes = new Uint8Array(await recovered.data.arrayBuffer());
           if (recoveredBase.error) await checked(bucket.upload(pathFor(id, 'base.jpg'), bytes, { contentType: 'image/jpeg', upsert: true }));
@@ -216,12 +225,22 @@ export function createPhotoStudioHandler({ db, apiKey, fetchBackground = fetch, 
         }
         const sourceBytes = new Uint8Array(await source.arrayBuffer());
         const sourceBase64 = Buffer.from(sourceBytes).toString('base64');
-        const windows = interior ? await locateInteriorWindows(sourceBase64, apiKey, fetchVision) : [];
-        const surroundings = exterior && inspection.scene === 'exterior_detail' ? await locateExteriorSurroundings(sourceBase64, apiKey, fetchVision) : [];
-        let bytes = await composeOriginalVehicle(sourceBytes, mask ? new Uint8Array(await mask.arrayBuffer()) : null, backgroundBytes, item.background, { angle: interior ? 'interior' : item.angle, windows, surroundings, preserveFraming: inspection.scene !== 'exterior' });
-        if (exterior) await verifyExteriorPhoto(sourceBase64, Buffer.from(bytes).toString('base64'), Buffer.from(backgroundBytes).toString('base64'), inspection.scene !== 'exterior', apiKey, fetchVision);
+        const draft = staged && item.processingStage === 'clean' ? await bucket.download(pathFor(id, 'draft.jpg')) : null;
+        let bytes;
+        if (draft && !draft.error) bytes = new Uint8Array(await draft.data.arrayBuffer());
+        else {
+          const windows = interior ? await locateInteriorWindows(sourceBase64, apiKey, fetchVision) : [];
+          const surroundings = exterior && inspection.scene === 'exterior_detail' ? await locateExteriorSurroundings(sourceBase64, apiKey, fetchVision) : [];
+          bytes = await composeOriginalVehicle(sourceBytes, mask ? new Uint8Array(await mask.arrayBuffer()) : null, backgroundBytes, item.background, { angle: interior ? 'interior' : item.angle, windows, surroundings, preserveFraming: inspection.scene !== 'exterior' });
+          if (exterior) await verifyExteriorPhoto(sourceBase64, Buffer.from(bytes).toString('base64'), Buffer.from(backgroundBytes).toString('base64'), inspection.scene !== 'exterior', apiKey, fetchVision);
+          if (interior) await verifyInteriorViews(sourceBase64, Buffer.from(bytes).toString('base64'), apiKey, fetchVision, backgroundBytes ? Buffer.from(backgroundBytes).toString('base64') : '');
+          if (staged && interior && !inspection.conditionEvidence) {
+            await checked(bucket.upload(pathFor(id, 'draft.jpg'), bytes, { contentType: 'image/jpeg', upsert: true }));
+            item.processingStage = 'clean'; await saveItem(item);
+            return reply({ item: decorate(item), continueProcessing: true });
+          }
+        }
         if (interior) {
-          await verifyInteriorViews(sourceBase64, Buffer.from(bytes).toString('base64'), apiKey, fetchVision, backgroundBytes ? Buffer.from(backgroundBytes).toString('base64') : '');
           if (!inspection.conditionEvidence) {
             const before = Buffer.from(bytes).toString('base64');
             const cleanup = await locateLooseDirt(before, apiKey, fetchVision);
@@ -238,9 +257,11 @@ export function createPhotoStudioHandler({ db, apiKey, fetchBackground = fetch, 
         item.interiorViewsNeutralized = interior;
         // Persist the source-pixel composite before plate masking for retries.
         await checked(bucket.upload(pathFor(id, 'base.jpg'), bytes, { contentType: 'image/jpeg', upsert: true }));
+        item.processingStage = 'plate';
         await saveItem(item);
+        if (staged) return reply({ item: decorate(item), continueProcessing: true });
         return await finishPhoto(item, bytes, await locatePlates(Buffer.from(bytes).toString('base64')));
-      } finally { await bucket.remove([lockPath]); }
+      } finally { await release(); }
     } catch (error) {
       const known = /Použijte JPG|Fotografie může|Neplatný pohled|Neplatné pozadí|Neplatný režim redukce/.test(error.message || '');
       const interiorError = /výhled|interiéru|nečistot|čištění|rozpozn|okolí|zachování vozu/i.test(error.message || '');

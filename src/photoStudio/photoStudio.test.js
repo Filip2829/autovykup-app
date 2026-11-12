@@ -182,8 +182,57 @@ test('upload → process → approve → reload persists originals and results, 
   assert.ok(![...f.objects.keys()].some(p => p.endsWith('-lock')));
 });
 const samplePlate = [{ x: .4, y: .6 }, { x: .6, y: .62 }, { x: .59, y: .67 }, { x: .4, y: .65 }];
+
+test('staged exterior separates composition and plate rendering; intermediate output cannot be approved', async () => {
+  const f = fixture();
+  const { item } = await (await f.request('upload', { file: new File(['original'], 'car.jpg', { type: 'image/jpeg' }), angle: 'frontLeft', background: 'opportunityTurntable' })).json();
+  const first = await (await f.request('process', { id: item.id, staged: 'true' })).json();
+  assert.equal(first.continueProcessing, true);
+  assert.equal(first.item.ready, false);
+  assert.equal(f.renders.length, 0);
+  assert.equal((await f.request('approve', { id: item.id, approved: 'true' })).status, 400);
+  const finished = await (await f.request('process', { id: item.id, staged: 'true' })).json();
+  assert.equal(finished.item.ready, true);
+  assert.equal(finished.item.background, 'opportunityTurntable');
+  assert.equal(f.calls(), 1);
+  assert.equal(f.renders.length, 1);
+});
+
+test('staged interior resumes verified draft then base without repeating composition', async () => {
+  const f = fixture();
+  const { item } = await (await f.request('upload', { file: new File(['original'], 'car.jpg', { type: 'image/jpeg' }), angle: 'interior', background: 'opportunityTurntable' })).json();
+  const one = await (await f.request('process', { id: item.id, staged: 'true' })).json();
+  assert.equal(one.item.processingStage, 'clean');
+  assert.equal(one.item.ready, false);
+  const two = await (await f.request('process', { id: item.id, staged: 'true' })).json();
+  assert.equal(two.item.interiorCleaningChecked, true);
+  assert.equal(two.continueProcessing, true);
+  const three = await (await f.request('process', { id: item.id, staged: 'true' })).json();
+  assert.equal(three.item.ready, true);
+  assert.equal(f.calls(), 1);
+});
+
+test('reprocessing an existing interior with a new environment never reuses its previous base or approval', async () => {
+  const f = fixture();
+  const { item } = await (await f.request('upload', { file: new File(['original'], 'car.jpg', { type: 'image/jpeg' }), angle: 'interior', background: 'opportunityShowroom' })).json();
+  await f.request('process', { id: item.id });
+  await f.request('approve', { id: item.id, approved: 'true' });
+  const restart = await (await f.request('reprocess', { id: item.id, background: 'opportunityTurntable' })).json();
+  assert.equal(restart.item.approved, false);
+  assert.equal(restart.item.ready, false);
+  const first = await (await f.request('process', { id: item.id, staged: 'true' })).json();
+  assert.equal(first.item.processingStage, 'clean');
+  const second = await (await f.request('process', { id: item.id, staged: 'true' })).json();
+  assert.equal(second.continueProcessing, true);
+  assert.equal(second.item.processingStage, 'plate');
+  const third = await (await f.request('process', { id: item.id, staged: 'true' })).json();
+  assert.equal(third.item.ready, true);
+  assert.equal(third.item.background, 'opportunityTurntable');
+  assert.equal(f.calls(), 2);
+  assert.equal(await f.objects.get(`photo-studio/1-${item.id}-original`).text(), 'original');
+});
 test('presets composite the original source; interiors need no mask or background', async () => {
-  assert.equal(Object.keys(backgrounds).length, 1);
+  assert.equal(Object.keys(backgrounds).length, 2);
   for (const [angle, background, count] of [['frontLeft', 'opportunityGraphite', 2], ['frontLeft', 'opportunityWorkshop', 2], ['front', 'opportunityDarkTiles', 2], ['interior', 'opportunityWhite', 2], ['detail', 'opportunityShowroom', 1], ['front', 'gray', 2]]) {
     const f = fixture();
     const { item } = await (await f.request('upload', { file: new File(['original'], 'car.jpg', { type: 'image/jpeg' }), angle, background })).json();

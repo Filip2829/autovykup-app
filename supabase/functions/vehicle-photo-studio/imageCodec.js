@@ -15,9 +15,21 @@ function decodeStudioPng(bytes) {
   return PNG.sync.read(buffer);
 }
 
+function fitImage(image, maxEdge = 1280) {
+  const scale = Math.min(1, maxEdge / Math.max(image.width, image.height));
+  if (scale === 1) return image;
+  const width = Math.round(image.width * scale), height = Math.round(image.height * scale);
+  const data = new Uint8Array(width * height * 4);
+  for (let y = 0; y < height; y++) for (let x = 0; x < width; x++) {
+    const index = (Math.min(image.height - 1, Math.floor(y / scale)) * image.width + Math.min(image.width - 1, Math.floor(x / scale))) * 4;
+    data.set(image.data.subarray(index, index + 4), (y * width + x) * 4);
+  }
+  return { width, height, data };
+}
+
 // No generated pixels are ever used on the protected vehicle.
 export function composeOriginalVehicle(sourceBytes, maskBytes, backgroundBytes, backgroundName, options = {}) {
-  const source = decodeStudioPng(sourceBytes), { width, height } = source;
+  const source = fitImage(decodeStudioPng(sourceBytes)), { width, height } = source;
   const background = new Uint8Array(width * height * 4);
   if (maskBytes) {
     if (backgroundBytes) {
@@ -35,7 +47,7 @@ export function composeOriginalVehicle(sourceBytes, maskBytes, backgroundBytes, 
         for (let x = 0; x < width; x++) background.set([level, level, level, 255], (y * width + x) * 4);
       }
     }
-    const decodedMask = decodeStudioPng(maskBytes);
+    const decodedMask = fitImage(decodeStudioPng(maskBytes));
     if (decodedMask.width !== width || decodedMask.height !== height) throw new Error('Rozměry masky nesouhlasí.');
     const mask = new Uint8Array(width * height); let count = 0;
     for (let i = 0; i < mask.length; i++) { mask[i] = decodedMask.data[i * 4] >= 128 ? 255 : 0; if (mask[i]) count++; }
@@ -67,16 +79,20 @@ export function cleanInteriorJpeg(bytes, regions) {
 export function renderMaskedJpeg(bytes, plates, logoPng) {
   validatePlates(plates);
   if (!plates.length) return bytes;
-  const image = jpeg.decode(bytes, { useTArray: true, maxResolutionInMP: 4, maxMemoryUsageInMB: 128 });
+  const image = fitImage(jpeg.decode(bytes, { useTArray: true, maxResolutionInMP: 4, maxMemoryUsageInMB: 128 }));
   const source = PNG.sync.read(Buffer.from(logoPng));
   if (source.width < 142 || source.height < 52 || source.width > 1024 || source.height > 1024) throw new Error('Neplatná předloha loga.');
   paintPlateLogos(image, makePlateLogo(source), plates);
   return new Uint8Array(jpeg.encode(image, 95).data);
 }
 
+export function decodePlateImage(base64) {
+  return fitImage(jpeg.decode(Buffer.from(base64, 'base64'), { useTArray: true, maxResolutionInMP: 4, maxMemoryUsageInMB: 128 }));
+}
+
 export function cropPlateRegion(base64, quad) {
   validatePlates([quad]);
-  const image = jpeg.decode(Buffer.from(base64, 'base64'), { useTArray: true, maxResolutionInMP: 4, maxMemoryUsageInMB: 128 });
+  const image = typeof base64 === 'string' ? decodePlateImage(base64) : base64;
   const xs = quad.map(p => p.x * image.width), ys = quad.map(p => p.y * image.height);
   const boxWidth = Math.max(...xs) - Math.min(...xs), boxHeight = Math.max(...ys) - Math.min(...ys);
   const centerX = (Math.max(...xs) + Math.min(...xs)) / 2, centerY = (Math.max(...ys) + Math.min(...ys)) / 2;
@@ -90,7 +106,7 @@ export function cropPlateRegion(base64, quad) {
 
 export function checkPlateRegion(base64, quad) {
   validatePlates([quad]);
-  const image = jpeg.decode(Buffer.from(base64, 'base64'), { useTArray: true, maxResolutionInMP: 4, maxMemoryUsageInMB: 128 });
+  const image = typeof base64 === 'string' ? decodePlateImage(base64) : base64;
   let light = 0, dark = 0, transitions = 0;
   const bins = Array.from({ length: 8 }, () => ({ light: 0, dark: 0 }));
   for (let row = 0; row < 7; row++) {

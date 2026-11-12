@@ -23,7 +23,7 @@ export async function prepareStudioSubject(file, angle, onProgress, inspect) {
   const bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' });
   try {
     // Uniform resize only: retain the source aspect ratio and full framing.
-    const scale = Math.min(1, 2000 / Math.max(bitmap.width, bitmap.height));
+    const scale = Math.min(1, 1280 / Math.max(bitmap.width, bitmap.height));
     const canvas = document.createElement('canvas');
     canvas.width = Math.max(1, Math.round(bitmap.width * scale)); canvas.height = Math.max(1, Math.round(bitmap.height * scale));
     const context = canvas.getContext('2d');

@@ -7,12 +7,14 @@ export const angles = {
 export function needsPlateUpdate(item) { return item.ready && item.maskVersion !== 2; }
 export function canExportPhoto(item) { return item.ready && item.approved && item.plateVerified && item.maskVersion === 2; }
 export const backgroundOptions = {
+  opportunityTurntable: { label: "Opportunity Atelier", description: "Světlá stěna, stropní osvětlení a kruhová podlaha", image: "/photo-studio/opportunity-turntable.png" },
   opportunityShowroom: { label: "Opportunity Showroom", description: "Prosvětlený showroom s dlažbou", image: "/photo-studio/opportunity-showroom.png" },
 };
-export const showroomBackground = 'opportunityShowroom';
+export const showroomBackground = 'opportunityTurntable';
 export function normalizeBackground(background) {
-  if (!['opportunityShowroom', 'opportunityDarkTiles', 'opportunityWorkshop', 'opportunityWhite', 'opportunityGraphite', 'opportunityConcrete', 'gray', 'white'].includes(background)) throw new Error('Neplatné pozadí.');
-  return showroomBackground;
+  if (Object.hasOwn(backgroundOptions, background)) return background;
+  if (!['opportunityDarkTiles', 'opportunityWorkshop', 'opportunityWhite', 'opportunityGraphite', 'opportunityConcrete', 'gray', 'white'].includes(background)) throw new Error('Neplatné pozadí.');
+  return 'opportunityShowroom';
 }
 export const backgrounds = Object.fromEntries(Object.entries(backgroundOptions).map(([key, value]) => [key, value.label]));
 export function backgroundReference(angle, background) {

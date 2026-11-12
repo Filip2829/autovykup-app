@@ -1,5 +1,19 @@
 # Fotostudio – první verze
 
+## Oprava přerušeného zpracování a focení s obrysem (12. 11. 2026)
+
+Produkční logy potvrdily ukončení `CPUTime` (cca 2055 ms, HTTP 546), po kterém ve Storage zůstal zámek a další pokusy vracely 409. Nový klient rozděluje kompozici, čištění a zakrytí SPZ do samostatných HTTP operací. Nové podklady mají delší stranu nejvýše 1280 px; staré PNG se při kompozici rovnoměrně zmenší na stejný limit. Originál se nemění. Analýza SPZ dekóduje snímek jednou pro všechny výřezy a kontroly. Hotové starší exporty mohou mít původní rozlišení.
+
+Zámky obsahují náhodný token a čas. Zámek starší než 10 minut (více než maximální životnost běhu funkce) lze bezpečně obnovit; souběžné obnovy jedné generace sdílejí vlastní ochranný zámek a kontrolují obsah před odstraněním. U starých textových zámků se ověřuje `created_at` objektu Storage. Neznámé stáří ani aktivní zámek se nepřebírají. Uvolnit lze pouze vlastní generaci.
+
+Nové výchozí prostředí **Opportunity Atelier** je inspirované uživatelovými ukázkami: světlá zadní stěna, stropní světelné pásy, betonová kruhová podlaha a nápis Opportunity. Původní Showroom zůstává volitelný. Pozadí vytvořil vestavěný ImageGen; prompt a následná změna jsou uložené v `photo-studio-background-prompts.json`. Zvětšilo se usazení celého vozu a doplnil se kontaktní stín i pod vzdálenějšími koly. Perspektiva, původní odrazy a vady vozu se nepřekreslují: venkovní fotografie shora nemůže pouhou výměnou pozadí vypadat stejně jako skutečný snímek v ateliéru z výšky světlometů.
+
+Tlačítko **Focení s obrysem** otevře vodítko pro osm vnějších pohledů a varianty osobní vůz/SUV/dodávka. Živá zadní kamera používá pouze video, bez mikrofonu. Telefonní prohlížeč musí mít HTTPS a povolenou kameru. Zachycení používá stejný středový výřez 3:2 jako náhled. Obrys je pouze překryv, do JPG se neukládá. Před odesláním je kontrola snímku; zavření vypne kameru. Alternativní systémový fotoaparát / výběr snímku nemá živý překryv. Vodítko neověřuje správné zarovnání automaticky.
+
+U položek se zachovaným podkladem lze zvolit **Upravit znovu · vybrané prostředí**. Schválení se zruší a nový výsledek vzniká z původního podkladu. Neověřený mezivýsledek nelze schválit ani exportovat. Nedokončené čištění může navázat na ověřenou kompozici; nemůže přeskočit kontrolu použitím staršího výsledku.
+
+Ruční checklist: otevřít Fotostudio a vybrat Atelier; zkontrolovat světlou stěnu a stropní osvětlení; otevřít focení, přepnout čelo/záď/boky/45° a karoserie; povolit kameru, srovnat vůz, vyfotit, zkontrolovat a použít. Zopakovat snímek a zavřít kameru. Ověřit odmítnuté oprávnění a alternativní upload. Na mobilu 390 px nesmí být vodorovný posuv. Zaseknutou fotografii zkusit zpracovat znovu: starý zámek se obnoví, aktivní se odmítne. U hotové fotky změnit prostředí přes tlačítko Upravit znovu a porovnat obrys, kola, světla, SPZ, lak a vady s originálem. Schválit a zkontrolovat ZIP. Obnovit seznam i stránku a ověřit uložený výsledek. SQL, schéma ani oprávnění se nemění.
+
 ## Pravidla podle skutečného obsahu fotografie (11. 11. 2026)
 
 Uživatel doplnil příklady img_8954, img_8942, img_8947, img_8948, img_8949, img_8950 a img_8952 a požádal o showroom všude, kde je skutečně vidět okolní prostředí vozu, i o odstranění volného prachu, šlápot a nečistot v interiéru při zachování ovladačů a materiálů. Tato aktuální pravidla nahrazují výjimku pro pohled Detail i dřívější neutrální plochu ve výhledu z interiéru.
