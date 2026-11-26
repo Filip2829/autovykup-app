@@ -4,32 +4,48 @@ import { angles } from './model.js';
 import { isInteriorShot, nextOpportunityShot, opportunityShots } from './captureStandard.js';
 import { drawCaptureFrame } from './prepareSubject.js';
 
-export function VehicleOutline({ angle, body = 'car' }) {
-  const side = angle === 'left' || angle === 'right';
-  const straight = angle === 'front' || angle === 'rear';
-  const rear = angle.startsWith('rear');
-  const mirror = angle === 'frontRight' || angle === 'rearLeft' || angle === 'right';
-  const roof = body === 'van' ? 155 : body === 'suv' ? 200 : 250;
-  return <svg className="studioVehicleOutline" viewBox="0 0 1000 750" role="img" aria-label={`Obrys vozu: ${angles[angle]}`}>
-    <g transform="translate(0 92)">
-    <g fill="none" stroke="currentColor" strokeWidth="5" strokeLinejoin="round" strokeLinecap="round" transform={mirror ? 'translate(1000 0) scale(-1 1)' : undefined}>
-      {side ? <>
-        <path d={`M95 455 L105 365 L225 340 L320 ${roof} Q350 ${roof - 15} 410 ${roof - 15} L650 ${roof - 15} Q690 ${roof} 715 ${roof + 60} L790 335 L880 365 L900 455 L850 480 L810 480 M690 480 L320 480 M200 480 L120 480 Z`} />
-        <path d={`M265 335 L345 ${roof + 20} L640 ${roof + 20} L735 335 Z M490 ${roof + 20} L490 450 M265 350 L265 400 M735 350 L735 410 M510 365 L545 365`} />
-        <circle cx="260" cy="465" r="60" /><circle cx="750" cy="465" r="60" /><circle cx="260" cy="465" r="27" /><circle cx="750" cy="465" r="27" />
-      </> : straight ? <>
-        <path d={`M245 440 L240 360 L285 300 L330 ${roof} Q500 ${roof - 30} 670 ${roof} L715 300 L760 360 L755 440 L730 475 L270 475 Z`} />
-        <path d={`M300 300 L350 ${roof + 25} Q500 ${roof + 5} 650 ${roof + 25} L700 300 Z M295 475 L295 510 L250 510 L245 445 M705 475 L705 510 L750 510 L755 445 M280 315 L220 310 L220 340 L250 345 M720 315 L780 310 L780 340 L750 345`} />
-        {rear ? <path d="M270 340 L300 340 L300 405 L270 405 Z M700 340 L730 340 L730 405 L700 405 Z M350 440 L650 440 M440 415 L560 415 L560 445 L440 445 Z" /> : <path d="M275 350 L395 365 L390 390 L270 380 Z M725 350 L605 365 L610 390 L730 380 Z M415 375 L585 375 L570 420 L430 420 Z M345 450 L655 450" />}
-      </> : <>
-        <path d={`M115 420 L130 340 L280 300 L390 ${roof} Q470 ${roof - 30} 540 ${roof - 20} L740 ${roof + 10} L840 315 L875 430 L835 490 L740 510 L340 535 L160 495 Z`} />
-        <path d={`M300 305 L410 ${roof + 20} L530 ${roof + 10} L610 310 Z M550 ${roof + 15} L735 ${roof + 40} L800 320 L640 320 Z M625 330 L640 470 M805 340 L815 440 M340 430 L740 405 M155 425 L320 455 L335 505`} />
-        <ellipse cx="370" cy="485" rx="48" ry="65" /><ellipse cx="790" cy="445" rx="35" ry="55" />
-        {rear ? <path d="M145 355 L180 365 L175 425 L140 415 M285 375 L325 380 L325 440 L285 430 M195 445 L270 460 L270 485 L195 470" /> : <path d="M145 350 L235 370 L230 400 L140 380 Z M270 380 L310 375 L320 405 L270 410 Z M165 415 L275 440 L270 475 L165 450 Z" />}
-      </>}
-    </g>
-    <path d={`M75 ${side ? 525 : straight ? 510 : 550} H925 M500 135 V550`} stroke="currentColor" opacity=".5" strokeWidth="2" strokeDasharray="12 14" />
-    <path d="M70 210 V155 H125 M875 155 H930 V210 M70 485 V540 H125 M875 540 H930 V485" fill="none" stroke="currentColor" strokeWidth="3" opacity=".6" />
+// Original line drawings based on the CUPRA Formentor facelift's silhouette.
+const formentorViews = {
+  frontLeft: {
+    shape: 'M133 509 Q127 470 148 418 L193 392 303 366 383 291 Q429 256 531 250 L663 251 Q724 253 768 284 L805 328 844 357 Q867 390 867 455 L856 503 829 521 M760 535 L513 578 M393 593 L283 604 194 583 Q151 562 133 509Z',
+    landmarks: 'M323 367 L407 292 Q453 270 536 266 L623 266 584 357 Z M612 353 L647 266 Q721 271 759 295 L794 337 Z M700 280 L704 340 M603 367 L592 543 M711 354 L704 518 M162 425 L251 418 213 443 164 445 Z M274 414 L372 383 345 421 280 434 Z M171 467 L332 461 308 557 190 538 Z M177 486 L319 483 M580 361 L615 350 651 353 649 373 612 382 577 378',
+    wheels: [[454,543,61,80], [798,473,37,62]],
+  },
+  front: {
+    shape: 'M243 534 L241 429 266 385 279 342 302 318 321 320 349 258 Q374 224 416 218 Q500 211 584 218 Q626 223 651 258 L679 320 698 318 721 342 734 385 759 429 757 534 Q748 572 722 583 L683 585 670 618 H612 L605 588 H395 L388 618 H330 L317 585 278 583 Q252 572 243 534Z',
+    landmarks: 'M333 338 L366 258 Q384 238 423 233 H577 Q616 238 634 258 L667 338 Q500 326 333 338Z M270 393 L378 410 345 440 268 427 Z M730 393 L622 410 655 440 732 427 Z M285 488 L417 474 500 484 583 474 715 488 682 552 Q500 571 318 552Z M390 428 L456 443 H544 L610 428 M268 456 L316 461 303 483 M732 456 L684 461 697 483',
+  },
+  rear: {
+    shape: 'M246 531 L244 418 266 373 279 342 303 326 327 329 348 270 361 239 397 221 Q500 211 603 221 L639 239 652 270 673 329 697 326 721 342 734 373 756 418 754 531 732 581 682 589 672 618 H615 L609 591 H391 L385 618 H328 L318 589 268 581 Z',
+    landmarks: 'M337 332 L365 267 388 243 Q500 230 612 243 L635 267 663 332 Q500 346 337 332Z M352 240 Q500 218 648 240 M253 404 L357 410 Q500 420 643 410 L747 404 M254 425 L346 440 Q500 440 654 440 L746 425 M405 461 H595 L583 504 H417Z M265 540 Q500 573 735 540 M271 555 L314 560 M729 555 L686 560',
+  },
+  rearLeft: {
+    shape: 'M132 441 Q132 411 157 387 L204 371 271 327 Q319 295 365 275 Q410 256 488 251 L625 252 Q699 255 749 283 L811 312 842 344 860 394 Q873 460 867 497 L850 550 808 577 752 586 M628 589 L326 548 M250 532 L171 512 Q140 487 132 441Z',
+    landmarks: 'M300 335 L375 289 Q419 269 488 267 H556 L542 342 426 354 320 352 Z M573 267 H618 Q692 271 733 293 L799 323 747 356 578 346Z M431 281 L426 354 M591 259 L654 259 Q728 269 791 304 M575 377 Q665 391 750 380 L852 359 M706 399 L847 382 M728 443 L830 421 822 478 728 492Z M674 530 Q779 544 853 508 M321 365 L316 505 M426 368 L423 536',
+    wheels: [[286,491,39,58], [693,543,65,80]],
+  },
+  left: {
+    shape: 'M90 507 L95 453 Q104 418 133 399 L229 373 304 355 383 294 Q424 276 505 275 H634 Q686 275 722 291 L780 321 834 342 875 358 900 398 910 438 909 500 887 537 815 545 M693 545 H334 M210 545 H144 Q110 541 90 507Z',
+    landmarks: 'M326 355 L401 306 Q435 290 509 290 H625 Q675 290 712 306 L767 332 696 353 Z M499 295 L483 353 M646 294 L645 352 M482 365 L477 514 M642 364 L638 518 M129 407 L226 385 200 414 115 440 M818 354 L874 370 879 395 827 382 M343 366 L371 354 401 358 396 375 358 381 335 374 M335 523 H687',
+    wheels: [[273,541,64,72], [750,541,64,72]],
+  },
+};
+
+const mirroredFormentor = { frontRight: 'frontLeft', rearRight: 'rearLeft', right: 'left' };
+
+export function VehicleOutline({ angle }) {
+  const reflected = mirroredFormentor[angle];
+  const { shape, landmarks, wheels = [] } = formentorViews[reflected ?? angle];
+  return <svg className="studioVehicleOutline" viewBox="0 0 1000 750" role="img" aria-label={`CUPRA Formentor · ${angles[angle]}`}>
+    <path d="M72 622 H928 M500 195 V632" fill="none" stroke="currentColor" strokeWidth="2" opacity=".55" strokeDasharray="12 12" />
+    <g fill="none" stroke="currentColor" strokeWidth="4" strokeLinejoin="round" strokeLinecap="round" transform={reflected ? 'translate(1000 0) scale(-1 1)' : undefined}>
+      <path d={shape} />
+      <path d={landmarks} strokeWidth="3" opacity=".78" />
+      {wheels.map(([x, y, rx, ry]) => <g key={x}>
+        <ellipse cx={x} cy={y} rx={rx} ry={ry} />
+        <ellipse cx={x} cy={y} rx={rx * .48} ry={ry * .56} strokeWidth="2.5" opacity=".7" />
+        <path d={`M${x - 13} ${y}h26 m-13 -13v26`} strokeWidth="2" />
+      </g>)}
     </g>
   </svg>;
 }
@@ -50,7 +66,7 @@ function InteriorOutline({ angle }) {
 
 export default function CaptureGuide({ items, disabled, onCapture }) {
   const [angle, setAngle] = useState('frontLeft');
-  const [open, setOpen] = useState(false), [body, setBody] = useState('car');
+  const [open, setOpen] = useState(false);
   const [camera, setCamera] = useState(false), [ready, setReady] = useState(false), [error, setError] = useState('');
   const [snapshot, setSnapshot] = useState(null), [saving, setSaving] = useState(false);
   const video = useRef(null), stream = useRef(null), nativeInput = useRef(null), objectUrl = useRef(null);
@@ -79,6 +95,13 @@ export default function CaptureGuide({ items, disabled, onCapture }) {
   function clearSnapshot() {
     if (objectUrl.current) URL.revokeObjectURL(objectUrl.current);
     objectUrl.current = null; setSnapshot(null);
+  }
+  function toggleGuide() {
+    if (!open) setAngle(nextOpportunityShot('', items) ?? 'frontLeft');
+    setCamera(!open);
+    setOpen(!open);
+    clearSnapshot();
+    setError('');
   }
   function showSnapshot(file, shot = currentAngle) {
     clearSnapshot();
@@ -111,19 +134,21 @@ export default function CaptureGuide({ items, disabled, onCapture }) {
     finally { setSaving(false); }
   }
   return <section className="studioCaptureGuide" aria-label="Průvodce focením">
-    <div className="studioGuideHeading"><div><strong>Focení podle standardu Opportunity</strong><p>8 pohledů na vůz a 4 záběry interiéru v poměru 4:3.</p></div><button type="button" className="primary outline" disabled={disabled || saving} onClick={() => { if (!open) setAngle(nextOpportunityShot('', items) ?? 'frontLeft'); setOpen(!open); setCamera(false); clearSnapshot(); setError(''); }}><Camera size={18} /> {open ? 'Skrýt průvodce' : 'Focení s obrysem'}</button></div>
+    <div className="studioGuideHeading">
+      <strong>{open ? 'Průvodce focením' : 'Vyfoťte vůz podle obrysu'}</strong>
+      <button type="button" className={open ? 'primary outline' : 'primary'} disabled={disabled || saving} onClick={toggleGuide}>{open ? <X size={18} /> : <Camera size={18} />} {open ? 'Zavřít' : 'Focení s obrysem'}</button>
+    </div>
     {open && <>
-      <div className="studioControls"><label>Pohled pro focení · {completed.size}/{shots.length} uloženo<select value={currentAngle} disabled={saving || disabled || !!snapshot} onChange={e => setAngle(e.target.value)}>{shots.map(key => <option key={key} value={key}>{completed.has(key) ? '✓ ' : ''}{opportunityShots[key].title}</option>)}</select></label>{exterior && <label>Karoserie pro vodítko<select value={body} disabled={saving || !!snapshot} onChange={e => setBody(e.target.value)}><option value="car">Osobní vůz</option><option value="suv">SUV / crossover</option><option value="van">Dodávka / MPV</option></select></label>}</div>
+      <label className="studioGuideShot">Pohled · {completed.size}/{shots.length} uloženo<select value={currentAngle} disabled={saving || disabled || !!snapshot} onChange={e => setAngle(e.target.value)}>{shots.map(key => <option key={key} value={key}>{completed.has(key) ? '✓ ' : ''}{opportunityShots[key].title}</option>)}</select></label>
+      <p className="studioCaptureInstruction">{opportunityShots[currentAngle].guide}</p>
       <div className="studioCameraViewport">
         {snapshot ? <img src={snapshot.url} alt="Výřez fotografie ke kontrole" /> : <video ref={video} autoPlay playsInline muted onLoadedMetadata={() => setReady(true)} onLoadedData={() => setReady(true)} />}
-        {exterior ? <VehicleOutline angle={currentAngle} body={body} /> : <InteriorOutline angle={currentAngle} />}
-        <span className="studioCameraLabel">{opportunityShots[currentAngle].title} · {snapshot ? 'Zkontrolujte výřez' : camera && !ready ? 'Připravuji kameru…' : 'Srovnejte záběr s vodítkem'}</span>
+        {exterior ? <VehicleOutline angle={currentAngle} /> : <InteriorOutline angle={currentAngle} />}
+        {(snapshot || camera && !ready) && <span className="studioCameraLabel">{snapshot ? 'Zkontrolujte výřez' : 'Připravuji kameru…'}</span>}
       </div>
-      <p className="studioHint">{opportunityShots[currentAngle].guide} {exterior ? 'Použijte 1× objektiv a rovnou plochu. Telefon držte na šířku přibližně 1,1 m nad zemí a začněte asi 5 m od středu vozu. Kola nechte rovně.' : 'Použijte 1× objektiv a měkké světlo bez blesku.'}</p>
+      {exterior && !snapshot && <p className="studioHint">Telefon na šířku · 1× · výška asi 1,1 m · začněte asi 5 m od středu vozu. Menší vůz v náhledu → blíž. Větší → dál.</p>}
       {error && <p role="alert" className="badText">{error}</p>}
-      <div className="studioToolbar">{snapshot ? <><button type="button" className="primary" disabled={saving || disabled} onClick={useSnapshot}>{saving ? 'Kontroluji a upravuji…' : 'Zkontrolovat a vložit do Atelieru'}</button><button type="button" disabled={saving} onClick={() => { setError(''); clearSnapshot(); setCamera(true); }}>Vyfotit znovu</button><button type="button" disabled={saving} onClick={() => { setError(''); clearSnapshot(); }}>Vybrat jinou fotografii</button></> : <><button type="button" className="primary" onClick={() => { setError(''); camera ? capture() : setCamera(true); }} disabled={saving || disabled || (camera && !ready)}><Camera size={18} /> {camera ? 'Vyfotit' : 'Zapnout kameru s obrysem'}</button><button type="button" className="primary outline" disabled={saving || disabled} onClick={() => nativeInput.current.click()}>Fotoaparát telefonu / vybrat snímek</button><input ref={nativeInput} hidden type="file" accept="image/jpeg,image/png,image/webp" capture="environment" onChange={e => { const file = e.target.files?.[0]; e.target.value = ''; if (file) showSnapshot(file); }} /></>}
-        <button type="button" disabled={saving} onClick={() => { setCamera(false); clearSnapshot(); setOpen(false); }}><X size={16} /> Zavřít focení</button>
-      </div>
+      <div className="studioToolbar">{snapshot ? <><button type="button" className="primary" disabled={saving || disabled} onClick={useSnapshot}>{saving ? 'Kontroluji a upravuji…' : 'Použít snímek'}</button><button type="button" disabled={saving} onClick={() => { setError(''); clearSnapshot(); setCamera(true); }}>Vyfotit znovu</button></> : <><button type="button" className="primary" onClick={() => { setError(''); camera ? capture() : setCamera(true); }} disabled={saving || disabled || (camera && !ready)}><Camera size={18} /> {camera ? 'Vyfotit' : 'Zapnout kameru'}</button>{!camera && <button type="button" className="primary outline" disabled={saving || disabled} onClick={() => nativeInput.current.click()}>Vybrat snímek</button>}<input ref={nativeInput} hidden type="file" accept="image/jpeg,image/png,image/webp" capture="environment" onChange={e => { const file = e.target.files?.[0]; e.target.value = ''; if (file) showSnapshot(file); }} /></>}</div>
     </>}
   </section>;
 }

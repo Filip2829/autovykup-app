@@ -15,7 +15,6 @@
 .studioHeader h2 { display: flex; align-items: center; gap: 10px; }
 .studioHeader p { color: #b5c2d6; }
 .studioBadge { white-space: nowrap; border-radius: 20px; padding: 7px 12px; background: #edf4ff; color: #244f99; font-size: 12px; }
-.studioSteps { display: flex; flex-wrap: wrap; gap: 12px 24px; padding: 16px 0; color: #cbd5e1; font-size: 13px; }
 .studioControls { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
 .studioControls label { display: grid; gap: 8px; font-size: 14px; font-weight: 600; }
 .studioControls select { width: 100%; min-height: 44px; border: 1px solid #cbd5e1; border-radius: 10px; padding: 10px; background: #fff; color: #172b46; }
@@ -38,7 +37,6 @@
 .studioBackgroundCaption small { grid-column: 2; font-size: 11px; line-height: 1.5; color: #b5c2d6; }
 .studioFixedBackground { display: grid; align-content: start; gap: 8px; }
 .studioFixedBackground strong { min-height: 44px; display: flex; align-items: center; }
-.studioBackgroundLink { display: inline-block; color: #bfdbfe; font-size: 13px; margin: 0 0 18px; }
 .studioBackgrounds:disabled { opacity: .6; }
 @media(max-width: 650px) { .studioBackgroundGrid { grid-template-columns: minmax(0, 1fr); } .studioBackgroundCaption { padding: 9px; gap: 5px; } }
 .studioUpload { position: relative; display: flex; align-items: center; flex-direction: column; gap: 9px; padding: 30px 16px; border: 2px dashed #aebed4; border-radius: 14px; background: #f8fafc; color: #294c77; text-align: center; cursor: pointer; }
@@ -47,9 +45,6 @@
 .studioUpload span, .studioHint { font-size: 12px; color: #64748b; line-height: 1.6; }
 .photoStudio p.studioHint { color: #b5c2d6; }
 .studioDisabled { opacity: .55; }
-.studioChecklist { display: flex; flex-wrap: wrap; gap: 8px; margin: 16px 0; }
-.studioChecklist span { background: #f1f5f9; padding: 6px 10px; border-radius: 20px; font-size: 12px; color: #64748b; }
-.studioChecklist .studioCaptured { background: #e8f5ee; color: #216b44; }
 .studioToolbar, .studioPhotoActions { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin: 16px 0; }
 .studioToolbar label { display: flex; gap: 8px; align-items: center; font-size: 13px; }
 .studioToolbar input { width: auto; }
@@ -74,12 +69,18 @@
 .studioEmpty { padding: 30px 15px; text-align: center; background: #f8fafc; border-radius: 12px; color: #64748b; }
 .studioCaptureGuide { padding: 18px; margin: 0 0 18px; border: 1px solid #334155; border-radius: 14px; background: #111c30; }
 .studioGuideHeading { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
-.studioGuideHeading p { margin: 6px 0; color: #b5c2d6; font-size: 13px; }
-.studioCaptureGuide .studioControls { margin-top: 16px; }
+.studioGuideShot { display: grid; gap: 4px; margin-top: 12px; font-size: 14px; }
+.studioGuideShot select { min-height: 44px; min-width: 0; width: 100%; padding: 8px; border: 1px solid #cbd5e1; border-radius: 10px; background: #fff; color: #172b46; font: inherit; }
+.studioCaptureInstruction { margin: 10px 0; font-size: 14px; }
 .studioCameraViewport { position: relative; width: 100%; max-width: 760px; margin-inline: auto; aspect-ratio: 4/3; overflow: hidden; border-radius: 12px; background: radial-gradient(ellipse at 50% 70%, #263b50, #07101d); }
 .studioCameraViewport video, .studioCameraViewport img { display: block; width: 100%; height: 100%; object-fit: cover; }
 .studioVehicleOutline { position: absolute; inset: 0; width: 100%; height: 100%; color: #b4f9e4; pointer-events: none; filter: drop-shadow(0 1px 2px #000); }
 .studioCameraLabel { position: absolute; left: 12px; right: 12px; top: 12px; text-align: center; color: #fff; font-size: 13px; text-shadow: 0 1px 3px #000; }
 .studioCaptureGuide button { flex-shrink: 0; }
+.studioAdvanced { margin: 0 0 16px; }
+.studioAdvanced summary { padding: 10px 0; cursor: pointer; }
 @media(max-width: 650px) { .studioGuideHeading { align-items: stretch; flex-direction: column; } .studioCaptureGuide { padding: 12px; } .studioCameraLabel { font-size: 11px; } .studioCaptureGuide .studioToolbar button { width: 100%; } }
+@media (orientation: landscape) and (max-height: 560px) {
+  .studioCameraViewport { max-width: min(760px, calc(133.333dvh - 120px)); }
+}
 @media(max-width: 650px) { .studioControls, .studioGrid { grid-template-columns: 1fr; } .studioHeader { flex-wrap: wrap; } .studioToolbar { align-items: stretch; flex-direction: column; } .studioToolbar label { padding: 10px 0; } }

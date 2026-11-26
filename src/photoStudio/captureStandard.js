@@ -1,18 +1,18 @@
 export const captureRatio = 4 / 3;
 
 export const opportunityShots = {
-  frontLeft: { title: 'Titulní · zepředu zleva', guide: 'Stůjte přibližně pod úhlem 45° u levého předního rohu. V záběru nechte celé čelo i levý bok.', width: .74 },
-  front: { title: 'Přímo zepředu', guide: 'Postavte se proti středu vozu. Oba světlomety a zrcátka mají být stejně daleko od středové osy.', width: .54 },
-  frontRight: { title: 'Zepředu zprava', guide: 'Zopakujte titulní pohled od pravého předního rohu, ve stejné výšce a vzdálenosti.', width: .74 },
-  right: { title: 'Pravý bok', guide: 'Stůjte kolmo ke středu pravého boku. Vyrovnejte kola do jedné vodorovné linie.', width: .82 },
-  rearRight: { title: 'Zezadu zprava', guide: 'Stůjte šikmo u pravého zadního rohu. V záběru nechte celou záď i pravý bok.', width: .74 },
-  rear: { title: 'Přímo zezadu', guide: 'Postavte se proti středu zádi. Srovnejte obě zadní světla podle vodorovné linie.', width: .54 },
-  rearLeft: { title: 'Zezadu zleva', guide: 'Zopakujte zadní šikmý pohled od levého zadního rohu.', width: .74 },
-  left: { title: 'Levý bok', guide: 'Stůjte kolmo ke středu levého boku. Vyrovnejte kola do jedné vodorovné linie.', width: .82 },
-  dashboard: { title: 'Palubní deska', guide: 'Foťte ze středu zadní řady dopředu. Volant vlevo, displej a středová konzola uprostřed, obě strany palubní desky v záběru.' },
-  frontSeats: { title: 'Přední sedadla', guide: 'Foťte šikmo od otevřených dveří řidiče. Zachyťte obě opěrky a většinu obou sedáků.' },
-  rearSeats: { title: 'Zadní sedadla', guide: 'Foťte od otevřených levých zadních dveří. Zachyťte zadní lavici, opěrky a pásy.' },
-  console: { title: 'Středová konzola', guide: 'Z přední řady namiřte mírně shora na středovou konzolu. Zachyťte řazení a okolní ovladače.' },
+  frontLeft: { title: 'Titulní · zepředu zleva', guide: 'Levý přední roh, přibližně 45°. Srovnejte přední kolo a světlomety s obrysem.', width: .74 },
+  front: { title: 'Přímo zepředu', guide: 'Proti středu kapoty. Srovnejte oba světlomety a zrcátka podle obrysu.', width: .54 },
+  frontRight: { title: 'Zepředu zprava', guide: 'Pravý přední roh, přibližně 45°. Srovnejte přední kolo a světlomety s obrysem.', width: .74 },
+  right: { title: 'Pravý bok', guide: 'Kolmo proti pravému boku. Srovnejte středy obou kol se značkami.', width: .82 },
+  rearRight: { title: 'Zezadu zprava', guide: 'Pravý zadní roh, přibližně 45°. Srovnejte zadní kolo a světla s obrysem.', width: .74 },
+  rear: { title: 'Přímo zezadu', guide: 'Proti středu kufru. Srovnejte zadní světla ve stejné výšce.', width: .54 },
+  rearLeft: { title: 'Zezadu zleva', guide: 'Levý zadní roh, přibližně 45°. Srovnejte zadní kolo a světla s obrysem.', width: .74 },
+  left: { title: 'Levý bok', guide: 'Kolmo proti levému boku. Srovnejte středy obou kol se značkami.', width: .82 },
+  dashboard: { title: 'Palubní deska', guide: 'Ze středu zadní řady. Srovnejte volant vlevo a displej uprostřed.' },
+  frontSeats: { title: 'Přední sedadla', guide: 'Od dveří řidiče šikmo dovnitř. Zaberte obě opěrky i sedáky.' },
+  rearSeats: { title: 'Zadní sedadla', guide: 'Od levých zadních dveří. Zaberte celou lavici s opěrkami.' },
+  console: { title: 'Středová konzola', guide: 'Z přední řady mírně shora. Zarovnejte řazení a ovladače do obrysu.' },
 };
 
 export const isOpportunityShot = angle => Object.hasOwn(opportunityShots, angle);

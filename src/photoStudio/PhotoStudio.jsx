@@ -145,8 +145,10 @@ export default function PhotoStudio({ carId, carName }) {
   }
   const approved = items.filter(canExportPhoto).length;
   return <section className="card decision photoStudio" aria-label="Fotostudio pro inzerci">
-    <div className="studioHeader"><div><p className="label">INZERCE · FOTOGRAFIE</p><h2><Camera size={24} /> Fotostudio</h2><p>Focení s obrysem, prostředí Opportunity a fotografie připravené pro váš inzerát.</p></div><span className="studioBadge">První verze</span></div>
-    <div className="studioSteps"><span>1. Nahrajte fotografie</span><span>2. Automaticky vyměníme pozadí</span><span>3. Zkontrolujte a exportujte</span></div>
+    <div className="studioHeader"><h2><Camera size={24} /> Fotostudio</h2></div>
+    <CaptureGuide items={items} disabled={busy || loading} onCapture={(file, selectedAngle, onFailure) => uploadFiles([file], selectedAngle, { guided: true, onFailure })} />
+    <details className="studioAdvanced">
+    <summary>Nahrát existující fotografie</summary>
     <div className="studioControls">
       <label>Pohled na nahrávaných fotkách<select value={angle} onChange={e => setAngle(e.target.value)} disabled={busy}>{Object.entries(angles).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label>
       <div className="studioFixedBackground"><span>Vybrané prostředí</span><strong>{backgrounds[background]}</strong></div>
@@ -158,15 +160,9 @@ export default function PhotoStudio({ carId, carName }) {
         <span className="studioBackgroundCaption"><input type="radio" name={`studio-background-${carId}`} value={key} checked={background === key} onChange={() => setBackground(key)} /><strong>{option.label}</strong><small>{option.description}</small></span>
       </label>)}</div>
     </fieldset>
-    <p className="studioHint">Viditelné okolí nahradíme showroomem i na detailech světlometů, karoserie a kolem otevřených dveří. Detailní záběry si zachovají původní výřez. U celého vozu doplníme usazení na podlahu a kontaktní stín.</p>
-    <p className="studioHint">U interiéru šetrně omezíme rozpoznaný prach, otisky, ušmudlané plochy a šlápoty na gumových koberečcích. Tlačítka, symboly, struktura plastů, švy i skutečné opotřebení zůstávají zachované. Snímky dokumentující poškození se nečistí. Rozhoduje skutečný obsah fotografie, ne pouze vybraný pohled.</p>
-    {backgroundOptions[background].image && <a className="studioBackgroundLink" href={backgroundOptions[background].image} target="_blank" rel="noreferrer">Zobrazit vybrané pozadí v plné velikosti ↗</a>}
-    <CaptureGuide items={items} disabled={busy || loading} onCapture={(file, selectedAngle, onFailure) => uploadFiles([file], selectedAngle, { guided: true, onFailure })} />
     <label className={`studioUpload ${busy || loading ? 'studioDisabled' : ''}`}><Sparkles size={28} /><strong>Nahrát a automaticky upravit</strong><span>JPG, PNG nebo WebP · nejvýše 12 MB na fotku</span><input aria-label="Nahrát fotografie pro inzerci" type="file" multiple accept="image/jpeg,image/png,image/webp" disabled={busy || loading} onChange={upload} /></label>
-    <p className="studioHint">Nahrajte společně snímky stejného pohledu; pro další pohled změňte výběr. Vůz umisťujeme jako celek bez změny jeho proporcí a zachováváme poměr stran fotografie. Chybějící pohledy dofoťte. Při prvním použití se stáhne model pro automatické oddělení pozadí.</p>
-    <div className="studioChecklist">{Object.entries(angles).slice(0, 8).map(([key, label]) => <span className={items.some(p => p.angle === key && p.ready) ? 'studioCaptured' : ''} key={key}>{items.some(p => p.angle === key && p.ready) ? '✓' : '○'} {label}</span>)}</div>
-    <p className="studioHint">Před exportem porovnejte výsledek s originálem, zejména obrys zrcátek, antény a pneumatik. Automatický výřez může vyžadovat jiný snímek. Starší AI výsledky se touto změnou nepřepočítávají. Originály se nepřepisují.</p>
-    <p className="studioHint">SPZ se rozpoznají a automaticky překryjí logem Opportunity už při generování. Zakrytí je součástí uloženého JPG. Před exportem zkontrolujte výsledek; pokud se rozpoznání nepodaří, zopakujte jej nebo ručně označte rohy SPZ.</p>
+    <p className="studioHint">Společně nahrajte jen snímky stejného pohledu.</p>
+    </details>
     <div className="studioToolbar"><button type="button" className="primary outline" disabled={busy || loading} onClick={refresh}><RefreshCw size={16} /> Obnovit seznam</button><label><input type="checkbox" checked={originals} onChange={e => setOriginals(e.target.checked)} /> Ukázat originály</label><button type="button" className="primary" disabled={busy || loading || !approved} onClick={exportPhotos}><Download size={16} /> Export ZIP ({approved})</button></div>
     {(loading || progress) && <p role="status">{loading ? 'Načítám fotografie…' : progress}</p>}
     {busy && progress.startsWith('Fotografie') && <button type="button" className="primary outline" onClick={() => { stop.current = true; }}>Zastavit po aktuální fotografii</button>}
@@ -183,6 +179,5 @@ export default function PhotoStudio({ carId, carName }) {
         {item.subjectVersion === 1 && <button type="button" className="primary outline" disabled={busy} onClick={() => reprocess(item)}>Upravit znovu · {backgrounds[item.opportunityCapture ? showroomBackground : background]}</button>}
         {editingPlate === item.id && <PlateEditor key={item.id} item={item} busy={busy} onClose={() => setEditingPlate(null)} onSave={plates => savePlate(item, plates)} />}
       </div></article>)}</div>
-    <p className="studioHint">Export ZIP obsahuje očíslované JPG v pořadí náhledu. Průvodce Opportunity používá formát 4:3 a po obnovení řadí záběry od titulní fotky po interiér. Běžný upload zachovává poměr stran nahrané fotografie.</p>
   </section>;
 }
