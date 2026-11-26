@@ -36,6 +36,18 @@ test('different source views receive uniform placement and a floor shadow, witho
 });
 
 const rectangle = (left, top, right, bottom) => [{ x: left, y: top }, { x: right, y: top }, { x: right, y: bottom }, { x: left, y: bottom }];
+
+test('guided framing normalizes the size and floor contact of two different source crops', () => {
+  const width = 200, height = 150;
+  for (const [left, top, subjectWidth, subjectHeight] of [[20, 20, 100, 50], [50, 60, 140, 70]]) {
+    const mask = new Uint8Array(width * height);
+    for (let y = top; y < top + subjectHeight; y++) mask.fill(255, y * width + left, y * width + left + subjectWidth);
+    const { scale, offsetX, offsetY } = vehiclePlacement(mask, width, height, 'frontLeft');
+    assert.ok(Math.abs(subjectWidth * scale - width * .74) < .01);
+    assert.ok(Math.abs((top + subjectHeight) * scale + offsetY - height * .86) < .01);
+    assert.ok(Math.abs((left + subjectWidth / 2) * scale + offsetX - width / 2) < .01);
+  }
+});
 const windows = { status: 'located', confidence: .99, regions: [{ polygon: rectangle(.1, .1, .9, .5), protect: [rectangle(.4, .15, .6, .3)] }] };
 
 test('opaque window replacement preserves dashboard and protected mirror pixels exactly', () => {

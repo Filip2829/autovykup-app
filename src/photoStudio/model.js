@@ -1,8 +1,10 @@
+import { isInteriorShot } from './captureStandard.js';
+
 export const angles = {
   frontLeft: "Zepředu zleva (45°)", frontRight: "Zepředu zprava (45°)",
   rearLeft: "Zezadu zleva (45°)", rearRight: "Zezadu zprava (45°)",
   front: "Zepředu", rear: "Zezadu", left: "Levý bok", right: "Pravý bok",
-  interior: "Interiér", detail: "Detail / poškození",
+  interior: "Interiér", dashboard: "Palubní deska", frontSeats: "Přední sedadla", rearSeats: "Zadní sedadla", console: "Středová konzola", detail: "Detail / poškození",
 };
 export function needsPlateUpdate(item) { return item.ready && item.maskVersion !== 2; }
 export function canExportPhoto(item) { return item.ready && item.approved && item.plateVerified && item.maskVersion === 2; }
@@ -20,7 +22,7 @@ export const backgrounds = Object.fromEntries(Object.entries(backgroundOptions).
 export function backgroundReference(angle, background) {
   if (!Object.hasOwn(angles, angle)) throw new Error("Neplatný pohled nebo pozadí.");
   const preset = normalizeBackground(background);
-  return angle === "interior" || angle === "detail" ? null : backgroundOptions[preset].image;
+  return isInteriorShot(angle) || angle === "detail" ? null : backgroundOptions[preset].image;
 }
 export function validatePhoto(file) {
   if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) throw new Error("Použijte JPG, PNG nebo WebP. HEIC nejprve převeďte do JPG.");

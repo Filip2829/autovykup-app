@@ -3,6 +3,7 @@ import { Camera, Download, RefreshCw, Sparkles, Trash2 } from 'lucide-react';
 import { angles, backgrounds, backgroundOptions, showroomBackground, canExportPhoto, needsPlateUpdate, exportName, validatePhoto } from './model';
 import { studioRequest } from './api';
 import { prepareStudioSubject } from './prepareSubject.js';
+import { orderOpportunityPhotos } from './captureStandard.js';
 import { makeZip } from './zip';
 import { PlateEditor, PlatePhoto } from './PlatePhoto.jsx';
 import { platePhotoBlob } from './plateCanvas.js';
@@ -31,7 +32,7 @@ export default function PhotoStudio({ carId, carName }) {
     mounted.current = true; let active = true, ownsWork = false;
     studioRequest(carId, 'list').then(async data => {
       if (!active) return;
-      setItems(data.items); setLoading(false);
+      setItems(orderOpportunityPhotos(data.items)); setLoading(false);
       const outdated = data.items.filter(needsPlateUpdate);
       if (!outdated.length || running.current) return;
       ownsWork = true; running.current = true; setBusy(true);
@@ -49,22 +50,23 @@ export default function PhotoStudio({ carId, carName }) {
       .finally(() => { if (ownsWork) running.current = false; if (active) { setLoading(false); if (ownsWork) { setBusy(false); setProgress(''); } } });
     return () => { active = false; mounted.current = false; stop.current = true; };
   }, [carId]);
-  const merge = item => { if (mounted.current) setItems(current => current.some(p => p.id === item.id) ? current.map(p => p.id === item.id ? item : p) : [...current, item]); };
-  async function run(work) {
+  const merge = item => { if (mounted.current) setItems(current => current.some(p => p.id === item.id) ? current.map(p => p.id === item.id ? item : p) : item.opportunityCapture ? orderOpportunityPhotos([...current, item]) : [...current, item]); };
+  async function run(work, onFailure = setError) {
     if (running.current) return;
     running.current = true; stop.current = false; setBusy(true); setError('');
-    try { await work(); return true; } catch (e) { if (mounted.current) setError(e.message); return false; }
+    try { await work(); return true; } catch (e) { if (mounted.current) onFailure(e.message); return false; }
     finally { running.current = false; if (mounted.current) { setBusy(false); setProgress(''); } }
   }
   async function refresh() {
-    await run(async () => { const data = await studioRequest(carId, 'list'); if (mounted.current) setItems(data.items); });
+    await run(async () => { const data = await studioRequest(carId, 'list'); if (mounted.current) setItems(orderOpportunityPhotos(data.items)); });
   }
   async function upload(event) {
     const files = Array.from(event.target.files || []); event.target.value = '';
     await uploadFiles(files);
   }
-  async function uploadFiles(files, selectedAngle = angle) {
+  async function uploadFiles(files, selectedAngle = angle, { guided = false, onFailure } = {}) {
     if (!files.length) return;
+    const captureFields = guided ? { opportunityCapture: 'true' } : {};
     return await run(async () => {
       if (files.length + items.length > 40) throw new Error('Pro jeden vůz nahrajte nejvýše 40 fotografií.');
       // Validate the entire selection before uploading anything.
@@ -75,21 +77,25 @@ export default function PhotoStudio({ carId, carName }) {
         const file = files[i];
         const protectedSource = await prepareStudioSubject(file, selectedAngle,
           message => { if (mounted.current) setProgress(`Fotografie ${i + 1} z ${files.length}: ${message}`); },
-          async source => (await studioRequest(carId, 'inspect', { source, angle: selectedAngle })).inspection);
+          async source => {
+            const { inspection } = await studioRequest(carId, 'inspect', { source, angle: selectedAngle, ...captureFields });
+            if (guided && inspection?.captureCheck !== 'aligned') throw new Error('Kontrola záběru Opportunity není dostupná. Zkuste to později.');
+            return inspection;
+          }, guided);
         if (stop.current) break;
-        const { item } = await studioRequest(carId, 'upload', { file, angle: selectedAngle, background, ...protectedSource }); merge(item);
+        const { item } = await studioRequest(carId, 'upload', { file, angle: selectedAngle, background: guided ? showroomBackground : background, ...captureFields, ...protectedSource }); merge(item);
         if (stop.current) break;
         setProgress(`Fotografie ${i + 1} z ${files.length}: upravuji okolí a kontroluji čistotu interiéru…`);
         try { const data = await studioRequest(carId, 'process', { id: item.id }); merge(data.item); }
         catch (e) { failures++; if (mounted.current) setError(`${failures} fotek čeká na úpravu. ${e.message}`); }
       }
-    });
+    }, onFailure);
   }
   async function process(item) {
     await run(async () => { setProgress('Skládám původní vůz s pozadím…'); const data = await studioRequest(carId, 'process', { id: item.id }); merge(data.item); });
   }
   async function reprocess(item) {
-    await run(async () => { setProgress('Znovu upravuji původní fotografii ve vybraném prostředí…'); const data = await studioRequest(carId, 'reprocess', { id: item.id, background }); merge(data.item); });
+    await run(async () => { setProgress('Znovu upravuji původní fotografii ve vybraném prostředí…'); const data = await studioRequest(carId, 'reprocess', { id: item.id, background: item.opportunityCapture ? showroomBackground : background }); merge(data.item); });
   }
   async function approve(item) {
     await run(async () => { const data = await studioRequest(carId, 'approve', { id: item.id, approved: String(!item.approved) }); merge(data.item); });
@@ -155,7 +161,7 @@ export default function PhotoStudio({ carId, carName }) {
     <p className="studioHint">Viditelné okolí nahradíme showroomem i na detailech světlometů, karoserie a kolem otevřených dveří. Detailní záběry si zachovají původní výřez. U celého vozu doplníme usazení na podlahu a kontaktní stín.</p>
     <p className="studioHint">U interiéru šetrně omezíme rozpoznaný prach, otisky, ušmudlané plochy a šlápoty na gumových koberečcích. Tlačítka, symboly, struktura plastů, švy i skutečné opotřebení zůstávají zachované. Snímky dokumentující poškození se nečistí. Rozhoduje skutečný obsah fotografie, ne pouze vybraný pohled.</p>
     {backgroundOptions[background].image && <a className="studioBackgroundLink" href={backgroundOptions[background].image} target="_blank" rel="noreferrer">Zobrazit vybrané pozadí v plné velikosti ↗</a>}
-    <CaptureGuide angle={angle} onAngleChange={setAngle} disabled={busy || loading} onCapture={(file, selectedAngle) => uploadFiles([file], selectedAngle)} />
+    <CaptureGuide items={items} disabled={busy || loading} onCapture={(file, selectedAngle, onFailure) => uploadFiles([file], selectedAngle, { guided: true, onFailure })} />
     <label className={`studioUpload ${busy || loading ? 'studioDisabled' : ''}`}><Sparkles size={28} /><strong>Nahrát a automaticky upravit</strong><span>JPG, PNG nebo WebP · nejvýše 12 MB na fotku</span><input aria-label="Nahrát fotografie pro inzerci" type="file" multiple accept="image/jpeg,image/png,image/webp" disabled={busy || loading} onChange={upload} /></label>
     <p className="studioHint">Nahrajte společně snímky stejného pohledu; pro další pohled změňte výběr. Vůz umisťujeme jako celek bez změny jeho proporcí a zachováváme poměr stran fotografie. Chybějící pohledy dofoťte. Při prvním použití se stáhne model pro automatické oddělení pozadí.</p>
     <div className="studioChecklist">{Object.entries(angles).slice(0, 8).map(([key, label]) => <span className={items.some(p => p.angle === key && p.ready) ? 'studioCaptured' : ''} key={key}>{items.some(p => p.angle === key && p.ready) ? '✓' : '○'} {label}</span>)}</div>
@@ -174,9 +180,9 @@ export default function PhotoStudio({ carId, carName }) {
         {item.reflectionReduction === 'gentle' && <small>Jemná redukce odrazů okolí</small>}
         {item.ready && <small>{item.plateVerified ? (item.plateStatus === 'automatic' ? '✓ SPZ automaticky zakryta' : item.plateStatus === 'not-visible' ? '✓ SPZ není na snímku viditelná' : '✓ Zakrytí SPZ připraveno') : 'SPZ se nepodařilo spolehlivě rozpoznat. Zopakujte zakrytí nebo označte rohy ručně.'}</small>}
         <div className="studioPhotoActions">{item.ready ? <><button type="button" className="primary outline" disabled={busy} onClick={() => autoPlate(item)}>Znovu zaměřit SPZ automaticky</button><button type="button" className="primary outline" disabled={busy} onClick={() => setEditingPlate(item.id)}>Upravit zakrytí SPZ</button><button type="button" className={item.approved ? 'success' : 'primary outline'} disabled={busy || !item.plateVerified || needsPlateUpdate(item)} onClick={() => approve(item)}>{item.approved ? '✓ Schváleno · vrátit' : 'Schválit pro export'}</button></> : <button type="button" className="primary" disabled={busy} onClick={() => process(item)}>Upravit pomocí AI</button>}<button type="button" aria-label="Posunout dopředu" disabled={busy || index === 0} onClick={() => move(index, -1)}>↑</button><button type="button" aria-label="Posunout dozadu" disabled={busy || index === items.length - 1} onClick={() => move(index, 1)}>↓</button><button type="button" className="studioDeletePhoto" disabled={busy} onClick={() => deletePhoto(item)}><Trash2 size={16} /> Smazat fotku</button></div>
-        {item.subjectVersion === 1 && <button type="button" className="primary outline" disabled={busy} onClick={() => reprocess(item)}>Upravit znovu · {backgrounds[background]}</button>}
+        {item.subjectVersion === 1 && <button type="button" className="primary outline" disabled={busy} onClick={() => reprocess(item)}>Upravit znovu · {backgrounds[item.opportunityCapture ? showroomBackground : background]}</button>}
         {editingPlate === item.id && <PlateEditor key={item.id} item={item} busy={busy} onClose={() => setEditingPlate(null)} onSave={plates => savePlate(item, plates)} />}
       </div></article>)}</div>
-    <p className="studioHint">Export: JPG v původním poměru stran, delší strana nejvýše 1280 px. Starší výsledky mají rozměry původní úpravy. Pořadí podle náhledu, soubory očíslované v ZIP. Po obnovení se vrátí pořadí nahrání. ZIP rozbalte a fotografie nahrajte na inzertní portál.</p>
+    <p className="studioHint">Export ZIP obsahuje očíslované JPG v pořadí náhledu. Průvodce Opportunity používá formát 4:3 a po obnovení řadí záběry od titulní fotky po interiér. Běžný upload zachovává poměr stran nahrané fotografie.</p>
   </section>;
 }

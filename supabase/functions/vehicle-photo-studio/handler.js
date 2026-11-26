@@ -1,10 +1,11 @@
-import { backgroundReference, normalizeBackground, reflectionMode, validatePhoto } from '../../../src/photoStudio/model.js';
+import { backgroundReference, normalizeBackground, reflectionMode, showroomBackground, validatePhoto } from '../../../src/photoStudio/model.js';
+import { isOpportunityShot } from '../../../src/photoStudio/captureStandard.js';
 import { validatePlates } from '../../../src/photoStudio/plates.js';
 import { detectPlates } from './plateDetection.js';
 import { Buffer } from 'node:buffer';
 import { canUseStandaloneStudio, standaloneStudioRoot } from '../../../src/photoStudio/access.js';
 import { locateInteriorWindows, verifyInteriorViews } from './interiorWindows.js';
-import { inspectStudioScene, legacyScene, validateScene } from './sceneInspection.js';
+import { inspectStudioScene, legacyScene, validateOpportunityCapture, validateScene } from './sceneInspection.js';
 import { locateLooseDirt, verifyInteriorCleanup } from './interiorCleanup.js';
 import { locateExteriorSurroundings, verifyExteriorPhoto } from './exteriorSurroundings.js';
 import { acquireProcessingLock } from './processingLock.js';
@@ -127,26 +128,31 @@ export function createPhotoStudioHandler({ db, apiKey, fetchBackground = fetch, 
       }
       if (action === 'inspect') {
         const source = form.get('source');
+        const guidedAngle = form.get('opportunityCapture') === 'true' ? form.get('angle') : undefined;
+        if (guidedAngle !== undefined && !isOpportunityShot(guidedAngle)) return reply({ error: 'Neplatný pohled pro focení Opportunity.' }, 400);
         if (!source || typeof source === 'string' || source.type !== 'image/png' || !source.size || source.size > 16 * 1024 * 1024) return reply({ error: 'Chybí podklad k rozpoznání fotografie.' }, 400);
         if (!apiKey) return reply({ error: 'AI není nakonfigurovaná.' }, 503);
-        return reply({ inspection: await inspectStudioScene(Buffer.from(await source.arrayBuffer()).toString('base64'), apiKey, fetchVision) });
+        return reply({ inspection: await inspectStudioScene(Buffer.from(await source.arrayBuffer()).toString('base64'), apiKey, fetchVision, guidedAngle) });
       }
       if (action === 'upload') {
         return await withSessionLock(async () => {
-        const file = form.get('file'), angle = form.get('angle'), background = normalizeBackground(form.get('background'));
+        const file = form.get('file'), angle = form.get('angle'), opportunityCapture = form.get('opportunityCapture') === 'true';
+        const background = opportunityCapture ? showroomBackground : normalizeBackground(form.get('background'));
         if (!file || typeof file === 'string') return reply({ error: 'Vyberte fotografii.' }, 400);
         reflectionMode(angle, form.get('reflectionReduction') || 'off');
         const reflectionReduction = 'off';
         validatePhoto(file); backgroundReference(angle, background);
         const source = form.get('source'), vehicleMask = form.get('vehicleMask');
-        const inspection = form.get('inspection') ? validateScene(JSON.parse(form.get('inspection'))) : legacyScene(angle);
+        const submittedInspection = JSON.parse(form.get('inspection') || 'null');
+        let inspection = submittedInspection ? validateScene(submittedInspection) : legacyScene(angle);
+        if (opportunityCapture) inspection = validateOpportunityCapture(submittedInspection, inspection, angle);
         const exterior = inspection.scene === 'exterior' && inspection.backgroundVisible;
         const validPng = (value, max) => value && typeof value !== 'string' && value.type === 'image/png' && value.size > 0 && value.size <= max * 1024 * 1024;
         if (!validPng(source, 16) || exterior && !validPng(vehicleMask, 2)) return reply({ error: 'Chybí chráněný podklad vozu. Obnovte aplikaci a nahrajte fotografii znovu.' }, 400);
         const existing = await checked(bucket.list(photoFolder, { search: photoSearch, limit: 1000 }));
         if (existing.filter(e => e.name.endsWith('-meta.json')).length >= 40) return reply({ error: 'Pro jeden vůz lze uložit nejvýše 40 fotografií.' }, 400);
         const id = crypto.randomUUID();
-        const item = { id, angle, background, reflectionReduction, mime: file.type, subjectVersion: 1, compositionVersion: 3, photoRulesVersion: 3, ...inspection, ready: false, approved: false, createdAt: new Date().toISOString() };
+        const item = { id, angle, background, reflectionReduction, mime: file.type, subjectVersion: 1, compositionVersion: 3, photoRulesVersion: 3, ...inspection, ...(opportunityCapture ? { opportunityCapture } : {}), ready: false, approved: false, createdAt: new Date().toISOString() };
         await checked(bucket.upload(pathFor(id, 'original'), file, { contentType: file.type }));
         try {
           await checked(bucket.upload(pathFor(id, 'source.png'), source, { contentType: 'image/png' }));
@@ -173,7 +179,7 @@ export function createPhotoStudioHandler({ db, apiKey, fetchBackground = fetch, 
       const item = await readItem(id);
       if (action === 'reprocess') {
         if (item.subjectVersion !== 1) return reply({ error: 'Nahrajte původní fotografii znovu; u této starší úpravy chybí podklad vozu.' }, 409);
-        Object.assign(item, { background: normalizeBackground(form.get('background')), ready: false, approved: false, processingStage: 'restart', plateVerified: false });
+        Object.assign(item, { background: item.opportunityCapture ? showroomBackground : normalizeBackground(form.get('background')), ready: false, approved: false, processingStage: 'restart', plateVerified: false });
         await saveItem(item);
         return reply({ item: decorate(item), continueProcessing: true });
       }
@@ -231,7 +237,7 @@ export function createPhotoStudioHandler({ db, apiKey, fetchBackground = fetch, 
         else {
           const windows = interior ? await locateInteriorWindows(sourceBase64, apiKey, fetchVision) : [];
           const surroundings = exterior && inspection.scene === 'exterior_detail' ? await locateExteriorSurroundings(sourceBase64, apiKey, fetchVision) : [];
-          bytes = await composeOriginalVehicle(sourceBytes, mask ? new Uint8Array(await mask.arrayBuffer()) : null, backgroundBytes, item.background, { angle: interior ? 'interior' : item.angle, windows, surroundings, preserveFraming: inspection.scene !== 'exterior' });
+          bytes = await composeOriginalVehicle(sourceBytes, mask ? new Uint8Array(await mask.arrayBuffer()) : null, backgroundBytes, item.background, { angle: interior ? 'interior' : item.angle, windows, surroundings, preserveFraming: inspection.scene !== 'exterior', guidedAngle: item.opportunityCapture ? item.angle : undefined });
           if (exterior) await verifyExteriorPhoto(sourceBase64, Buffer.from(bytes).toString('base64'), Buffer.from(backgroundBytes).toString('base64'), inspection.scene !== 'exterior', apiKey, fetchVision);
           if (interior) await verifyInteriorViews(sourceBase64, Buffer.from(bytes).toString('base64'), apiKey, fetchVision, backgroundBytes ? Buffer.from(backgroundBytes).toString('base64') : '');
           if (staged && interior && !inspection.conditionEvidence) {
@@ -264,7 +270,7 @@ export function createPhotoStudioHandler({ db, apiKey, fetchBackground = fetch, 
       } finally { await release(); }
     } catch (error) {
       const known = /Použijte JPG|Fotografie může|Neplatný pohled|Neplatné pozadí|Neplatný režim redukce/.test(error.message || '');
-      const interiorError = /výhled|interiéru|nečistot|čištění|rozpozn|okolí|zachování vozu/i.test(error.message || '');
+      const interiorError = /výhled|interiéru|nečistot|čištění|rozpozn|okolí|zachování vozu|vyfoťte jej znovu/i.test(error.message || '');
       return reply({ error: known || interiorError ? error.message : 'Operace se nepodařila. Obnovte seznam a zkuste ji znovu.' }, known ? 400 : interiorError ? 422 : 500);
     }
   };

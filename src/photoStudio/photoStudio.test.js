@@ -11,6 +11,7 @@ import { canUseStandaloneStudio } from './access.js';
 import jpeg from 'jpeg-js';
 import { readFileSync } from 'node:fs';
 import { Buffer } from 'node:buffer';
+import { centerCaptureCrop, nextOpportunityShot, orderOpportunityPhotos } from './captureStandard.js';
 
 test('upload rejects unsupported and oversized images', () => {
   assert.throws(() => validatePhoto({ type: 'image/heic', size: 100 }));
@@ -64,6 +65,53 @@ test('authentication and staff membership are checked before any storage operati
   for (const [config, status] of [[{ authenticated: false }, 401], [{ staff: false }, 403]]) {
     const f = fixture(config); assert.equal((await f.request('list')).status, status); assert.equal(f.objects.size, 0);
   }
+});
+
+test('Opportunity sequencing resumes missing views and orders late shots before legacy photos', () => {
+  const title = { angle: 'frontLeft', opportunityCapture: true };
+  const console = { angle: 'console', opportunityCapture: true };
+  const legacy = { angle: 'front', ready: true };
+  assert.equal(nextOpportunityShot('frontLeft', [console, title, legacy]), 'front');
+  assert.deepEqual(orderOpportunityPhotos([legacy, console, title]), [title, console, legacy]);
+  assert.deepEqual(centerCaptureCrop(1600, 900), { x: 200, y: 0, width: 1200, height: 900 });
+  assert.deepEqual(centerCaptureCrop(1200, 1600), { x: 0, y: 350, width: 1200, height: 900 });
+});
+
+test('Opportunity rejects the wrong view before upload and applies the fixed Atelier when aligned', async () => {
+  const source = new File(['source'], 'source.png', { type: 'image/png' });
+  const capture = { angle: 'frontLeft', opportunityCapture: 'true' };
+  const scene = { scene: 'exterior', backgroundVisible: false, conditionEvidence: false, confidence: .99 };
+  const rejected = fixture({ sceneResult: { ...scene, captureCheck: 'wrong_view' } });
+  const refusal = await rejected.request('inspect', { source, ...capture });
+  assert.equal(refusal.status, 422);
+  assert.match((await refusal.json()).error, /Pohled neodpovídá/);
+  const file = new File(['original'], 'car.jpg', { type: 'image/jpeg' });
+  assert.equal((await rejected.request('upload', { file, ...capture })).status, 422);
+  assert.equal(rejected.objects.size, 0);
+
+  const accepted = fixture({ sceneResult: { ...scene, captureCheck: 'aligned' } });
+  const { inspection } = await (await accepted.request('inspect', { source, ...capture })).json();
+  assert.equal(inspection.backgroundVisible, true);
+  const { item } = await (await accepted.request('upload', { file, ...capture, background: 'opportunityShowroom', inspection: JSON.stringify(inspection) })).json();
+  assert.equal(item.opportunityCapture, true);
+  assert.equal(item.background, 'opportunityTurntable');
+  assert.equal((await accepted.request('process', { id: item.id })).status, 200);
+  assert.equal(accepted.composites[0].options.guidedAngle, 'frontLeft');
+  assert.equal((await (await accepted.request('reprocess', { id: item.id, background: 'opportunityShowroom' })).json()).item.background, 'opportunityTurntable');
+});
+
+test('guided console keeps an interior close-up and uses the interior pipeline', async () => {
+  const scene = { scene: 'interior_detail', backgroundVisible: false, conditionEvidence: false, confidence: .99, captureCheck: 'aligned' };
+  const f = fixture({ sceneResult: scene });
+  const capture = { angle: 'console', opportunityCapture: 'true' };
+  const source = new File(['source'], 'source.png', { type: 'image/png' });
+  const { inspection } = await (await f.request('inspect', { source, ...capture })).json();
+  const file = new File(['cabin'], 'interior.jpg', { type: 'image/jpeg' });
+  const { item } = await (await f.request('upload', { file, ...capture, inspection: JSON.stringify(inspection) })).json();
+  assert.equal((await f.request('process', { id: item.id })).status, 200);
+  assert.equal(f.composites[0].options.angle, 'interior');
+  assert.equal(f.composites[0].options.preserveFraming, true);
+  assert.equal(f.composites[0].mask, null);
 });
 
 test('missing protected input fails closed without a generative fallback or stored upload', async () => {

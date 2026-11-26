@@ -55,7 +55,7 @@ export function composeOriginalVehicle(sourceBytes, maskBytes, backgroundBytes, 
     if (options.preserveFraming) {
       source.data = compositeSourcePixels(source.data, background, mask);
     } else {
-      const placed = placeOriginalVehicle(source.data, mask, width, height);
+      const placed = placeOriginalVehicle(source.data, mask, width, height, options.guidedAngle);
       const shadow = floorContactShadow(background, placed.profile, width, height);
       source.data = compositeSourcePixels(placed.pixels, shadow, placed.mask);
     }

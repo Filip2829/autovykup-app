@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { Camera, X } from 'lucide-react';
 import { angles } from './model.js';
+import { isInteriorShot, nextOpportunityShot, opportunityShots } from './captureStandard.js';
+import { drawCaptureFrame } from './prepareSubject.js';
 
 export function VehicleOutline({ angle, body = 'car' }) {
   const side = angle === 'left' || angle === 'right';
@@ -8,7 +10,8 @@ export function VehicleOutline({ angle, body = 'car' }) {
   const rear = angle.startsWith('rear');
   const mirror = angle === 'frontRight' || angle === 'rearLeft' || angle === 'right';
   const roof = body === 'van' ? 155 : body === 'suv' ? 200 : 250;
-  return <svg className="studioVehicleOutline" viewBox="0 0 1000 650" role="img" aria-label={`Obrys vozu: ${angles[angle]}`}>
+  return <svg className="studioVehicleOutline" viewBox="0 0 1000 750" role="img" aria-label={`Obrys vozu: ${angles[angle]}`}>
+    <g transform="translate(0 92)">
     <g fill="none" stroke="currentColor" strokeWidth="5" strokeLinejoin="round" strokeLinecap="round" transform={mirror ? 'translate(1000 0) scale(-1 1)' : undefined}>
       {side ? <>
         <path d={`M95 455 L105 365 L225 340 L320 ${roof} Q350 ${roof - 15} 410 ${roof - 15} L650 ${roof - 15} Q690 ${roof} 715 ${roof + 60} L790 335 L880 365 L900 455 L850 480 L810 480 M690 480 L320 480 M200 480 L120 480 Z`} />
@@ -25,17 +28,36 @@ export function VehicleOutline({ angle, body = 'car' }) {
         {rear ? <path d="M145 355 L180 365 L175 425 L140 415 M285 375 L325 380 L325 440 L285 430 M195 445 L270 460 L270 485 L195 470" /> : <path d="M145 350 L235 370 L230 400 L140 380 Z M270 380 L310 375 L320 405 L270 410 Z M165 415 L275 440 L270 475 L165 450 Z" />}
       </>}
     </g>
-    <path d="M75 535 H925" stroke="currentColor" opacity=".5" strokeWidth="2" strokeDasharray="12 14" />
+    <path d={`M75 ${side ? 525 : straight ? 510 : 550} H925 M500 135 V550`} stroke="currentColor" opacity=".5" strokeWidth="2" strokeDasharray="12 14" />
     <path d="M70 210 V155 H125 M875 155 H930 V210 M70 485 V540 H125 M875 540 H930 V485" fill="none" stroke="currentColor" strokeWidth="3" opacity=".6" />
+    </g>
   </svg>;
 }
 
-export default function CaptureGuide({ angle, onAngleChange, disabled, onCapture }) {
+const interiorOutlines = {
+  dashboard: 'M105 350 Q500 260 895 350 M105 405 Q500 335 895 405 M460 405 L540 405 L635 660 H365 Z M425 310 H575 V400 H425 Z M340 445 A90 90 0 1 0 160 445 A90 90 0 1 0 340 445',
+  frontSeats: 'M320 340 L314 270 Q324 240 380 238 Q430 240 438 276 L440 335 M315 335 Q370 300 440 335 L490 495 L420 550 H270 L235 505 Z M565 285 L552 175 Q560 135 645 132 Q730 132 747 180 L749 278 M560 280 Q645 240 755 280 L834 530 L785 646 H542 L495 560 Z',
+  rearSeats: 'M175 340 V230 Q175 209 210 203 H305 Q335 209 335 237 V320 M395 318 V244 Q395 225 425 220 H500 Q529 225 529 249 V310 M590 315 V213 Q596 182 634 181 H725 Q756 181 762 219 V321 M163 340 Q505 279 790 324 L870 497 L780 580 H128 L105 515 Z M128 510 L862 497 M364 319 L335 507 M580 315 L596 502',
+  console: 'M390 205 H610 L758 650 H242 Z M405 296 H595 L630 465 H370 Z M475 335 H525 V427 H475 Z M325 555 H675',
+};
+
+function InteriorOutline({ angle }) {
+  return <svg className="studioVehicleOutline" viewBox="0 0 1000 750" role="img" aria-label={`Vodítko: ${angles[angle]}`}>
+    <path d="M85 235 V170 H150 M850 170 H915 V235 M85 585 V650 H150 M850 650 H915 V585 M100 375 H900" fill="none" stroke="currentColor" strokeWidth="3" opacity=".55" strokeDasharray="14 14" />
+    <path d={interiorOutlines[angle]} fill="none" stroke="currentColor" strokeWidth="5" strokeLinejoin="round" opacity=".85" />
+  </svg>;
+}
+
+export default function CaptureGuide({ items, disabled, onCapture }) {
+  const [angle, setAngle] = useState('frontLeft');
   const [open, setOpen] = useState(false), [body, setBody] = useState('car');
   const [camera, setCamera] = useState(false), [ready, setReady] = useState(false), [error, setError] = useState('');
   const [snapshot, setSnapshot] = useState(null), [saving, setSaving] = useState(false);
   const video = useRef(null), stream = useRef(null), nativeInput = useRef(null), objectUrl = useRef(null);
-  const exterior = !['interior', 'detail'].includes(angle);
+  const currentAngle = snapshot?.angle ?? angle;
+  const exterior = !isInteriorShot(currentAngle);
+  const completed = new Set(items.filter(item => item.opportunityCapture).map(item => item.angle));
+  const shots = Object.keys(opportunityShots);
   useEffect(() => {
     if (!open || !camera) return;
     let active = true;
@@ -45,7 +67,7 @@ export default function CaptureGuide({ angle, onAngleChange, disabled, onCapture
     (async () => {
       try {
         if (!navigator.mediaDevices?.getUserMedia) throw new Error('Kamera vyžaduje HTTPS a podporovaný prohlížeč.');
-        const media = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1280 } }, audio: false });
+        const media = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' }, width: { ideal: 1600 }, height: { ideal: 1200 } }, audio: false });
         if (!active) { media.getTracks().forEach(track => track.stop()); return; }
         stream.current = media; video.current.srcObject = media; await video.current.play();
         if (active && video.current?.videoWidth) setReady(true);
@@ -58,34 +80,48 @@ export default function CaptureGuide({ angle, onAngleChange, disabled, onCapture
     if (objectUrl.current) URL.revokeObjectURL(objectUrl.current);
     objectUrl.current = null; setSnapshot(null);
   }
-  function showSnapshot(file) { clearSnapshot(); objectUrl.current = URL.createObjectURL(file); setSnapshot({ file, url: objectUrl.current, angle }); setCamera(false); }
+  function showSnapshot(file, shot = currentAngle) {
+    clearSnapshot();
+    objectUrl.current = URL.createObjectURL(file);
+    setSnapshot({ file, url: objectUrl.current, angle: shot });
+    setCamera(false);
+  }
   async function capture() {
+    setSaving(true);
     try {
       const canvas = document.createElement('canvas');
       const vw = video.current.videoWidth, vh = video.current.videoHeight;
-      const width = Math.min(vw, vh * 1.5), height = width / 1.5;
-      canvas.width = Math.round(width); canvas.height = Math.round(height);
-      canvas.getContext('2d').drawImage(video.current, (vw - width) / 2, (vh - height) / 2, width, height, 0, 0, canvas.width, canvas.height);
+      drawCaptureFrame(canvas, video.current, vw, vh, false);
       const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', .95));
       if (!blob) throw new Error('Snímek se nepodařilo pořídit.');
-      showSnapshot(new File([blob], `${angle}-${Date.now()}.jpg`, { type: 'image/jpeg' }));
+      showSnapshot(new File([blob], `${currentAngle}-${Date.now()}.jpg`, { type: 'image/jpeg' }), currentAngle);
     } catch (e) { setError(e.message); }
+    finally { setSaving(false); }
   }
   async function useSnapshot() {
+    setError('');
     setSaving(true);
-    try { if (await onCapture(snapshot.file, snapshot.angle)) { clearSnapshot(); setOpen(false); } }
+    try {
+      if (await onCapture(snapshot.file, snapshot.angle, setError)) {
+        const next = nextOpportunityShot(snapshot.angle, [...items, { angle: snapshot.angle, opportunityCapture: true }]);
+        clearSnapshot();
+        if (next) setAngle(next);
+      }
+    }
     finally { setSaving(false); }
   }
   return <section className="studioCaptureGuide" aria-label="Průvodce focením">
-    <div className="studioGuideHeading"><div><strong>Vyfoťte vůz ve správném úhlu</strong><p>Obrys přes živý obraz pomůže sjednotit velikost a výšku záběru.</p></div><button type="button" className="primary outline" disabled={disabled} onClick={() => { setOpen(!open); setCamera(false); clearSnapshot(); }}><Camera size={18} /> {open ? 'Skrýt průvodce' : 'Focení s obrysem'}</button></div>
+    <div className="studioGuideHeading"><div><strong>Focení podle standardu Opportunity</strong><p>8 pohledů na vůz a 4 záběry interiéru v poměru 4:3.</p></div><button type="button" className="primary outline" disabled={disabled || saving} onClick={() => { if (!open) setAngle(nextOpportunityShot('', items) ?? 'frontLeft'); setOpen(!open); setCamera(false); clearSnapshot(); setError(''); }}><Camera size={18} /> {open ? 'Skrýt průvodce' : 'Focení s obrysem'}</button></div>
     {open && <>
-      <div className="studioControls"><label>Pohled pro focení<select value={angle} disabled={saving || disabled || !!snapshot} onChange={e => onAngleChange(e.target.value)}>{Object.entries(angles).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label><label>Karoserie pro vodítko<select value={body} onChange={e => setBody(e.target.value)}><option value="car">Osobní vůz</option><option value="suv">SUV / crossover</option><option value="van">Dodávka / MPV</option></select></label></div>
+      <div className="studioControls"><label>Pohled pro focení · {completed.size}/{shots.length} uloženo<select value={currentAngle} disabled={saving || disabled || !!snapshot} onChange={e => setAngle(e.target.value)}>{shots.map(key => <option key={key} value={key}>{completed.has(key) ? '✓ ' : ''}{opportunityShots[key].title}</option>)}</select></label>{exterior && <label>Karoserie pro vodítko<select value={body} disabled={saving || !!snapshot} onChange={e => setBody(e.target.value)}><option value="car">Osobní vůz</option><option value="suv">SUV / crossover</option><option value="van">Dodávka / MPV</option></select></label>}</div>
       <div className="studioCameraViewport">
-        {snapshot ? <img src={snapshot.url} alt="Pořízená fotografie ke kontrole" /> : <><video ref={video} autoPlay playsInline muted onLoadedMetadata={() => setReady(true)} onLoadedData={() => setReady(true)} />{exterior ? <VehicleOutline angle={angle} body={body} /> : <div className="studioInteriorFrame">{angle === 'interior' ? 'Celý záběr interiéru · telefon držte rovně' : 'Zaostřete detail · zachovejte viditelné poškození'}</div>}<span className="studioCameraLabel">{angles[angle]} · {camera ? (ready ? 'Srovnejte vůz s obrysem' : 'Připravuji kameru…') : 'Náhled vodítka'}</span></>}
+        {snapshot ? <img src={snapshot.url} alt="Výřez fotografie ke kontrole" /> : <video ref={video} autoPlay playsInline muted onLoadedMetadata={() => setReady(true)} onLoadedData={() => setReady(true)} />}
+        {exterior ? <VehicleOutline angle={currentAngle} body={body} /> : <InteriorOutline angle={currentAngle} />}
+        <span className="studioCameraLabel">{opportunityShots[currentAngle].title} · {snapshot ? 'Zkontrolujte výřez' : camera && !ready ? 'Připravuji kameru…' : 'Srovnejte záběr s vodítkem'}</span>
       </div>
-      <p className="studioHint">{exterior ? 'Telefon držte vodorovně přibližně ve výšce světlometů (0,9–1,2 m), bez náklonu dolů. Použijte 1× objektiv, odstupte asi 4–6 m a nechte kolem celého vozu rezervu. U 45° pohledu mají být vidět čelo i celý bok; boční pohled foťte kolmo. Kola srovnejte rovně. Nejlépe funguje rovná plocha a měkké světlo bez přímého slunce.' : 'Interiér foťte za měkkého denního světla, bez blesku. Před focením vyjměte osobní věci a vůz fyzicky vyčistěte. Detaily poškození foťte samostatně.'} Obrys je orientační vodítko; správný úhel se neověřuje automaticky. Do výsledné fotografie se neukládá.</p>
+      <p className="studioHint">{opportunityShots[currentAngle].guide} {exterior ? 'Použijte 1× objektiv a rovnou plochu. Telefon držte na šířku přibližně 1,1 m nad zemí a začněte asi 5 m od středu vozu. Kola nechte rovně.' : 'Použijte 1× objektiv a měkké světlo bez blesku.'}</p>
       {error && <p role="alert" className="badText">{error}</p>}
-      <div className="studioToolbar">{snapshot ? <><button type="button" className="primary" disabled={saving || disabled} onClick={useSnapshot}>{saving ? 'Zpracovávám…' : 'Použít a upravit fotografii'}</button><button type="button" disabled={saving} onClick={() => { clearSnapshot(); setCamera(true); }}>Vyfotit znovu</button></> : <><button type="button" className="primary" onClick={() => { setError(''); camera ? capture() : setCamera(true); }} disabled={disabled || (camera && !ready)}><Camera size={18} /> {camera ? 'Vyfotit' : 'Zapnout kameru s obrysem'}</button><button type="button" className="primary outline" disabled={disabled} onClick={() => nativeInput.current.click()}>Fotoaparát telefonu / vybrat snímek</button><input ref={nativeInput} hidden type="file" accept="image/jpeg,image/png,image/webp" capture="environment" onChange={e => { const file = e.target.files?.[0]; e.target.value = ''; if (file) showSnapshot(file); }} /></>}
+      <div className="studioToolbar">{snapshot ? <><button type="button" className="primary" disabled={saving || disabled} onClick={useSnapshot}>{saving ? 'Kontroluji a upravuji…' : 'Zkontrolovat a vložit do Atelieru'}</button><button type="button" disabled={saving} onClick={() => { setError(''); clearSnapshot(); setCamera(true); }}>Vyfotit znovu</button><button type="button" disabled={saving} onClick={() => { setError(''); clearSnapshot(); }}>Vybrat jinou fotografii</button></> : <><button type="button" className="primary" onClick={() => { setError(''); camera ? capture() : setCamera(true); }} disabled={saving || disabled || (camera && !ready)}><Camera size={18} /> {camera ? 'Vyfotit' : 'Zapnout kameru s obrysem'}</button><button type="button" className="primary outline" disabled={saving || disabled} onClick={() => nativeInput.current.click()}>Fotoaparát telefonu / vybrat snímek</button><input ref={nativeInput} hidden type="file" accept="image/jpeg,image/png,image/webp" capture="environment" onChange={e => { const file = e.target.files?.[0]; e.target.value = ''; if (file) showSnapshot(file); }} /></>}
         <button type="button" disabled={saving} onClick={() => { setCamera(false); clearSnapshot(); setOpen(false); }}><X size={16} /> Zavřít focení</button>
       </div>
     </>}

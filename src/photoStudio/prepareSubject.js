@@ -1,4 +1,13 @@
 import { protectSubjectMask } from './subjectMask.js';
+import { centerCaptureCrop, isInteriorShot } from './captureStandard.js';
+
+export function drawCaptureFrame(canvas, image, width, height, guided = true) {
+  const crop = guided ? centerCaptureCrop(width, height) : { x: 0, y: 0, width, height };
+  const scale = Math.min(1, 1280 / Math.max(crop.width, crop.height));
+  canvas.width = Math.max(1, Math.round(crop.width * scale));
+  canvas.height = Math.max(1, Math.round(crop.height * scale));
+  canvas.getContext('2d').drawImage(image, crop.x, crop.y, crop.width, crop.height, 0, 0, canvas.width, canvas.height);
+}
 
 let worker;
 function automaticMask(source, onProgress) {
@@ -19,20 +28,17 @@ function automaticMask(source, onProgress) {
   });
 }
 
-export async function prepareStudioSubject(file, angle, onProgress, inspect) {
+export async function prepareStudioSubject(file, angle, onProgress, inspect, guided = false) {
   const bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' });
   try {
-    // Uniform resize only: retain the source aspect ratio and full framing.
-    const scale = Math.min(1, 1280 / Math.max(bitmap.width, bitmap.height));
     const canvas = document.createElement('canvas');
-    canvas.width = Math.max(1, Math.round(bitmap.width * scale)); canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+    drawCaptureFrame(canvas, bitmap, bitmap.width, bitmap.height, guided);
     const context = canvas.getContext('2d');
-    context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
     const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
     if (!blob) throw new Error('Fotografii se nepodařilo připravit.');
     const source = new File([blob], 'source.png', { type: 'image/png' });
     onProgress?.('Rozpoznávám obsah snímku a viditelné okolí…');
-    const inspection = inspect ? await inspect(source) : { scene: angle === 'interior' ? 'interior' : angle === 'detail' ? 'exterior_detail' : 'exterior', backgroundVisible: !['interior', 'detail'].includes(angle), conditionEvidence: angle === 'detail', confidence: 1 };
+    const inspection = inspect ? await inspect(source) : { scene: isInteriorShot(angle) ? 'interior' : angle === 'detail' ? 'exterior_detail' : 'exterior', backgroundVisible: !isInteriorShot(angle) && angle !== 'detail', conditionEvidence: angle === 'detail', confidence: 1 };
     if (!inspection || !['exterior', 'exterior_detail', 'interior', 'interior_detail'].includes(inspection.scene) || typeof inspection.backgroundVisible !== 'boolean') throw new Error('Obsah fotografie se nepodařilo rozpoznat. Zkuste ji nahrát znovu.');
     const prepared = { source, inspection: JSON.stringify(inspection) };
     if (inspection.scene !== 'exterior' || !inspection.backgroundVisible) return prepared;
